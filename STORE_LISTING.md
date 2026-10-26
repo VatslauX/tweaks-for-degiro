@@ -31,7 +31,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Your open orders on the price chart — a dashed line and badge at each order price
 > • Click a badge to open DEGIRO's own Adjust order form; you make and confirm any change yourself
 > • Orders page — filter outstanding orders by action, currency and product; buy/sell totals per currency
-> • Click outside the Adjust order panel to close it (same as ×, nothing is saved)
+> • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved)
 >
 > Cleanup
 > • Hide sections you don't use, such as Cash compensation
@@ -83,7 +83,7 @@ The Web Store also asks about **Website content**, because the extension reads p
 - [ ] Read DEGIRO's terms of use about browser extensions and automated access
 - [ ] Publish `PRIVACY.md` at a public URL
 - [ ] Make 5 screenshots from the test mock (`tests/fixtures/`), never a real account: product page with spread and order badges, range selection, portfolio chart, Orders filters, popup with *On this page*
-- [ ] Check that the icon has nothing that could pass for DEGIRO's logo
+- [x] Check that the icon has nothing that could pass for DEGIRO's logo (now indigo; it was DEGIRO's blue)
 - [ ] `npm test` passes
 - [ ] `npm run build` → upload `dist/tweaks-for-degiro-<version>.zip`
-- [x] `homepage_url` points to the project repo. Make the repo public, or change the link, if store users should be able to open it
+- [x] `homepage_url` points to the project repo, which is public

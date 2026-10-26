@@ -293,6 +293,62 @@ test.describe('Adjust order: click outside closes', () => {
   });
 });
 
+test.describe('Adjust order: Esc closes', () => {
+  test('Esc presses Cancel and nothing else', async ({ degiro }) => {
+    const { page } = await degiro();
+    await page.evaluate(() => window.__openAdjust({ size: 100, price: 15.5 }));
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-name=orderDetails]')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__log)).toEqual(['cancel']);
+  });
+
+  test('works with the focus in the limit field', async ({ degiro }) => {
+    const { page } = await degiro();
+    await page.evaluate(() => window.__openAdjust({ size: 100, price: 15.5 }));
+    await page.focus('#limit');
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => window.__log)).toEqual(['cancel']);
+  });
+
+  test('falls back to × when there is no Cancel', async ({ degiro }) => {
+    const { page } = await degiro();
+    await page.evaluate(() => { window.__openAdjust({ size: 1, price: 1 }); document.getElementById('cancel').remove(); });
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => window.__log)).toEqual(['cross']);
+  });
+
+  test('an open dialog gets the Esc, the form stays open', async ({ degiro }) => {
+    const { page } = await degiro();
+    await page.evaluate(() => { window.__openAdjust({ size: 100, price: 15.5 }); window.__openDialog(); });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
+    expect(await page.evaluate(() => window.__log)).toEqual([]);
+  });
+
+  test('an Esc the page already handled is left alone', async ({ degiro }) => {
+    const { page } = await degiro();
+    await page.evaluate(() => {
+      window.__openAdjust({ size: 100, price: 15.5 });
+      document.getElementById('limit').addEventListener('keydown', e => { if (e.key === 'Escape') e.preventDefault(); });
+    });
+    await page.focus('#limit');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
+  });
+
+  test('other keys do nothing', async ({ degiro }) => {
+    const { page } = await degiro();
+    await page.evaluate(() => window.__openAdjust({ size: 100, price: 15.5 }));
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
+    expect(await page.evaluate(() => window.__log)).toEqual([]);
+  });
+});
+
 test.describe('Settings (feature flags)', () => {
   test('each switch turns its feature off and on live', async ({ degiro, settings }) => {
     const { page } = await degiro();
@@ -335,14 +391,20 @@ test.describe('Settings (feature flags)', () => {
     expect(visible).toBe(false);
   });
 
-  test('click-outside close can be switched off', async ({ degiro, settings }) => {
+  test('click-outside and Esc close can be switched off and on', async ({ degiro, settings }) => {
     const { page } = await degiro();
     const opt = await settings();
     await setFlag(opt, 'adjustClose', false);
     await page.bringToFront();
     await page.evaluate(() => window.__openAdjust({ size: 1, price: 1 }));
     await page.click('#outside');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
     await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
+    await setFlag(opt, 'adjustClose', true);
+    await page.bringToFront();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-name=orderDetails]')).toHaveCount(0);
   });
 });
 

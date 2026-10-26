@@ -4,7 +4,7 @@
   --text: #0f171a;
   --muted: #5f7076;
   --line: #e1e8eb;
-  --accent: #009fdf;      /* DEGIRO blue */
+  --accent: #4f46e5;      /* indigo, as the icon */
   --off: #c5d0d4;
   --ok: #1e8302;
   color-scheme: light dark;
@@ -16,6 +16,7 @@
     --text: #f3f7f9;
     --muted: #8fa0a6;
     --line: #26343a;
+    --accent: #818cf8;
     --off: #3a4a50;
     --ok: #4cb82e;
   }

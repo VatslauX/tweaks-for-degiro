@@ -69,10 +69,10 @@
     "message": "Apre il modulo DEGIRO per modificare quell'ordine."
   },
   "optAdjustClose": {
-    "message": "Clic fuori chiude Modifica ordine"
+    "message": "Clic fuori o Esc chiude Modifica ordine"
   },
   "optAdjustCloseHelp": {
-    "message": "Come premere ×. Le modifiche non vengono salvate."
+    "message": "Come premere Annulla o ×. Le modifiche non vengono salvate."
   },
   "optOrdersFilter": {
     "message": "Filtri e totali in Ordini"

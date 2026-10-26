@@ -25,3 +25,14 @@ test('click outside cancels the form and closes the drawer we opened', async ({ 
   await expect(page.locator('[data-name=orderDetails]')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__log)).toEqual(['drawer:open', 'edit:1', 'cancel', 'drawer:close']);
 });
+
+test('Esc cancels the form and closes the drawer we opened', async ({ degiro }) => {
+  const { page } = await degiro(mobile);
+  const badge = page.locator('#chart div', { hasText: /^BUY 100 · 15,50$/ });
+  await expect(badge).toBeVisible({ timeout: 8000 });
+  await badge.click();
+  await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-name=orderDetails]')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.__log)).toEqual(['drawer:open', 'edit:1', 'cancel', 'drawer:close']);
+});

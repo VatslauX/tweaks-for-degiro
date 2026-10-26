@@ -1,5 +1,9 @@
 # Release notes
 
+## 1.19.2 — 2026-10-26
+- **Esc closes Adjust order.** Pressing Esc closes the *Adjust order* form without saving, the same as clicking outside it or pressing Cancel. An open DEGIRO confirmation, dropdown or menu gets the Esc first. It uses the existing *Click outside or Esc closes Adjust order* setting.
+- **New icon colour.** The toolbar icon and the settings page accent are now indigo instead of a blue close to DEGIRO's own, so they can't be mistaken for a DEGIRO app.
+
 ## 1.19.1 — 2026-10-26
 - **Switching the extension off stops it in open tabs.** Disabling, removing or updating the extension used to leave its scripts running in DEGIRO tabs until they were reloaded, still asking DEGIRO for your orders every 20 s. They now notice within 2 s, stop all requests and remove the badges, header items and rows they added.
 

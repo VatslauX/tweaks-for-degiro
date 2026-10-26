@@ -69,10 +69,10 @@
     "message": "Öffnet das DEGIRO-Formular „Order anpassen“ für diese Order."
   },
   "optAdjustClose": {
-    "message": "Klick daneben schließt Order anpassen"
+    "message": "Klick daneben oder Esc schließt Order anpassen"
   },
   "optAdjustCloseHelp": {
-    "message": "Wie ×. Änderungen werden nicht gespeichert."
+    "message": "Wie Abbrechen oder ×. Änderungen werden nicht gespeichert."
   },
   "optOrdersFilter": {
     "message": "Filter und Summen bei Orders"

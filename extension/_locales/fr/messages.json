@@ -69,10 +69,10 @@
     "message": "Ouvre le formulaire DEGIRO de modification de cet ordre."
   },
   "optAdjustClose": {
-    "message": "Un clic à côté ferme Modifier un ordre de bourse"
+    "message": "Un clic à côté ou Échap ferme Modifier un ordre de bourse"
   },
   "optAdjustCloseHelp": {
-    "message": "Comme appuyer sur ×. Les modifications ne sont pas enregistrées."
+    "message": "Comme appuyer sur Annuler ou ×. Les modifications ne sont pas enregistrées."
   },
   "optOrdersFilter": {
     "message": "Filtres et totaux sur Ordres"

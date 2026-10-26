@@ -69,10 +69,10 @@
     "message": "Abre el formulario Ajustar orden de DEGIRO para esa orden."
   },
   "optAdjustClose": {
-    "message": "Clic fuera cierra Ajustar orden"
+    "message": "Clic fuera o Esc cierra Ajustar orden"
   },
   "optAdjustCloseHelp": {
-    "message": "Igual que pulsar ×. Los cambios no se guardan."
+    "message": "Igual que pulsar Cancelar o ×. Los cambios no se guardan."
   },
   "optOrdersFilter": {
     "message": "Filtros y totales en Órdenes"

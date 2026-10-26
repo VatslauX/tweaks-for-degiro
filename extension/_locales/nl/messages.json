@@ -69,10 +69,10 @@
     "message": "Opent het DEGIRO-formulier Order aanpassen voor die order."
   },
   "optAdjustClose": {
-    "message": "Klik buiten het formulier sluit Order aanpassen"
+    "message": "Klik buiten het formulier of Esc sluit Order aanpassen"
   },
   "optAdjustCloseHelp": {
-    "message": "Hetzelfde als op × drukken. Wijzigingen worden niet opgeslagen."
+    "message": "Hetzelfde als op Annuleren of × drukken. Wijzigingen worden niet opgeslagen."
   },
   "optOrdersFilter": {
     "message": "Filters en totalen bij Orders"

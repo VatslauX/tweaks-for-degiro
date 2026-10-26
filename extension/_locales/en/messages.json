@@ -86,11 +86,11 @@
     "description": "Adjust order = DEGIRO's form name"
   },
   "optAdjustClose": {
-    "message": "Click outside closes Adjust order",
+    "message": "Click outside or Esc closes Adjust order",
     "description": "Feature name"
   },
   "optAdjustCloseHelp": {
-    "message": "Same as pressing ×. Changes are not saved."
+    "message": "Same as pressing Cancel or ×. Changes are not saved."
   },
   "optOrdersFilter": {
     "message": "Filters and totals on Orders",

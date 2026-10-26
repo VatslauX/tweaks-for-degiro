@@ -42,8 +42,8 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 **Orders page: filters and totals**
 - On *Orders → Outstanding*: filter by action (Buy/Sell), currency and product (multi-select). Total buy and total sell value per currency for the shown orders.
 
-**Adjust order: click outside to close**
-- Clicking anywhere outside the *Adjust order* panel closes it, the same as the × button, without saving changes.
+**Adjust order: click outside or press Esc to close**
+- Clicking anywhere outside the *Adjust order* panel, or pressing Esc, closes it, the same as the Cancel or × button, without saving changes. An open DEGIRO confirmation, dropdown or menu takes the Esc first.
 - Clicks in DEGIRO's confirmation dialogs and menus are ignored, so the form never closes by accident.
 
 **Cleaner portfolio**
@@ -65,7 +65,7 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Range selection (products and portfolio) | On |
 | Open orders on chart | On |
 | ↳ Click badge to adjust | On |
-| Click outside closes Adjust order | On |
+| Click outside or Esc closes Adjust order | On |
 | Filters and totals on Orders | On |
 | Hide sections (+ editable list of titles) | On (*Cash compensation*, in any DEGIRO language) |
 
@@ -113,7 +113,7 @@ All extension files live in `extension/`.
 | `compact.js` | Compact Pricing data |
 | `hide.js` | Hides sections listed in Settings |
 | `orders-table.js` | Orders page: filters and totals |
-| `adjust-close.js` | Click outside to close *Adjust order* |
+| `adjust-close.js` | Click outside or press Esc to close *Adjust order* |
 | `status.js` | Answers the popup's "On this page" feature status |
 | `chart-select.js` | Chart range selection (runs in page context) |
 | `period.js` | Change for the selected period (runs in page context) |
