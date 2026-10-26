@@ -17,6 +17,7 @@ npm run lint                # eslint . (mistakes only: undefined names, unused c
 npm run test:unit           # node --test tests/unit/*.test.js
 npm run test:e2e            # playwright test
 npm run build               # dist/tweaks-for-degiro-<manifest version>.zip (zips extension/ only)
+npm run store-images        # dist/store/: store screenshots and promo tiles (needs the real shots, see scripts/store-images.spec.js)
 
 node --test tests/unit/static.test.js        # one unit file
 npx playwright test tests/e2e/bridge.spec.js # one e2e file

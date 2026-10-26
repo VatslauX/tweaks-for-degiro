@@ -15,32 +15,51 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 
 **Description:**
 
-> Small quality-of-life additions for the DEGIRO web trader (trader.degiro.nl).
+> Free UI/UX tweaks for the DEGIRO web trader (trader.degiro.nl).
 >
-> Pricing
-> • Bid/ask spread — absolute and %, colour-coded, in Pricing data and in the header
-> • Ex-dividend date in the header, linking to the Dividends section
-> • Compact Pricing data — tighter rows
+> Want to see at a glance how much a stock moved in the period you picked? How your portfolio changed between any two dates? All your open orders right on the price chart? Then this extension is for you. Free, no account, no ads, no tracking.
 >
-> Charts
+> WHY INSTALL IT
+> DEGIRO's web trader is clean, but some everyday questions take extra clicks, mental maths or a calculator. Tweaks for DEGIRO answers them right where you're already looking, styled to match DEGIRO's own fonts and colours.
+>
+> SEE THE REAL COST OF A TRADE
+> • Bid/ask spread in Pricing data, absolute and %, colour-coded green / amber / red, updating live
+> • Spread % in the product header too, so you notice an expensive spread before you place an order
+> • Ex-dividend date in the header. Click it to jump to Dividends
+> • Compact Pricing data: tighter rows, more on screen
+>
+> UNDERSTAND THE CHART IN ONE GLANCE
 > • Change for the selected period next to the daily change, e.g. 1M +2,06%
-> • Range selection — drag on a product or portfolio chart to see the change between two points
-> • Portfolio chart — change for the selected period in € and %; respects DEGIRO's "hide values" mode
+> • Drag across any product chart to see the % and price change between two points, Google Finance style, with start/end prices and dates
+> • Portfolio chart: change for the selected period in € and %, and drag to measure any custom date range
+> • Respects DEGIRO's "hide values" mode. Your amounts stay hidden when you hide them
 >
-> Orders
-> • Your open orders on the price chart — a dashed line and badge at each order price
-> • Click a badge to open DEGIRO's own Adjust order form; you make and confirm any change yourself
-> • Orders page — filter outstanding orders by action, currency and product; buy/sell totals per currency
+> YOUR ORDERS WHERE THEY BELONG: ON THE CHART
+> • Every open order for the product is shown as a dashed line with a badge at its price (green buy, red sell)
+> • See at once how far the price is from your limit
+> • Orders outside the visible range are listed at the top or bottom of the chart
+> • Click a badge to open DEGIRO's own Adjust order form. You make and confirm any change yourself
+>
+> AN ORDERS PAGE THAT SCALES
+> • Filter outstanding orders by Buy/Sell, currency and product
+> • Total buy and sell value per currency for the orders shown. Know how much cash your open orders need
 > • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved)
 >
-> Cleanup
-> • Hide sections you don't use, such as Cash compensation
+> LESS CLUTTER
+> • Hide sections you never use, such as Cash compensation, or add your own
 >
-> Every feature can be switched on or off from the toolbar icon or the extension options. The popup also shows which features work on the open page.
+> YOU'RE IN CONTROL
+> • Switch every feature on or off from the toolbar icon. Changes apply instantly, no reload
+> • The popup shows which features are working on the open page
+> • Available in English, Dutch, German, French, Spanish, Italian and Portuguese
+>
+> SAFE BY DESIGN
+> • Everything runs locally in your browser. No analytics, no tracking, nothing sent to the developer or third parties
+> • Only one permission (storage, for your settings). Runs only on trader.degiro.nl
+> • Read-only: it never places, changes or cancels orders
+> • Open source: you can read every line of code
 >
 > The figures are informational only; always check prices and orders in DEGIRO itself.
->
-> Privacy: everything runs locally in your browser. No analytics, no tracking, no data sent to the developer or third parties. The extension never places, changes or cancels orders.
 >
 > This is an unofficial extension. It is not affiliated with, endorsed or supported by DEGIRO or flatexDEGIRO Bank. DEGIRO is a trademark of its owner.
 
@@ -51,7 +70,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 4. Orders page with filters and totals
 5. Settings popup with *On this page*
 
-Take them from the test mock, never from a real account.
+Take them from the real page with every personal number replaced: paste `scripts/screenshot-mask.js` into the DevTools console of a logged-in DEGIRO tab, save the four shots to `dist/screenshots-real/raw/` (see `scripts/store-images.spec.js`), and check each one. `npm run store-images` then writes the five screenshots (caption bar, 1280×800 JPEG, the settings popup added from the extension) and both promo tiles to `dist/store/`.
 
 **Privacy policy URL:** a public URL for `PRIVACY.md`, for example the file on GitHub or GitHub Pages.
 
@@ -82,7 +101,7 @@ The Web Store also asks about **Website content**, because the extension reads p
 
 - [ ] Read DEGIRO's terms of use about browser extensions and automated access
 - [ ] Publish `PRIVACY.md` at a public URL
-- [ ] Make 5 screenshots from the test mock (`tests/fixtures/`), never a real account: product page with spread and order badges, range selection, portfolio chart, Orders filters, popup with *On this page*
+- [x] Make 5 screenshots and the promo tiles (`npm run store-images`, real page with mock numbers): product page with spread and order badges, range selection, portfolio chart, Orders filters, popup with *On this page*
 - [x] Check that the icon has nothing that could pass for DEGIRO's logo (now indigo; it was DEGIRO's blue)
 - [ ] `npm test` passes
 - [ ] `npm run build` → upload `dist/tweaks-for-degiro-<version>.zip`
