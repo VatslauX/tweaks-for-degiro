@@ -34,7 +34,7 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 
 **Open orders on the chart**
 - Each open order for the product is drawn as a dashed line at its price, with a badge on the left (e.g. `BUY 200 · 14,10`). Buy orders are green, sell orders red.
-- Orders at the same side and price are combined. Badges of orders close in price go side by side, each on its own line. If they don't fit in the chart, they merge into one *N orders* badge.
+- One badge per order: orders at the same or a close price go side by side, each on its own line. If they don't fit in the chart, they merge into one *N orders* badge.
 - Orders outside the visible price range are listed in one horizontal row at the top (▲) or bottom (▼) of the chart, with *+N* when not all of them fit.
 - **Click a badge** (or Tab to it and press Enter) to open DEGIRO's *Adjust order* form for that order.
 - The order list refreshes every 20 seconds, and a few seconds after an order appears in or disappears from DEGIRO's *Outstanding* list.
@@ -93,7 +93,7 @@ Requires Chrome 111 or newer.
 ## Notes & limitations
 
 - Orders are shown only on the chart of the exact listing (exchange/currency) they were placed on.
-- If several orders share a price, clicking the badge opens the first one. If DEGIRO shows a shortened product name that fits more than one order, nothing opens and the badge says so.
+- If DEGIRO shows a shortened product name that fits more than one order, nothing opens and the badge says so.
 - The extension relies on DEGIRO's current page structure, so a DEGIRO redesign may break individual features.
 - The extension's own texts are in English, Dutch, German, French, Spanish, Italian and Portuguese. They follow Chrome's language, not the language chosen in DEGIRO; other languages fall back to English.
 

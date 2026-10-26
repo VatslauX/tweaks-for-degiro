@@ -283,7 +283,7 @@
   // The page world has no chrome.i18n: the isolated world copies the texts it needs to data-dg-i18n.
   // The page can rewrite that attribute, so these texts are only ever set as textContent or title.
   const I18N = 'data-dg-i18n';
-  const PAGE_TEXTS = ['badgeBuy', 'badgeSell', 'badgeEdit', 'badgeEditMany', 'badgeAria', 'badgeMerged', 'badgeNotFound', 'periodTitle', 'portfolioTitle'];
+  const PAGE_TEXTS = ['badgeBuy', 'badgeSell', 'badgeEdit', 'badgeAria', 'badgeMerged', 'badgeNotFound', 'periodTitle', 'portfolioTitle'];
   let pageTexts = null;
   /** @param {string} key @param {...(string | number)} subs */
   function t(key, ...subs) {

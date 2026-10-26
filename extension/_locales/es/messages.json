@@ -188,9 +188,6 @@
   "badgeEdit": {
     "message": "Ajustar orden"
   },
-  "badgeEditMany": {
-    "message": "Ajustar orden ($1 órdenes a este precio — se abre la primera)"
-  },
   "badgeNotFound": {
     "message": "Orden no encontrada en la lista de órdenes de DEGIRO — ábrela e inténtalo de nuevo"
   },

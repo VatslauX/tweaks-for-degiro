@@ -97,3 +97,18 @@ test('overflowing ▲ row shows +N instead of clipping silently', async ({ degir
   const shown = await page.locator('#chart div:not(:has(div))', { hasText: /^▲ SELL/ }).evaluateAll(els => els.filter(e => e.style.display !== 'none').length);
   expect(shown + Number((await more.textContent()).slice(1))).toBe(6);
 });
+
+test('orders at the same price get one badge each, side by side, each opening its own order', async ({ degiro }) => {
+  const { page } = await degiro({ orders: [mk('B', 5, 15.5), mk('B', 10, 15.5)] });
+  const five = page.locator('#chart div:not(:has(div))', { hasText: /^BUY 5 · 15,50$/ });
+  const ten = page.locator('#chart div:not(:has(div))', { hasText: /^BUY 10 · 15,50$/ });
+  await expect(five).toBeVisible({ timeout: 8000 });
+  await expect(ten).toBeVisible();
+  await expect(page.locator('#chart div:not(:has(div))', { hasText: /^BUY 15 · / })).toHaveCount(0);
+  const [a, b] = [await five.boundingBox(), await ten.boundingBox()];
+  expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(1);
+  expect(b.x).toBeGreaterThanOrEqual(a.x + a.width);
+  await ten.click();
+  await expect(page.locator('[data-name=orderDetails]')).toContainText('Qty 10');
+  await expect.poll(() => log(page)).toContain('edit:1');
+});

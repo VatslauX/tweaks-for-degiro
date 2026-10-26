@@ -188,9 +188,6 @@
   "badgeEdit": {
     "message": "Order anpassen"
   },
-  "badgeEditMany": {
-    "message": "Order anpassen ($1 Orders zu diesem Preis — die erste wird geöffnet)"
-  },
   "badgeNotFound": {
     "message": "Order nicht in der DEGIRO-Orderliste gefunden — Liste öffnen und erneut versuchen"
   },

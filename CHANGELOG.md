@@ -1,5 +1,8 @@
 # Release notes
 
+## Unreleased
+- **Order badges**: one badge per order. Orders at the same price no longer add up into one badge that opened only the first; they sit side by side, and each opens its own order.
+
 ## 1.19.2 — 2026-10-26
 - Esc closes the *Adjust order* form without saving (an open DEGIRO dialog or menu gets the Esc first).
 - Indigo icon and settings accent, so they can't be mistaken for DEGIRO's own.

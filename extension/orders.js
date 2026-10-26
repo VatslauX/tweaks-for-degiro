@@ -176,17 +176,14 @@
     if (!pid || !F?.orders) return;
     const clickable = !!F.ordersClick;
 
-    // same side + price: add up the quantities
-    const groups = new Map();
-    orders.filter(o => o.productId === pid).forEach(o => {
+    // one badge per order; orders at the same price sit side by side (see slot() below)
+    const mine = orders.filter(o => o.productId === pid).flatMap((o, i) => {
       const price = o.price > 0 ? o.price : o.stopPrice;
-      if (!(price > 0)) return;
-      const k = o.buysell + '|' + price;
-      const g = groups.get(k) || { side: o.buysell, price, size: 0, n: 0, list: [], k };
-      g.size += o.size || o.quantity || 0; g.n++; g.list.push(o);
-      groups.set(k, g);
+      if (!(price > 0)) return [];
+      const k = typeof o.id === 'string' && o.id ? o.id : o.buysell + '|' + price + '|' + i;
+      return [{ side: o.buysell, price, size: o.size || o.quantity || 0, order: o, k }];
     });
-    if (!groups.size) return;
+    if (!mine.length) return;
 
     const { min, max } = ax.getExtremes();
     const top = chart.plotTop, bottom = chart.plotTop + chart.plotHeight;
@@ -197,10 +194,9 @@
       d.style.cssText =
         `background:${th.bg};border:1px solid ${o.col};color:${o.col};border-radius:2px;` +
         `font-family:Inter,Helvetica,HelveticaNeue,sans-serif;font-size:11px;line-height:14px;font-weight:400;padding:0 4px;white-space:nowrap;` +
-        (clickable && o.list ? 'pointer-events:auto;cursor:pointer;transition:background .1s,color .1s;' : '');
-      if (clickable && o.list) {
-        const title = o.n > 1 ? t('badgeEditMany', o.n) : t('badgeEdit');
-        d.title = title;
+        (clickable && o.order ? 'pointer-events:auto;cursor:pointer;transition:background .1s,color .1s;' : '');
+      if (clickable && o.order) {
+        d.title = t('badgeEdit');
         d.setAttribute('role', 'button');
         d.tabIndex = 0;
         d.setAttribute('data-k', o.k);
@@ -212,11 +208,11 @@
         // keep the click from starting a range selection on the chart
         d.addEventListener('pointerdown', e => e.stopPropagation());
         d.addEventListener('mousedown', e => e.stopPropagation());
-        d.addEventListener('click', e => { e.stopPropagation(); openEdit(o.list[0], d); });
+        d.addEventListener('click', e => { e.stopPropagation(); openEdit(o.order, d); });
         d.addEventListener('keydown', e => {
           if (e.key !== 'Enter' && e.key !== ' ') return;
           e.preventDefault(); e.stopPropagation(); // Space must not scroll the page
-          openEdit(o.list[0], d);
+          openEdit(o.order, d);
         });
       }
       return d;
@@ -228,7 +224,7 @@
       return d;
     };
 
-    const all = [...groups.values()].map(o => ({
+    const all = mine.map(o => ({
       ...o, col: o.side === 'S' ? SELL : BUY,
       label: `${t(o.side === 'S' ? 'badgeSell' : 'badgeBuy')} ${qf(o.size)} · ${nf(o.price)}`
     }));
@@ -236,7 +232,7 @@
     const above = all.filter(o => o.price > max).sort((a, b) => a.price - b.price);
     const below = all.filter(o => o.price < min).sort((a, b) => b.price - a.price);
     const inside = all.filter(o => o.price >= min && o.price <= max);
-    const count = list => list.reduce((s, o) => s + o.n, 0);
+    const count = list => list.length;
 
     // Everything is appended first and measured once afterwards (no layout read per badge).
     const GAP = 4, rowMax = chart.plotWidth - 2;

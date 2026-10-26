@@ -223,9 +223,6 @@
   "badgeEdit": {
     "message": "Adjust order"
   },
-  "badgeEditMany": {
-    "message": "Adjust order ($1 orders at this price — the first one opens)"
-  },
   "badgeNotFound": {
     "message": "Order not found in the DEGIRO orders list — open it and try again"
   },

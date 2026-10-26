@@ -188,9 +188,6 @@
   "badgeEdit": {
     "message": "Modifica ordine"
   },
-  "badgeEditMany": {
-    "message": "Modifica ordine ($1 ordini a questo prezzo — si apre il primo)"
-  },
   "badgeNotFound": {
     "message": "Ordine non trovato nell'elenco ordini di DEGIRO — aprilo e riprova"
   },
