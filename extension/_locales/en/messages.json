@@ -1,0 +1,247 @@
+{
+  "extDescription": {
+    "message": "Adds bid/ask spread, chart range %, your orders on the chart and order filters to the DEGIRO web trader. Not affiliated with DEGIRO.",
+    "description": "Store summary, at most 132 characters; must say it is not affiliated with DEGIRO"
+  },
+  "optVersion": {
+    "message": "Version $1",
+    "description": "$1 = version number"
+  },
+  "optOnThisPage": {
+    "message": "On this page",
+    "description": "Popup section: status of each feature on the open DEGIRO tab"
+  },
+  "optPricing": {
+    "message": "Pricing",
+    "description": "Settings section"
+  },
+  "optChart": {
+    "message": "Chart",
+    "description": "Settings section"
+  },
+  "optOrders": {
+    "message": "Orders",
+    "description": "Settings section"
+  },
+  "optPageCleanup": {
+    "message": "Page cleanup",
+    "description": "Settings section"
+  },
+  "optSpread": {
+    "message": "Bid/ask spread",
+    "description": "Feature name"
+  },
+  "optSpreadHelp": {
+    "message": "Spread row in Pricing data, colour-coded by size.",
+    "description": "Pricing data = DEGIRO's section name"
+  },
+  "optHeaderSpread": {
+    "message": "Spread in header",
+    "description": "Feature name"
+  },
+  "optHeaderSpreadHelp": {
+    "message": "Current spread % next to the price, e.g. “Spread 0,08%”."
+  },
+  "optExDividend": {
+    "message": "Ex-dividend date in header",
+    "description": "Feature name"
+  },
+  "optExDividendHelp": {
+    "message": "Shown after the spread when known; click to jump to Dividends."
+  },
+  "optCompact": {
+    "message": "Compact Pricing data",
+    "description": "Feature name"
+  },
+  "optCompactHelp": {
+    "message": "Tighter spacing between all rows in Pricing data."
+  },
+  "optPeriodChange": {
+    "message": "Change for selected period",
+    "description": "Feature name"
+  },
+  "optPeriodChangeHelp": {
+    "message": "Next to the daily change on products and next to the total on the portfolio chart."
+  },
+  "optChartSelect": {
+    "message": "Range selection",
+    "description": "Feature name"
+  },
+  "optChartSelectHelp": {
+    "message": "Drag on a product or portfolio chart to see the change between two points."
+  },
+  "optOrdersChart": {
+    "message": "Open orders on chart",
+    "description": "Feature name"
+  },
+  "optOrdersChartHelp": {
+    "message": "Dashed line and badge at each order price."
+  },
+  "optOrdersClick": {
+    "message": "Click badge to adjust",
+    "description": "Feature name"
+  },
+  "optOrdersClickHelp": {
+    "message": "Opens DEGIRO's Adjust order form for that order.",
+    "description": "Adjust order = DEGIRO's form name"
+  },
+  "optAdjustClose": {
+    "message": "Click outside closes Adjust order",
+    "description": "Feature name"
+  },
+  "optAdjustCloseHelp": {
+    "message": "Same as pressing ×. Changes are not saved."
+  },
+  "optOrdersFilter": {
+    "message": "Filters and totals on Orders",
+    "description": "Feature name"
+  },
+  "optOrdersFilterHelp": {
+    "message": "Filter Outstanding orders by action, currency and product; buy/sell totals per currency."
+  },
+  "optHideSections": {
+    "message": "Hide sections",
+    "description": "Feature name"
+  },
+  "optHideSectionsHelp": {
+    "message": "Hide DEGIRO sections by their title."
+  },
+  "optHiddenTitles": {
+    "message": "Section titles to hide, one per line (exact title, any case)"
+  },
+  "optDisclaimer": {
+    "message": "Unofficial extension — not affiliated with DEGIRO or flatexDEGIRO Bank, and not endorsed or supported by them. DEGIRO is a trademark of its owner.",
+    "description": "Keep the meaning exactly"
+  },
+  "optLiveHint": {
+    "message": "Changes apply instantly to open DEGIRO tabs."
+  },
+  "optSaved": {
+    "message": "Saved"
+  },
+  "optSaveFailed": {
+    "message": "Couldn't save: $1",
+    "description": "$1 = error message from Chrome"
+  },
+  "optTooMany": {
+    "message": "Too many titles (max $1)"
+  },
+  "optTooLong": {
+    "message": "Each title must be at most $1 characters"
+  },
+  "featPortfolio": {
+    "message": "Portfolio chart",
+    "description": "Feature name in the popup status list"
+  },
+  "statusOk": {
+    "message": "Working",
+    "description": "Feature status"
+  },
+  "statusLoading": {
+    "message": "Loading…",
+    "description": "Feature status"
+  },
+  "statusIdle": {
+    "message": "Not on this page",
+    "description": "Feature status"
+  },
+  "statusError": {
+    "message": "Error",
+    "description": "Feature status"
+  },
+  "statusMissing": {
+    "message": "Not found — DEGIRO may have changed its page",
+    "description": "Feature status"
+  },
+  "spread": {
+    "message": "Spread",
+    "description": "Label in Pricing data and in the product header"
+  },
+  "spreadValueTitle": {
+    "message": "Bid $1 / Ask $2",
+    "description": "$1, $2 = prices"
+  },
+  "spreadHeaderTitle": {
+    "message": "Current bid/ask spread"
+  },
+  "exDivLabel": {
+    "message": "Ex-div",
+    "description": "Short label before the ex-dividend date"
+  },
+  "exDivTitle": {
+    "message": "Ex-dividend date — go to Dividends"
+  },
+  "exDivTitlePast": {
+    "message": "Ex-dividend date (past) — go to Dividends"
+  },
+  "ordersAction": {
+    "message": "Action",
+    "description": "Filter group on the Orders page"
+  },
+  "ordersAll": {
+    "message": "All"
+  },
+  "ordersBuy": {
+    "message": "Buy"
+  },
+  "ordersSell": {
+    "message": "Sell"
+  },
+  "ordersCurrency": {
+    "message": "Currency"
+  },
+  "ordersProduct": {
+    "message": "Product"
+  },
+  "ordersAllProducts": {
+    "message": "All products"
+  },
+  "ordersSelected": {
+    "message": "$1 selected",
+    "description": "$1 = number of products"
+  },
+  "ordersClear": {
+    "message": "Clear filters"
+  },
+  "ordersTotalBuy": {
+    "message": "Total buy"
+  },
+  "ordersTotalSell": {
+    "message": "Total sell"
+  },
+  "ordersCount": {
+    "message": "$1 of $2 orders"
+  },
+  "badgeBuy": {
+    "message": "BUY",
+    "description": "Order badge on the chart, short and upper case"
+  },
+  "badgeSell": {
+    "message": "SELL",
+    "description": "Order badge on the chart, short and upper case"
+  },
+  "badgeEdit": {
+    "message": "Adjust order"
+  },
+  "badgeEditMany": {
+    "message": "Adjust order ($1 orders at this price — the first one opens)"
+  },
+  "badgeNotFound": {
+    "message": "Order not found in the DEGIRO orders list — open it and try again"
+  },
+  "periodTitle": {
+    "message": "Change over the selected period ($1), from the first to the last point of the chart",
+    "description": "$1 = period, e.g. 1Y"
+  },
+  "portfolioTitle": {
+    "message": "Change in portfolio value over the selected period. Includes deposits and withdrawals, so it is not the same as return."
+  },
+  "badgeAria": {
+    "message": "Adjust $1 order $2 at $3",
+    "description": "Accessible name of an order badge: $1 = buy/sell, $2 = quantity, $3 = price"
+  },
+  "badgeMerged": {
+    "message": "$1 orders",
+    "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  }
+}

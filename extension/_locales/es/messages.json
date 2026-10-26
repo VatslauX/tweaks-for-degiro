@@ -1,0 +1,211 @@
+{
+  "extDescription": {
+    "message": "Diferencial compra/venta, variación % de un rango, tus órdenes en el gráfico y filtros de órdenes para DEGIRO. No afiliado a DEGIRO."
+  },
+  "optVersion": {
+    "message": "Versión $1"
+  },
+  "optOnThisPage": {
+    "message": "En esta página"
+  },
+  "optPricing": {
+    "message": "Precios"
+  },
+  "optChart": {
+    "message": "Gráfico"
+  },
+  "optOrders": {
+    "message": "Órdenes"
+  },
+  "optPageCleanup": {
+    "message": "Limpieza de la página"
+  },
+  "optSpread": {
+    "message": "Diferencial compra/venta"
+  },
+  "optSpreadHelp": {
+    "message": "Fila Spread en Información del producto, con color según su tamaño."
+  },
+  "optHeaderSpread": {
+    "message": "Spread en la cabecera"
+  },
+  "optHeaderSpreadHelp": {
+    "message": "Spread actual en % junto al precio, p. ej. «Spread 0,08%»."
+  },
+  "optExDividend": {
+    "message": "Fecha ex-dividendo en la cabecera"
+  },
+  "optExDividendHelp": {
+    "message": "Tras el spread cuando se conoce; haz clic para ir a Dividendos."
+  },
+  "optCompact": {
+    "message": "Información del producto compacta"
+  },
+  "optCompactHelp": {
+    "message": "Menos espacio entre las filas de Información del producto."
+  },
+  "optPeriodChange": {
+    "message": "Variación en el periodo elegido"
+  },
+  "optPeriodChangeHelp": {
+    "message": "Junto a la variación diaria en productos y junto al total en el gráfico de la cartera."
+  },
+  "optChartSelect": {
+    "message": "Selección de rango"
+  },
+  "optChartSelectHelp": {
+    "message": "Arrastra sobre un gráfico de producto o de cartera para ver la variación entre dos puntos."
+  },
+  "optOrdersChart": {
+    "message": "Órdenes pendientes en el gráfico"
+  },
+  "optOrdersChartHelp": {
+    "message": "Línea discontinua y etiqueta en cada precio de orden."
+  },
+  "optOrdersClick": {
+    "message": "Clic en la etiqueta para ajustar"
+  },
+  "optOrdersClickHelp": {
+    "message": "Abre el formulario Ajustar orden de DEGIRO para esa orden."
+  },
+  "optAdjustClose": {
+    "message": "Clic fuera cierra Ajustar orden"
+  },
+  "optAdjustCloseHelp": {
+    "message": "Igual que pulsar ×. Los cambios no se guardan."
+  },
+  "optOrdersFilter": {
+    "message": "Filtros y totales en Órdenes"
+  },
+  "optOrdersFilterHelp": {
+    "message": "Filtra las órdenes pendientes por operación, divisa y producto; totales de compra/venta por divisa."
+  },
+  "optHideSections": {
+    "message": "Ocultar secciones"
+  },
+  "optHideSectionsHelp": {
+    "message": "Oculta secciones de DEGIRO según su título."
+  },
+  "optHiddenTitles": {
+    "message": "Títulos de las secciones a ocultar, uno por línea (título exacto, sin distinguir mayúsculas)"
+  },
+  "optDisclaimer": {
+    "message": "Extensión no oficial — no afiliada a DEGIRO ni a flatexDEGIRO Bank, ni respaldada o apoyada por ellos. DEGIRO es una marca de su propietario."
+  },
+  "optLiveHint": {
+    "message": "Los cambios se aplican al instante en las pestañas abiertas de DEGIRO."
+  },
+  "optSaved": {
+    "message": "Guardado"
+  },
+  "optSaveFailed": {
+    "message": "No se pudo guardar: $1"
+  },
+  "optTooMany": {
+    "message": "Demasiados títulos (máx. $1)"
+  },
+  "optTooLong": {
+    "message": "Cada título puede tener como máximo $1 caracteres"
+  },
+  "featPortfolio": {
+    "message": "Gráfico de la cartera"
+  },
+  "statusOk": {
+    "message": "Funciona"
+  },
+  "statusLoading": {
+    "message": "Cargando…"
+  },
+  "statusIdle": {
+    "message": "No en esta página"
+  },
+  "statusError": {
+    "message": "Error"
+  },
+  "statusMissing": {
+    "message": "No encontrado — puede que DEGIRO haya cambiado su página"
+  },
+  "spread": {
+    "message": "Spread"
+  },
+  "spreadValueTitle": {
+    "message": "Compra $1 / Venta $2"
+  },
+  "spreadHeaderTitle": {
+    "message": "Diferencial compra/venta actual"
+  },
+  "exDivLabel": {
+    "message": "Ex-div."
+  },
+  "exDivTitle": {
+    "message": "Fecha ex-dividendo — ir a Dividendos"
+  },
+  "exDivTitlePast": {
+    "message": "Fecha ex-dividendo (pasada) — ir a Dividendos"
+  },
+  "ordersAction": {
+    "message": "Operación"
+  },
+  "ordersAll": {
+    "message": "Todas"
+  },
+  "ordersBuy": {
+    "message": "Compra"
+  },
+  "ordersSell": {
+    "message": "Venta"
+  },
+  "ordersCurrency": {
+    "message": "Divisa"
+  },
+  "ordersProduct": {
+    "message": "Producto"
+  },
+  "ordersAllProducts": {
+    "message": "Todos los productos"
+  },
+  "ordersSelected": {
+    "message": "$1 seleccionados"
+  },
+  "ordersClear": {
+    "message": "Borrar filtros"
+  },
+  "ordersTotalBuy": {
+    "message": "Total compra"
+  },
+  "ordersTotalSell": {
+    "message": "Total venta"
+  },
+  "ordersCount": {
+    "message": "$1 de $2 órdenes"
+  },
+  "badgeBuy": {
+    "message": "COMPRA"
+  },
+  "badgeSell": {
+    "message": "VENTA"
+  },
+  "badgeEdit": {
+    "message": "Ajustar orden"
+  },
+  "badgeEditMany": {
+    "message": "Ajustar orden ($1 órdenes a este precio — se abre la primera)"
+  },
+  "badgeNotFound": {
+    "message": "Orden no encontrada en la lista de órdenes de DEGIRO — ábrela e inténtalo de nuevo"
+  },
+  "periodTitle": {
+    "message": "Variación en el periodo elegido ($1), del primer al último punto del gráfico"
+  },
+  "portfolioTitle": {
+    "message": "Variación del valor de la cartera en el periodo elegido. Incluye depósitos y retiradas, así que no es la rentabilidad."
+  },
+  "badgeAria": {
+    "message": "Ajustar orden: $1 $2 a $3",
+    "description": "Accessible name of an order badge: $1 = buy/sell, $2 = quantity, $3 = price"
+  },
+  "badgeMerged": {
+    "message": "$1 órdenes",
+    "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  }
+}

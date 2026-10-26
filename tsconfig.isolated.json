@@ -1,0 +1,10 @@
+{
+  // Isolated-world content scripts: same files as the first content_scripts entry in manifest.json.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": ["chrome"] },
+  "files": [
+    "types/common.d.ts",
+    "extension/common-isolated.js", "extension/flags.js", "extension/content.js", "extension/exdiv.js",
+    "extension/compact.js", "extension/hide.js", "extension/adjust-close.js", "extension/orders-table.js", "extension/status.js"
+  ]
+}

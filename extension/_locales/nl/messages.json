@@ -1,0 +1,211 @@
+{
+  "extDescription": {
+    "message": "Spread, %-verandering van een grafiekbereik, je orders in de grafiek en orderfilters voor DEGIRO. Niet gelieerd aan DEGIRO."
+  },
+  "optVersion": {
+    "message": "Versie $1"
+  },
+  "optOnThisPage": {
+    "message": "Op deze pagina"
+  },
+  "optPricing": {
+    "message": "Koersen"
+  },
+  "optChart": {
+    "message": "Grafiek"
+  },
+  "optOrders": {
+    "message": "Orders"
+  },
+  "optPageCleanup": {
+    "message": "Pagina opschonen"
+  },
+  "optSpread": {
+    "message": "Bied/laat-spread"
+  },
+  "optSpreadHelp": {
+    "message": "Spread-regel in Prijsdata, met een kleur naar grootte."
+  },
+  "optHeaderSpread": {
+    "message": "Spread in de kop"
+  },
+  "optHeaderSpreadHelp": {
+    "message": "Huidige spread in % naast de koers, bijv. “Spread 0,08%”."
+  },
+  "optExDividend": {
+    "message": "Ex-dividenddatum in de kop"
+  },
+  "optExDividendHelp": {
+    "message": "Na de spread als die bekend is; klik om naar Dividenden te gaan."
+  },
+  "optCompact": {
+    "message": "Compacte Prijsdata"
+  },
+  "optCompactHelp": {
+    "message": "Minder ruimte tussen alle regels van Prijsdata."
+  },
+  "optPeriodChange": {
+    "message": "Verandering over gekozen periode"
+  },
+  "optPeriodChangeHelp": {
+    "message": "Naast de dagverandering bij producten en naast het totaal in de portefeuillegrafiek."
+  },
+  "optChartSelect": {
+    "message": "Bereik selecteren"
+  },
+  "optChartSelectHelp": {
+    "message": "Sleep over een product- of portefeuillegrafiek om de verandering tussen twee punten te zien."
+  },
+  "optOrdersChart": {
+    "message": "Open orders in de grafiek"
+  },
+  "optOrdersChartHelp": {
+    "message": "Stippellijn en label bij elke orderprijs."
+  },
+  "optOrdersClick": {
+    "message": "Klik op label om aan te passen"
+  },
+  "optOrdersClickHelp": {
+    "message": "Opent het DEGIRO-formulier Order aanpassen voor die order."
+  },
+  "optAdjustClose": {
+    "message": "Klik buiten het formulier sluit Order aanpassen"
+  },
+  "optAdjustCloseHelp": {
+    "message": "Hetzelfde als op × drukken. Wijzigingen worden niet opgeslagen."
+  },
+  "optOrdersFilter": {
+    "message": "Filters en totalen bij Orders"
+  },
+  "optOrdersFilterHelp": {
+    "message": "Filter openstaande orders op actie, valuta en product; totalen kopen/verkopen per valuta."
+  },
+  "optHideSections": {
+    "message": "Onderdelen verbergen"
+  },
+  "optHideSectionsHelp": {
+    "message": "Verberg onderdelen van DEGIRO op hun titel."
+  },
+  "optHiddenTitles": {
+    "message": "Titels van te verbergen onderdelen, één per regel (exacte titel, hoofdletters maken niet uit)"
+  },
+  "optDisclaimer": {
+    "message": "Onofficiële extensie — niet gelieerd aan DEGIRO of flatexDEGIRO Bank, en niet door hen goedgekeurd of ondersteund. DEGIRO is een handelsmerk van de eigenaar."
+  },
+  "optLiveHint": {
+    "message": "Wijzigingen gelden direct in open DEGIRO-tabbladen."
+  },
+  "optSaved": {
+    "message": "Opgeslagen"
+  },
+  "optSaveFailed": {
+    "message": "Opslaan mislukt: $1"
+  },
+  "optTooMany": {
+    "message": "Te veel titels (max. $1)"
+  },
+  "optTooLong": {
+    "message": "Een titel mag hoogstens $1 tekens lang zijn"
+  },
+  "featPortfolio": {
+    "message": "Portefeuillegrafiek"
+  },
+  "statusOk": {
+    "message": "Werkt"
+  },
+  "statusLoading": {
+    "message": "Laden…"
+  },
+  "statusIdle": {
+    "message": "Niet op deze pagina"
+  },
+  "statusError": {
+    "message": "Fout"
+  },
+  "statusMissing": {
+    "message": "Niet gevonden — DEGIRO heeft de pagina mogelijk gewijzigd"
+  },
+  "spread": {
+    "message": "Spread"
+  },
+  "spreadValueTitle": {
+    "message": "Bied $1 / Laat $2"
+  },
+  "spreadHeaderTitle": {
+    "message": "Huidige bied/laat-spread"
+  },
+  "exDivLabel": {
+    "message": "Ex-div"
+  },
+  "exDivTitle": {
+    "message": "Ex-dividenddatum — naar Dividenden"
+  },
+  "exDivTitlePast": {
+    "message": "Ex-dividenddatum (verstreken) — naar Dividenden"
+  },
+  "ordersAction": {
+    "message": "Actie"
+  },
+  "ordersAll": {
+    "message": "Alle"
+  },
+  "ordersBuy": {
+    "message": "Koop"
+  },
+  "ordersSell": {
+    "message": "Verkoop"
+  },
+  "ordersCurrency": {
+    "message": "Valuta"
+  },
+  "ordersProduct": {
+    "message": "Product"
+  },
+  "ordersAllProducts": {
+    "message": "Alle producten"
+  },
+  "ordersSelected": {
+    "message": "$1 gekozen"
+  },
+  "ordersClear": {
+    "message": "Filters wissen"
+  },
+  "ordersTotalBuy": {
+    "message": "Totaal kopen"
+  },
+  "ordersTotalSell": {
+    "message": "Totaal verkopen"
+  },
+  "ordersCount": {
+    "message": "$1 van $2 orders"
+  },
+  "badgeBuy": {
+    "message": "KOOP"
+  },
+  "badgeSell": {
+    "message": "VERKOOP"
+  },
+  "badgeEdit": {
+    "message": "Order aanpassen"
+  },
+  "badgeEditMany": {
+    "message": "Order aanpassen ($1 orders op deze prijs — de eerste wordt geopend)"
+  },
+  "badgeNotFound": {
+    "message": "Order niet gevonden in de DEGIRO-orderlijst — open die en probeer het opnieuw"
+  },
+  "periodTitle": {
+    "message": "Verandering over de gekozen periode ($1), van het eerste tot het laatste punt van de grafiek"
+  },
+  "portfolioTitle": {
+    "message": "Verandering van de portefeuillewaarde over de gekozen periode. Inclusief stortingen en opnames, dus niet hetzelfde als rendement."
+  },
+  "badgeAria": {
+    "message": "Order aanpassen: $1 $2 tegen $3",
+    "description": "Accessible name of an order badge: $1 = buy/sell, $2 = quantity, $3 = price"
+  },
+  "badgeMerged": {
+    "message": "$1 orders",
+    "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  }
+}

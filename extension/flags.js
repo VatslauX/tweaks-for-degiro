@@ -1,0 +1,86 @@
+// Feature flags shared by the content scripts and the settings page.
+// Stored in chrome.storage.sync (syncs across your Chrome profiles).
+const DG_DEFAULTS = {
+  spread: true,        // Spread row in Pricing data
+  headerSpread: true,  // current spread % in the product header
+  exDividend: true,    // ex-dividend date in the product header (links to Dividends)
+  compactPricing: true, // tighter row spacing in Pricing data
+  periodChange: true,  // change over the selected chart period next to the daily change
+  chartSelect: true,   // drag-to-select range on the chart
+  orders: true,        // open orders on the chart
+  ordersClick: true,   // click an order badge to open "Adjust order"
+  adjustClose: true,   // click outside "Adjust order" closes it
+  ordersFilter: true,  // Orders page: filters and buy/sell totals
+  hideSections: true,  // hide sections listed below
+  // DEGIRO's Cash compensation section is also found by its hook, in any language
+  hiddenTitles: ['Cash compensation', 'Cash compensatie', 'Barausgleich', 'Compensation espèces']
+};
+
+// Flags read by the page-context scripts — the only ones exposed to the page.
+const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick'];
+
+const dgSettings = { ...DG_DEFAULTS };
+const dgListeners = [];
+
+// Call fn now and every time settings change.
+function dgOnSettings(fn) { dgListeners.push(fn); fn(dgSettings); }
+
+// Limits for the editable list (also keeps us well inside chrome.storage.sync quotas).
+const DG_MAX_TITLES = 30;
+const DG_MAX_TITLE_LEN = 100;
+
+// Coerce stored values to the expected types; anything malformed falls back to the default.
+function dgSanitize(s) {
+  const out = { ...DG_DEFAULTS };
+  if (!s || typeof s !== 'object') return out;
+  for (const k of Object.keys(DG_DEFAULTS)) {
+    if (k === 'hiddenTitles') continue;
+    if (typeof s[k] === 'boolean') out[k] = s[k];
+    else if (s[k] != null) out[k] = !!s[k];
+  }
+  if (Array.isArray(s.hiddenTitles)) {
+    out.hiddenTitles = s.hiddenTitles
+      .filter(t => typeof t === 'string')
+      .map(t => t.trim().slice(0, DG_MAX_TITLE_LEN))
+      .filter(Boolean)
+      .slice(0, DG_MAX_TITLES);
+  }
+  return out;
+}
+
+(() => {
+  const apply = s => {
+    Object.assign(dgSettings, dgSanitize(s));
+    // Bridge to page-context scripts (chart-select.js, orders.js), which can't read chrome.storage.
+    // The page can read this attribute, so pass only the flags those scripts need.
+    if (location.protocol.startsWith('http')) {
+      const bridged = {};
+      DG_PAGE_FLAGS.forEach(k => { bridged[k] = !!dgSettings[k]; });
+      document.documentElement.setAttribute('data-dg-tweaks', JSON.stringify(bridged));
+    }
+    dgListeners.forEach(fn => { try { fn(dgSettings); } catch (e) {} });
+  };
+  try {
+    chrome.storage.sync.get(DG_DEFAULTS, apply);
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'sync') chrome.storage.sync.get(DG_DEFAULTS, apply);
+    });
+  } catch (e) { apply({}); }
+
+  // Disabling, removing or updating the extension leaves the scripts already in open tabs running,
+  // the page-world ones too. Once our context is gone, switch every feature off, so nothing keeps
+  // polling DEGIRO or changing the page until the tab is reloaded.
+  if (location.protocol.startsWith('http')) {
+    const timer = setInterval(() => {
+      let alive = false;
+      try { alive = !!chrome.runtime?.id; } catch (e) {}
+      if (alive) return;
+      clearInterval(timer);
+      /** @type {Record<string, boolean>} */
+      const off = {};
+      for (const k of Object.keys(DG_DEFAULTS)) if (k !== 'hiddenTitles') off[k] = false;
+      apply(off);
+    }, 2000);
+  }
+})();
+

@@ -1,0 +1,211 @@
+{
+  "extDescription": {
+    "message": "Geld/Brief-Spanne, %-Änderung eines Chartbereichs, Ihre Orders im Chart und Orderfilter für DEGIRO. Nicht mit DEGIRO verbunden."
+  },
+  "optVersion": {
+    "message": "Version $1"
+  },
+  "optOnThisPage": {
+    "message": "Auf dieser Seite"
+  },
+  "optPricing": {
+    "message": "Kurse"
+  },
+  "optChart": {
+    "message": "Chart"
+  },
+  "optOrders": {
+    "message": "Orders"
+  },
+  "optPageCleanup": {
+    "message": "Seite aufräumen"
+  },
+  "optSpread": {
+    "message": "Geld/Brief-Spanne"
+  },
+  "optSpreadHelp": {
+    "message": "Spread-Zeile in den Kursdaten, farbig nach Größe."
+  },
+  "optHeaderSpread": {
+    "message": "Spread in der Kopfzeile"
+  },
+  "optHeaderSpreadHelp": {
+    "message": "Aktueller Spread in % neben dem Kurs, z. B. „Spread 0,08%“."
+  },
+  "optExDividend": {
+    "message": "Ex-Dividenden-Tag in der Kopfzeile"
+  },
+  "optExDividendHelp": {
+    "message": "Nach dem Spread, wenn bekannt; Klick springt zu Dividenden."
+  },
+  "optCompact": {
+    "message": "Kompakte Kursdaten"
+  },
+  "optCompactHelp": {
+    "message": "Weniger Abstand zwischen allen Zeilen der Kursdaten."
+  },
+  "optPeriodChange": {
+    "message": "Änderung im gewählten Zeitraum"
+  },
+  "optPeriodChangeHelp": {
+    "message": "Neben der Tagesänderung bei Produkten und neben dem Gesamtwert im Portfolio-Chart."
+  },
+  "optChartSelect": {
+    "message": "Bereichsauswahl"
+  },
+  "optChartSelectHelp": {
+    "message": "Über einen Produkt- oder Portfolio-Chart ziehen, um die Änderung zwischen zwei Punkten zu sehen."
+  },
+  "optOrdersChart": {
+    "message": "Offene Orders im Chart"
+  },
+  "optOrdersChartHelp": {
+    "message": "Gestrichelte Linie und Etikett bei jedem Orderpreis."
+  },
+  "optOrdersClick": {
+    "message": "Klick auf Etikett zum Anpassen"
+  },
+  "optOrdersClickHelp": {
+    "message": "Öffnet das DEGIRO-Formular „Order anpassen“ für diese Order."
+  },
+  "optAdjustClose": {
+    "message": "Klick daneben schließt Order anpassen"
+  },
+  "optAdjustCloseHelp": {
+    "message": "Wie ×. Änderungen werden nicht gespeichert."
+  },
+  "optOrdersFilter": {
+    "message": "Filter und Summen bei Orders"
+  },
+  "optOrdersFilterHelp": {
+    "message": "Offene Orders nach Aktion, Währung und Produkt filtern; Kauf-/Verkaufssummen je Währung."
+  },
+  "optHideSections": {
+    "message": "Bereiche ausblenden"
+  },
+  "optHideSectionsHelp": {
+    "message": "DEGIRO-Bereiche anhand ihres Titels ausblenden."
+  },
+  "optHiddenTitles": {
+    "message": "Titel der auszublendenden Bereiche, einer pro Zeile (genauer Titel, Groß-/Kleinschreibung egal)"
+  },
+  "optDisclaimer": {
+    "message": "Inoffizielle Erweiterung — nicht mit DEGIRO oder der flatexDEGIRO Bank verbunden und nicht von ihnen unterstützt oder empfohlen. DEGIRO ist eine Marke ihres Inhabers."
+  },
+  "optLiveHint": {
+    "message": "Änderungen gelten sofort in offenen DEGIRO-Tabs."
+  },
+  "optSaved": {
+    "message": "Gespeichert"
+  },
+  "optSaveFailed": {
+    "message": "Speichern fehlgeschlagen: $1"
+  },
+  "optTooMany": {
+    "message": "Zu viele Titel (max. $1)"
+  },
+  "optTooLong": {
+    "message": "Jeder Titel darf höchstens $1 Zeichen lang sein"
+  },
+  "featPortfolio": {
+    "message": "Portfolio-Chart"
+  },
+  "statusOk": {
+    "message": "Aktiv"
+  },
+  "statusLoading": {
+    "message": "Lädt…"
+  },
+  "statusIdle": {
+    "message": "Nicht auf dieser Seite"
+  },
+  "statusError": {
+    "message": "Fehler"
+  },
+  "statusMissing": {
+    "message": "Nicht gefunden — DEGIRO hat die Seite vielleicht geändert"
+  },
+  "spread": {
+    "message": "Spread"
+  },
+  "spreadValueTitle": {
+    "message": "Geld $1 / Brief $2"
+  },
+  "spreadHeaderTitle": {
+    "message": "Aktuelle Geld/Brief-Spanne"
+  },
+  "exDivLabel": {
+    "message": "Ex-Div."
+  },
+  "exDivTitle": {
+    "message": "Ex-Dividenden-Tag — zu Dividenden"
+  },
+  "exDivTitlePast": {
+    "message": "Ex-Dividenden-Tag (vergangen) — zu Dividenden"
+  },
+  "ordersAction": {
+    "message": "Aktion"
+  },
+  "ordersAll": {
+    "message": "Alle"
+  },
+  "ordersBuy": {
+    "message": "Kauf"
+  },
+  "ordersSell": {
+    "message": "Verkauf"
+  },
+  "ordersCurrency": {
+    "message": "Währung"
+  },
+  "ordersProduct": {
+    "message": "Produkt"
+  },
+  "ordersAllProducts": {
+    "message": "Alle Produkte"
+  },
+  "ordersSelected": {
+    "message": "$1 ausgewählt"
+  },
+  "ordersClear": {
+    "message": "Filter zurücksetzen"
+  },
+  "ordersTotalBuy": {
+    "message": "Summe Kauf"
+  },
+  "ordersTotalSell": {
+    "message": "Summe Verkauf"
+  },
+  "ordersCount": {
+    "message": "$1 von $2 Orders"
+  },
+  "badgeBuy": {
+    "message": "KAUF"
+  },
+  "badgeSell": {
+    "message": "VERKAUF"
+  },
+  "badgeEdit": {
+    "message": "Order anpassen"
+  },
+  "badgeEditMany": {
+    "message": "Order anpassen ($1 Orders zu diesem Preis — die erste wird geöffnet)"
+  },
+  "badgeNotFound": {
+    "message": "Order nicht in der DEGIRO-Orderliste gefunden — Liste öffnen und erneut versuchen"
+  },
+  "periodTitle": {
+    "message": "Änderung im gewählten Zeitraum ($1), vom ersten bis zum letzten Punkt des Charts"
+  },
+  "portfolioTitle": {
+    "message": "Änderung des Portfoliowerts im gewählten Zeitraum. Enthält Ein- und Auszahlungen, ist also nicht die Rendite."
+  },
+  "badgeAria": {
+    "message": "Order anpassen: $1 $2 zu $3",
+    "description": "Accessible name of an order badge: $1 = buy/sell, $2 = quantity, $3 = price"
+  },
+  "badgeMerged": {
+    "message": "$1 Orders",
+    "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  // Page-world (MAIN) content scripts: no chrome.* and no flags.js globals here.
+  "extends": "./tsconfig.base.json",
+  "files": [
+    "types/common.d.ts", "types/page.d.ts",
+    "extension/common.js", "extension/chart-select.js", "extension/orders.js", "extension/period.js", "extension/portfolio.js"
+  ]
+}

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tweaks for DEGIRO — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon48.png" alt="" width="32" height="32">
+    <div>
+      <h1>Tweaks for DEGIRO</h1>
+      <p class="muted" id="version"></p>
+    </div>
+  </header>
+
+  <section id="pageStatus" hidden>
+    <h2 data-i18n="optOnThisPage">On this page</h2>
+    <ul id="pageStatusList"></ul>
+  </section>
+
+  <section>
+    <h2 data-i18n="optPricing">Pricing</h2>
+    <label class="row">
+      <span><strong data-i18n="optSpread">Bid/ask spread</strong><small data-i18n="optSpreadHelp">Spread row in Pricing data, colour-coded by size.</small></span>
+      <input type="checkbox" class="switch" data-key="spread">
+    </label>
+    <label class="row">
+      <span><strong data-i18n="optHeaderSpread">Spread in header</strong><small data-i18n="optHeaderSpreadHelp">Current spread % next to the price, e.g. “Spread 0,08%”.</small></span>
+      <input type="checkbox" class="switch" data-key="headerSpread">
+    </label>
+    <label class="row">
+      <span><strong data-i18n="optExDividend">Ex-dividend date in header</strong><small data-i18n="optExDividendHelp">Shown after the spread when known; click to jump to Dividends.</small></span>
+      <input type="checkbox" class="switch" data-key="exDividend">
+    </label>
+    <label class="row">
+      <span><strong data-i18n="optCompact">Compact Pricing data</strong><small data-i18n="optCompactHelp">Tighter spacing between all rows in Pricing data.</small></span>
+      <input type="checkbox" class="switch" data-key="compactPricing">
+    </label>
+  </section>
+
+  <section>
+    <h2 data-i18n="optChart">Chart</h2>
+    <label class="row">
+      <span><strong data-i18n="optPeriodChange">Change for selected period</strong><small data-i18n="optPeriodChangeHelp">Next to the daily change on products and next to the total on the portfolio chart.</small></span>
+      <input type="checkbox" class="switch" data-key="periodChange">
+    </label>
+    <label class="row">
+      <span><strong data-i18n="optChartSelect">Range selection</strong><small data-i18n="optChartSelectHelp">Drag on a product or portfolio chart to see the change between two points.</small></span>
+      <input type="checkbox" class="switch" data-key="chartSelect">
+    </label>
+    <label class="row">
+      <span><strong data-i18n="optOrdersChart">Open orders on chart</strong><small data-i18n="optOrdersChartHelp">Dashed line and badge at each order price.</small></span>
+      <input type="checkbox" class="switch" data-key="orders">
+    </label>
+    <label class="row sub" data-depends="orders">
+      <span><strong data-i18n="optOrdersClick">Click badge to edit</strong><small data-i18n="optOrdersClickHelp">Opens DEGIRO's Adjust order form for that order.</small></span>
+      <input type="checkbox" class="switch" data-key="ordersClick">
+    </label>
+  </section>
+
+  <section>
+    <h2 data-i18n="optOrders">Orders</h2>
+    <label class="row">
+      <span><strong data-i18n="optAdjustClose">Click outside closes Adjust order</strong><small data-i18n="optAdjustCloseHelp">Same as pressing ×. Changes are not saved.</small></span>
+      <input type="checkbox" class="switch" data-key="adjustClose">
+    </label>
+    <label class="row">
+      <span><strong data-i18n="optOrdersFilter">Filters and totals on Orders</strong><small data-i18n="optOrdersFilterHelp">Filter Outstanding orders by action, currency and product; buy/sell totals per currency.</small></span>
+      <input type="checkbox" class="switch" data-key="ordersFilter">
+    </label>
+  </section>
+
+  <section>
+    <h2 data-i18n="optPageCleanup">Page cleanup</h2>
+    <label class="row">
+      <span><strong data-i18n="optHideSections">Hide sections</strong><small data-i18n="optHideSectionsHelp">Hide DEGIRO sections by their title.</small></span>
+      <input type="checkbox" class="switch" data-key="hideSections">
+    </label>
+    <div class="sub" data-depends="hideSections">
+      <label for="hiddenTitles" class="muted small" data-i18n="optHiddenTitles">Section titles to hide, one per line (exact title, any case)</label>
+      <textarea id="hiddenTitles" rows="3" spellcheck="false"></textarea>
+    </div>
+  </section>
+
+  <p class="muted small disclaimer" data-i18n="optDisclaimer">Unofficial extension — not affiliated with DEGIRO or flatexDEGIRO Bank, and not endorsed or supported by them. DEGIRO is a trademark of its owner.</p>
+
+  <footer>
+    <span class="muted small" data-i18n="optLiveHint">Changes apply instantly to open DEGIRO tabs.</span>
+    <span id="status" class="small" aria-live="polite"></span>
+  </footer>
+
+  <script src="flags.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

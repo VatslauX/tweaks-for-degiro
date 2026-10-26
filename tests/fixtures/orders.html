@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DEGIRO orders mock</title>
+  <style>body { font-family: Inter, sans-serif; margin: 0; } td, th { padding: 4px 8px; text-align: left; }</style>
+</head>
+<body>
+<!-- Mimics Orders → Outstanding on trader.degiro.nl (#/orders/open). -->
+<div data-name="app-layout">
+  <h2>Orders</h2>
+  <div id="toolbar">
+    <input placeholder="Search for a product">
+    <div id="tableWrap">
+      <table id="orders">
+        <thead><tr><th>Product</th><th>Date</th><th>Symbol | ISIN</th><th>Exchange</th><th>Action</th><th>Qty</th><th>Limit</th><th>Stop Price</th><th>Value</th><th>Outstanding</th><th>Executed</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+  // product, action, qty, limit (with currency), value
+  window.__ORDERS = window.__ORDERS || [
+    ['Mock Bond ETF EUR', 'Buy', 1000, '€ 2,50', '2.500,00'],
+    ['Mock Chips ETF EUR', 'Sell', 200, '€ 18,00', '3.600,00'],
+    ['Mock Tech Inc. Class A', 'Buy', 10, '$ 270,15', '2.701,50'],
+    ['Mock Tech Inc. Class A', 'Buy', 10, '$ 320,20', '3.202,00'],
+    ['Mock Chips ETF EUR', 'Buy', 200, '€ 14,00', '2.800,00'],
+    ['Mock Chips ETF EUR', 'Buy', 100, '€ 15,00', '1.500,00'],
+    ['Mock S&P 500 ETF USD', 'Buy', 100, '$ 130,00', '13.000,00'],
+    ['ADR on Mock Software SE', 'Sell', 10, '$ 250,00', '2.500,00']
+  ];
+  function render() {
+    const tb = document.getElementById('rows');
+    tb.innerHTML = '';
+    for (const [name, action, qty, limit, value] of window.__ORDERS) {
+      const tr = document.createElement('tr');
+      const cur = limit.split(' ')[0];
+      tr.innerHTML = `<td><span data-name="productName"></span><button data-name="productCategory">A</button></td>
+        <td><span data-field="date">19/10/2026</span></td><td>SYM | XX000</td><td>TDG</td><td></td>
+        <td><span data-field="quantityColumnValue">${qty}</span></td>
+        <td><span data-field="limitColumnValue">${limit}</span></td>
+        <td><span data-field="stopPriceColumnValue">${cur} —</span></td>
+        <td><span data-field="valuableColumnValue">${value}</span></td>
+        <td><span data-field="outstandingColumnValue">${qty}</span></td>
+        <td><span data-field="executedColumnValue">0</span></td><td></td>`;
+      tr.querySelector('[data-name=productName]').textContent = name;
+      tr.children[4].innerHTML = `<span style="color:${action === 'Buy' ? 'rgb(30, 131, 2)' : 'rgb(228, 1, 1)'};font-weight:500"></span>`;
+      tr.children[4].firstChild.textContent = action;
+      tb.appendChild(tr);
+    }
+  }
+  render();
+  window.__rerender = render; // DEGIRO re-renders rows on updates
+</script>
+</body>
+</html>

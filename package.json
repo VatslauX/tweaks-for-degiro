@@ -1,0 +1,33 @@
+{
+  "name": "tweaks-for-degiro",
+  "description": "Unofficial Chrome extension that adds quality-of-life features to the DEGIRO web trader.",
+  "scripts": {
+    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run test:e2e",
+    "typecheck": "tsc -p tsconfig.isolated.json && tsc -p tsconfig.page.json && tsc -p tsconfig.options.json",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "build": "node scripts/build.js",
+    "sync-common": "node -e \"require('fs').copyFileSync('extension/common.js','extension/common-isolated.js')\"",
+    "lint": "eslint ."
+  },
+  "author": "VatslauX",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VatslauX/tweaks-for-degiro.git"
+  },
+  "homepage": "https://github.com/VatslauX/tweaks-for-degiro",
+  "bugs": {
+    "url": "https://github.com/VatslauX/tweaks-for-degiro/issues"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.56.0",
+    "@types/chrome": "^0.3.6",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
+    "highcharts": "^4.2.1",
+    "typescript": "^5.9.3"
+  },
+  "private": true
+}

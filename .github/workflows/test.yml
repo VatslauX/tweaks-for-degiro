@@ -1,0 +1,33 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest (Ubuntu 26) made the Playwright install take ~14 min
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # browser only: the runner image already has Chromium's libraries (it ships Google Chrome);
+      # --with-deps also pulled ~24 MB of fonts from Ubuntu's mirror, which sometimes took 15+ min
+      - run: npx playwright install chromium
+      # the e2e fixtures launch Chromium headed with --headless=new; Playwright still wants a
+      # display for that on Linux (xvfb is part of the runner image)
+      - run: xvfb-run -a npm test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
