@@ -1,0 +1,44 @@
+name: CWS auth check
+
+# Manual, read-only: signs in to the Chrome Web Store API with keyless login
+# (Workload Identity Federation) and prints the item's status. Changes nothing.
+# Run from main; the Google provider rejects other branches.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+  id-token: write # GitHub OIDC token for Workload Identity Federation
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check repository variables
+        env:
+          GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_ITEM_ID: ${{ vars.CWS_ITEM_ID }}
+        run: |
+          for v in GCP_WIF_PROVIDER GCP_SERVICE_ACCOUNT CWS_PUBLISHER_ID CWS_ITEM_ID; do
+            [ -n "${!v}" ] || { echo "::error::missing repository variable $v"; exit 1; }
+          done
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          # JSON-key fallback: replace the two lines above with
+          # credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+      - name: Read item status
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+          PUB: ${{ vars.CWS_PUBLISHER_ID }}
+          ITEM: ${{ vars.CWS_ITEM_ID }}
+        run: |
+          curl -sS --fail-with-body -H "Authorization: Bearer $TOKEN" \
+            "https://chromewebstore.googleapis.com/v2/publishers/$PUB/items/$ITEM:fetchStatus"

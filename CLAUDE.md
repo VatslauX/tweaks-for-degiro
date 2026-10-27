@@ -24,7 +24,7 @@ npx playwright test tests/e2e/bridge.spec.js # one e2e file
 npx playwright test -g "adds a Spread row"   # one e2e test by name
 ```
 
-ESLint globals for the shared scripts (`__dgt`, the `flags.js` names) are listed in `eslint.config.js`. The version lives only in `extension/manifest.json` (`package.json` has none); bump it for releases. CI (`.github/workflows/test.yml`) runs `npm test` under `xvfb-run` on pushes to main and on pull requests.
+ESLint globals for the shared scripts (`__dgt`, the `flags.js` names) are listed in `eslint.config.js`. The version lives only in `extension/manifest.json` (`package.json` has none); bump it for releases. CI (`.github/workflows/test.yml`) runs `npm test` under `xvfb-run` on pushes to main and on pull requests. `.github/workflows/cws-auth-check.yml` runs only by hand (Actions → Run workflow, from main): it signs in to the Chrome Web Store API without a key (Workload Identity Federation as service account `cws-release`; repo variables `GCP_WIF_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `CWS_PUBLISHER_ID`, `CWS_ITEM_ID`) and only reads the item's status.
 
 **Before every commit, run the `update-docs` skill, then the `pre-commit-review` skill.** `update-docs` updates README, CHANGELOG, CLAUDE.md, PRIVACY and STORE_LISTING to match the change; `pre-commit-review` checks the change against the safety, store, load and robustness rules, runs `npm test`, and must have no P1 findings left before committing.
 
