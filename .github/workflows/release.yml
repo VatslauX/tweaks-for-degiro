@@ -1,0 +1,69 @@
+name: Release
+
+# Push a tag v<manifest version> to test, build, upload and submit that version
+# to the Chrome Web Store for review, then create a GitHub Release with the zip.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cws-release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04 # pinned, see test.yml
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      # fail before the slow tests if the tag doesn't match the manifest
+      - run: node -e "require('./scripts/cws-publish.js').checkTag(process.env.GITHUB_REF_NAME, require('./extension/manifest.json').version)"
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: xvfb-run -a npm test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
+
+  # only this job can get a Google token; it runs only after the tests pass
+  publish:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # GitHub Release
+      id-token: write # GitHub OIDC token for Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm run build
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          # JSON-key fallback: replace the two lines above with
+          # credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+      - run: node scripts/cws-publish.js
+        env:
+          CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_ITEM_ID: ${{ vars.CWS_ITEM_ID }}
+      - run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -75,12 +75,7 @@ Opened from the toolbar over a DEGIRO tab, the popup also shows **On this page**
 
 ## Installation
 
-1. Unzip the archive.
-2. Open `chrome://extensions` and enable **Developer mode**.
-3. Click **Load unpacked** and select the `extension` folder.
-4. Reload the DEGIRO page.
-
-**Updating:** replace the files in the folder, press ↻ on the extension card in `chrome://extensions`, then reload DEGIRO.
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/gfeegkcebffmddfipcbaoincmnfdjock). Chrome keeps it up to date automatically.
 
 Requires Chrome 111 or newer.
 
@@ -97,58 +92,7 @@ Requires Chrome 111 or newer.
 - The extension relies on DEGIRO's current page structure, so a DEGIRO redesign may break individual features.
 - The extension's own texts are in English, Dutch, German, French, Spanish, Italian and Portuguese. They follow Chrome's language, not the language chosen in DEGIRO; other languages fall back to English.
 
-## Files
-
-All extension files live in `extension/`.
-
-
-| File | Purpose |
-|---|---|
-| `common.js` | Shared code loaded first in both worlds: the DEGIRO page hooks (selectors and label patterns), number parsing/formatting in the page's format, page theme, flags, the main price chart, and the scheduler every feature registers with. `common-isolated.js` is an identical copy for the isolated world (`npm run sync-common`) |
-| `flags.js` | Feature flags: defaults, storage and the bridge to page-context scripts |
-| `options.html/.css/.js` | Settings page (toolbar popup and Extension options) |
-| `_locales/*/messages.json` | Translations of every text, the store summary included (English is the default) |
-| `content.js` | Bid/ask spread row |
-| `exdiv.js` | Ex-dividend date in the header |
-| `compact.js` | Compact Pricing data |
-| `hide.js` | Hides sections listed in Settings |
-| `orders-table.js` | Orders page: filters and totals |
-| `adjust-close.js` | Click outside or press Esc to close *Adjust order* |
-| `status.js` | Answers the popup's "On this page" feature status |
-| `chart-select.js` | Chart range selection (runs in page context) |
-| `period.js` | Change for the selected period (runs in page context) |
-| `portfolio.js` | Portfolio chart: period change and range selection (runs in page context) |
-| `orders.js` | Open orders on the chart and click-to-edit (runs in page context) |
-
 See [CHANGELOG.md](CHANGELOG.md) for release notes and [PRIVACY.md](PRIVACY.md) for the privacy policy.
-
-## Development
-
-```
-npm install          # test tools only; the extension itself has no dependencies
-npm run sync-common  # after editing extension/common.js
-npm test             # type check + lint + unit + end-to-end tests
-npm run typecheck    # tsc --noEmit on the plain JS (JSDoc types), one project per world
-npm run lint         # ESLint: undefined names, unused code
-npm run build        # dist/tweaks-for-degiro-<version>.zip, ready for the Chrome Web Store
-```
-
-Project layout:
-
-```
-extension/           the extension; only this folder is packaged
-tests/unit/          static checks (manifest, permissions, no eval/remote code/innerHTML, …)
-tests/e2e/           Playwright tests: real Chromium with the extension loaded
-tests/fixtures/      mock of trader.degiro.nl (Highcharts 4 chart, orders panel, Adjust order form)
-scripts/build.js     packs extension/ into a zip
-.github/workflows/   CI: runs npm test on every push to main and on pull requests
-PRIVACY.md           privacy policy (publish at a public URL for the store)
-STORE_LISTING.md     draft answers for the Chrome Web Store dashboard
-```
-
-The end-to-end tests never contact DEGIRO. Every `trader.degiro.nl` request is answered by the local mock, including the orders endpoint.
-
-Tests and dev tools are **not** part of the published extension; `npm run build` zips only `extension/`.
 
 ## License
 

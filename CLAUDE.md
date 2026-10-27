@@ -24,9 +24,45 @@ npx playwright test tests/e2e/bridge.spec.js # one e2e file
 npx playwright test -g "adds a Spread row"   # one e2e test by name
 ```
 
-ESLint globals for the shared scripts (`__dgt`, the `flags.js` names) are listed in `eslint.config.js`. The version lives only in `extension/manifest.json` (`package.json` has none); bump it for releases. CI (`.github/workflows/test.yml`) runs `npm test` under `xvfb-run` on pushes to main and on pull requests. `.github/workflows/cws-auth-check.yml` runs only by hand (Actions → Run workflow, from main): it signs in to the Chrome Web Store API without a key (Workload Identity Federation as service account `cws-release`; repo variables `GCP_WIF_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `CWS_PUBLISHER_ID`, `CWS_ITEM_ID`) and only reads the item's status.
+ESLint globals for the shared scripts (`__dgt`, the `flags.js` names) are listed in `eslint.config.js`. The version lives only in `extension/manifest.json` (`package.json` has none); bump it for releases. CI (`.github/workflows/test.yml`) runs `npm test` under `xvfb-run` on pushes to main and on pull requests.
 
 **Before every commit, run the `update-docs` skill, then the `pre-commit-review` skill.** `update-docs` updates README, CHANGELOG, CLAUDE.md, PRIVACY and STORE_LISTING to match the change; `pre-commit-review` checks the change against the safety, store, load and robustness rules, runs `npm test`, and must have no P1 findings left before committing.
+
+## Layout
+
+```
+extension/          the shipped extension (only this folder is zipped)
+tests/unit/         static checks: manifest, permissions, no eval/remote code/innerHTML, i18n, cws-publish
+tests/e2e/          Playwright: real Chromium with the extension loaded
+tests/fixtures/     mock of trader.degiro.nl (Highcharts 4 chart, orders panel, Adjust order form)
+scripts/            build.js (zip), cws-publish.js (store upload), store-images (store screenshots)
+.github/workflows/  test.yml (CI), release.yml (v* tags), cws-auth-check.yml (manual)
+PRIVACY.md          privacy policy (public URL for the store); STORE_LISTING.md: dashboard answers
+```
+
+Files in `extension/`, one feature each unless noted:
+
+| File | Purpose |
+|---|---|
+| `common.js` | Shared code loaded first in both worlds (`SEL`/`LABELS`/`page`, number parsing, theme, main chart, scheduler); `common-isolated.js` is its copy |
+| `flags.js` | Feature flags: defaults, storage, bridge to the page world |
+| `options.html/.css/.js` | Settings page (toolbar popup and Extension options) |
+| `_locales/*/messages.json` | Translations, store summary included |
+| `content.js` | Bid/ask spread row and header spread |
+| `exdiv.js` | Ex-dividend date in the header |
+| `compact.js` | Compact Pricing data |
+| `hide.js` | Hides sections listed in Settings |
+| `orders-table.js` | Orders page: filters and totals |
+| `adjust-close.js` | Click outside or Esc closes *Adjust order* |
+| `status.js` | Answers the popup's "On this page" status |
+| `chart-select.js` | Chart range selection (page world) |
+| `period.js` | Change for the selected period (page world) |
+| `portfolio.js` | Portfolio chart: period change and range selection (page world) |
+| `orders.js` | Open orders on the chart, click-to-edit (page world) |
+
+## Releasing
+
+Bump `version` in `extension/manifest.json`, add the CHANGELOG entry, commit and push, then push a tag `v<version>` (only the user decides when; ordinary pushes never release). `.github/workflows/release.yml` runs `npm test` in a job without credentials, then a separate job builds the zip, gets a short-lived Google token through Workload Identity Federation (`google-github-actions/auth`, service account `cws-release` in GCP project `tweaks-for-degiro-release`; repo variables `GCP_WIF_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `CWS_PUBLISHER_ID`, `CWS_ITEM_ID`; no stored key) and runs `scripts/cws-publish.js` (Chrome Web Store API v2: upload, poll `:fetchStatus`, `:publish` = submit for review), then creates a GitHub Release with the zip. The script fails before uploading if the tag isn't `v` + manifest version and never publishes after a failed upload (`tests/unit/cws-publish.test.js`, fake `fetch`). Google's provider accepts only this repo (by ID) on `main` or `v*` tags. `cws-auth-check.yml` (run by hand from main) signs in the same way and only reads the item's status. `scripts/` is Node tooling: the `extension/` rules (same-origin `fetch`, no `console.log`) don't apply there.
 
 ## Architecture
 

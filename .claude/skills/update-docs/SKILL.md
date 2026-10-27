@@ -18,12 +18,12 @@ Keep the Markdown docs of "Tweaks for DEGIRO (unofficial)" in sync with the code
 
 ## Docs and when they change
 
-- **README.md**: user-facing. Feature descriptions, the Settings table (flag names and defaults must match `DG_DEFAULTS` in `extension/flags.js`), Privacy & safety, Notes & limitations, and the Files table (one row per `extension/*.js`).
+- **README.md**: user-facing. Feature descriptions, the Settings table (flag names and defaults must match `DG_DEFAULTS` in `extension/flags.js`), Installation, Privacy & safety, Notes & limitations. End-user information only: no files, commands, tests or release steps (those go in CLAUDE.md).
 - **CHANGELOG.md**: add bullets for user-visible changes under the newest heading `## X.Y.Z — YYYY-MM-DD`.
   - If `extension/manifest.json` has a version newer than the top heading, create that heading with today's date.
   - If the version wasn't bumped and the top entry is already released, add the bullets under `## Unreleased` and flag that the version needs a bump.
   - Follow the existing style: short bullets, a **bold feature name** first, plain language. Leave out internal refactors unless they matter to users.
-- **CLAUDE.md**: developer guidance. Update it only when commands, architecture (execution worlds, the flags bridge `DG_PAGE_FLAGS`, the orders endpoint), test fixtures or the security invariants in `tests/unit/` change. Keep it concise and don't copy README content into it.
+- **CLAUDE.md**: all developer and agent information. Update it when the layout, the `extension/` file table (one row per `extension/*.js`), releasing, commands, architecture (execution worlds, the flags bridge `DG_PAGE_FLAGS`, the orders endpoint), test fixtures or the security invariants in `tests/unit/` change. Keep it concise and don't copy README content into it.
 - **PRIVACY.md**: update it, and its "Last updated" date, only if permissions, accessed data, network requests or storage change.
 - **STORE_LISTING.md**: keep the summary (≤132 chars, same as the manifest `description`), the description bullets and the permission justifications in line with the features and `manifest.json`.
 
