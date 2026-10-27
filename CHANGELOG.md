@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased
+## 1.19.3 — 2026-10-27
 - **Order badges**: one badge per order. Orders at the same price no longer add up into one badge that opened only the first; they sit side by side, and each opens its own order.
 
 ## 1.19.2 — 2026-10-26
