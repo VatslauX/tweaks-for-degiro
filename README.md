@@ -39,8 +39,18 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - **Click a badge** (or Tab to it and press Enter) to open DEGIRO's *Adjust order* form for that order.
 - The order list refreshes every 20 seconds, and a few seconds after an order appears in or disappears from DEGIRO's *Outstanding* list.
 
-**Orders page: filters and totals**
+**Orders page: filters, totals and columns**
 - On *Orders → Outstanding*: filter by action (Buy/Sell), currency and product (multi-select). Total buy and total sell value per currency for the shown orders.
+- **Columns**: choose which columns to show (every column but Product). *Exchange* is hidden by default; *Reset to default* brings that back. Your choice is remembered and synced.
+- The other columns fit their content, so long product names are shown in full.
+
+**Transactions page: filters, totals and columns**
+- On *Transactions*: the same filters by action, currency and product, with total buy, total sell and net (buy − sell) per currency, and the fees in your account currency for the shown transactions.
+- Covers the page shown; if DEGIRO has more pages, the count says *this page only*.
+- **Columns**: as on Orders. *Exchange*, *Venue*, *Exchange Rate* and *AutoFX Fee* are hidden by default.
+
+**Orders and Transactions in the sidebar**
+- Two links below *Products* in DEGIRO's left menu, in DEGIRO's own style; the open page's link is highlighted. On a window too short for them, they are left out so DEGIRO's own items stay on screen.
 
 **Adjust order: click outside or press Esc to close**
 - Clicking anywhere outside the *Adjust order* panel, or pressing Esc, closes it, the same as the Cancel or × button, without saving changes. An open DEGIRO confirmation, dropdown or menu takes the Esc first.
@@ -66,10 +76,12 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Open orders on chart | On |
 | ↳ Click badge to adjust | On |
 | Click outside or Esc closes Adjust order | On |
-| Filters and totals on Orders | On |
+| Filters and totals on Orders (+ columns) | On (*Exchange* hidden) |
+| Filters and totals on Transactions (+ columns) | On (*Exchange*, *Venue*, *Exchange Rate*, *AutoFX Fee* hidden) |
+| Orders and Transactions in the sidebar | On |
 | Hide sections (+ editable list of titles) | On (*Cash compensation*, in any DEGIRO language) |
 
-Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles.
+Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles. The columns are chosen on the Orders and Transactions pages themselves.
 
 Opened from the toolbar over a DEGIRO tab, the popup also shows **On this page**: for each feature, whether it is working, not used on this page, or *Not found* — the last one means DEGIRO probably changed its page, which is useful to mention in a bug report. Nothing is stored or sent anywhere.
 
@@ -87,6 +99,7 @@ Requires Chrome 111 or newer.
 
 ## Notes & limitations
 
+- The Transactions totals cover the transactions on the page shown (DEGIRO shows up to 100 per page); the extension makes no extra requests for them.
 - Orders are shown only on the chart of the exact listing (exchange/currency) they were placed on.
 - If DEGIRO shows a shortened product name that fits more than one order, nothing opens and the badge says so.
 - The extension relies on DEGIRO's current page structure, so a DEGIRO redesign may break individual features.

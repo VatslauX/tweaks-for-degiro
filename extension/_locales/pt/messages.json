@@ -78,7 +78,26 @@
     "message": "Filtros e totais em Ordens"
   },
   "optOrdersFilterHelp": {
-    "message": "Filtre as ordens em aberto por ação, moeda e produto; totais de compra/venda por moeda."
+    "message": "Filtre as ordens em aberto por ação, moeda e produto; totais de compra/venda por moeda; escolha que colunas mostrar."
+  },
+  "optTransactionsFilter": {
+    "message": "Filtros e totais em Transações"
+  },
+  "optTransactionsFilterHelp": {
+    "message": "Filtre por ação, moeda e produto; totais de compra, venda e líquido por moeda, mais comissões; escolha que colunas mostrar. Abrange a página mostrada."
+  },
+  "optNavLinks": {
+    "message": "Ordens e Transações na barra lateral"
+  },
+  "optNavLinksHelp": {
+    "message": "Duas ligações abaixo de Produtos no menu à esquerda da DEGIRO."
+  },
+  "navOrders": {
+    "message": "Ordens",
+    "description": "Sidebar link, DEGIRO's own wording"
+  },
+  "navTransactions": {
+    "message": "Transações"
   },
   "optHideSections": {
     "message": "Ocultar secções"
@@ -178,6 +197,30 @@
   },
   "ordersCount": {
     "message": "$1 de $2 ordens"
+  },
+  "txNet": {
+    "message": "Líquido (compra − venda)"
+  },
+  "txFees": {
+    "message": "Comissões"
+  },
+  "txCount": {
+    "message": "$1 de $2 transações"
+  },
+  "txPageOnly": {
+    "message": "apenas esta página"
+  },
+  "columns": {
+    "message": "Colunas"
+  },
+  "allColumns": {
+    "message": "Todas as colunas"
+  },
+  "columnsHidden": {
+    "message": "$1 ocultas"
+  },
+  "columnsReset": {
+    "message": "Repor padrão"
   },
   "badgeBuy": {
     "message": "COMPRA"

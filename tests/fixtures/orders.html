@@ -3,11 +3,35 @@
 <head>
   <meta charset="utf-8">
   <title>DEGIRO orders mock</title>
-  <style>body { font-family: Inter, sans-serif; margin: 0; } td, th { padding: 4px 8px; text-align: left; }</style>
+  <style>body { font-family: Inter, sans-serif; margin: 0; } td, th { padding: 4px 8px; text-align: left; white-space: nowrap; box-sizing: border-box; }
+    /* like DEGIRO: the table fills the width, Product is pinned at 320px, the rest share the spare width */
+    #orders { width: 100%; } #orders tr > :first-child { width: 320px; min-width: 320px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+    /* like DEGIRO's: a full-height column (logo, primary nav, bottom nav) that doesn't scroll or shrink. Here it
+       floats over the page's left edge instead of taking width, which the table specs measure; only its links
+       take clicks */
+    [data-name=sideNavigation] { pointer-events: none; } [data-name=sideNavigation] a { pointer-events: auto; }
+    [data-name=sideNavigation] { position: fixed; left: 0; right: auto; top: 0; width: 72px; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; overflow-y: visible; border: 0; background: #fff; }
+    [data-name=sideNavigation] nav { flex: none; display: flex; flex-direction: column; gap: 8px; } [data-name=sideNavigation] .logo { height: 68px; flex: none; }
+    [data-name=sideNavigation] a { display: flex; flex-direction: column; align-items: center; color: rgb(214, 221, 224); }
+    [data-name=sideNavigation] a.current { color: rgb(0, 149, 210); } [data-name=sideNavigation] svg { width: 24px; height: 24px; } [data-name=sideNavigation] svg path { fill: currentColor; }</style>
 </head>
 <body>
 <!-- Mimics Orders → Outstanding on trader.degiro.nl (#/orders/open). -->
 <div data-name="app-layout">
+  <!-- DEGIRO's left sidebar: one wrapper per item; the current item's link has one extra (hashed) class -->
+  <aside data-name="sideNavigation" aria-label="Side menu navigation"><a class="logo" href="#/" aria-label="DEGIRO"></a><nav aria-label="primary">
+    <div><div class="navCell"><a data-name="marketsMenuItem" class="navItem" href="#/markets"><i role="img" data-name="icon" data-type="area_graph_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Market</span></a></div></div>
+    <div><div class="navCell"><a data-name="favouriteProductsMenuItem" class="navItem" href="#/favourites"><i role="img" data-name="icon" data-type="star_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Favourites</span></a></div></div>
+    <div><div class="navCell"><a data-name="portfolioMenuItem" class="navItem" href="#/portfolio/assets"><i role="img" data-name="icon" data-type="wallet_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Portfolio</span></a></div></div>
+    <span><div class="navCell"><a data-name="accountActivityMenuItem" class="navItem current" href="#/inbox"><i role="img" data-name="icon" data-type="mail" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Inbox</span></a></div></span>
+    <div><div class="navCell"><a data-name="productsMenuItem" class="navItem" href="#/products?productType=1"><i role="img" data-name="icon" data-type="products_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Products</span></a></div></div>
+  </nav><nav aria-label="secondary">
+    <div><a class="navItem" href="#/profile"><span>Profile</span></a></div>
+    <div><a class="navItem" href="#/settings"><span>Settings</span></a></div>
+    <div><a class="navItem" href="#/theme"><span>Theme</span></a></div>
+    <div><a class="navItem" href="#/logout"><span>Log off</span></a></div>
+  </nav></aside>
+ <section data-name="openOrders">
   <h2>Orders</h2>
   <div id="toolbar">
     <input placeholder="Search for a product">
@@ -18,6 +42,7 @@
       </table>
     </div>
   </div>
+ </section>
 </div>
 <script>
   // product, action, qty, limit (with currency), value
@@ -38,7 +63,7 @@
       const tr = document.createElement('tr');
       const cur = limit.split(' ')[0];
       tr.innerHTML = `<td><span data-name="productName"></span><button data-name="productCategory">A</button></td>
-        <td><span data-field="date">19/10/2026</span></td><td>SYM | XX000</td><td>TDG</td><td></td>
+        <td><span data-field="date">19/10/2026</span></td><td><span data-name="symbolIsin">SYM | XX000</span></td><td><span data-name="exchangeAbbr">TDG</span></td><td></td>
         <td><span data-field="quantityColumnValue">${qty}</span></td>
         <td><span data-field="limitColumnValue">${limit}</span></td>
         <td><span data-field="stopPriceColumnValue">${cur} —</span></td>
@@ -46,7 +71,7 @@
         <td><span data-field="outstandingColumnValue">${qty}</span></td>
         <td><span data-field="executedColumnValue">0</span></td><td></td>`;
       tr.querySelector('[data-name=productName]').textContent = name;
-      tr.children[4].innerHTML = `<span style="color:${action === 'Buy' ? 'rgb(30, 131, 2)' : 'rgb(228, 1, 1)'};font-weight:500"></span>`;
+      tr.children[4].innerHTML = `<span data-name="buySellBadge" data-action="${action.toUpperCase()}" style="color:${action === 'Buy' ? 'rgb(30, 131, 2)' : 'rgb(228, 1, 1)'};font-weight:500"></span>`;
       tr.children[4].firstChild.textContent = action;
       tb.appendChild(tr);
     }

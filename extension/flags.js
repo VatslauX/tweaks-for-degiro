@@ -10,11 +10,23 @@ const DG_DEFAULTS = {
   orders: true,        // open orders on the chart
   ordersClick: true,   // click an order badge to open "Adjust order"
   adjustClose: true,   // click outside "Adjust order" closes it
+  navLinks: true,      // Orders and Transactions links in the left sidebar
   ordersFilter: true,  // Orders page: filters and buy/sell totals
+  ordersHiddenColumns: ['exchange'], // Orders columns to hide (DG_ORDER_COLUMNS)
+  transactionsFilter: true, // Transactions page: filters, buy/sell/net totals and fees
+  txHiddenColumns: ['exchange', 'venue', 'exchangeRate', 'autoFxFee'], // Transactions columns to hide (DG_TX_COLUMNS)
   hideSections: true,  // hide sections listed below
   // DEGIRO's Cash compensation section is also found by its hook, in any language
   hiddenTitles: ['Cash compensation', 'Cash compensatie', 'Barausgleich', 'Compensation espèces']
 };
+
+// Transactions columns that can be hidden (Product never can).
+const DG_TX_COLUMNS = ['date', 'symbolIsin', 'exchange', 'venue', 'action', 'qty', 'price', 'localValue',
+  'value', 'exchangeRate', 'autoFxFee', 'fees', 'total'];
+
+// Orders → Outstanding columns that can be hidden (Product never can).
+const DG_ORDER_COLUMNS = ['date', 'symbolIsin', 'exchange', 'action', 'qty', 'limit', 'stopPrice', 'value',
+  'outstanding', 'executed'];
 
 // Flags read by the page-context scripts — the only ones exposed to the page.
 const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick'];
@@ -34,7 +46,7 @@ function dgSanitize(s) {
   const out = { ...DG_DEFAULTS };
   if (!s || typeof s !== 'object') return out;
   for (const k of Object.keys(DG_DEFAULTS)) {
-    if (k === 'hiddenTitles') continue;
+    if (Array.isArray(DG_DEFAULTS[k])) continue; // lists: below
     if (typeof s[k] === 'boolean') out[k] = s[k];
     else if (s[k] != null) out[k] = !!s[k];
   }
@@ -45,6 +57,8 @@ function dgSanitize(s) {
       .filter(Boolean)
       .slice(0, DG_MAX_TITLES);
   }
+  if (Array.isArray(s.txHiddenColumns)) out.txHiddenColumns = DG_TX_COLUMNS.filter(c => s.txHiddenColumns.includes(c));
+  if (Array.isArray(s.ordersHiddenColumns)) out.ordersHiddenColumns = DG_ORDER_COLUMNS.filter(c => s.ordersHiddenColumns.includes(c));
   return out;
 }
 
@@ -78,7 +92,7 @@ function dgSanitize(s) {
       clearInterval(timer);
       /** @type {Record<string, boolean>} */
       const off = {};
-      for (const k of Object.keys(DG_DEFAULTS)) if (k !== 'hiddenTitles') off[k] = false;
+      for (const k of Object.keys(DG_DEFAULTS)) if (!Array.isArray(DG_DEFAULTS[k])) off[k] = false;
       apply(off);
     }, 2000);
   }

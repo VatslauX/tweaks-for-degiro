@@ -8,6 +8,7 @@ test('parses DEGIRO prices in both formats', () => {
   assert.strictEqual(parseNum('$1,234.56', '.'), 1234.56);
   assert.strictEqual(parseNum('$ 648,85', ','), 648.85);
   assert.strictEqual(parseNum('639,6901', ','), 639.6901);
+  assert.strictEqual(parseNum('€ \u22123.603,00', ','), -3603);
   assert.strictEqual(parseNum('-48,67', ','), -48.67);
   assert.strictEqual(parseNum('1.234.567,8', ','), 1234567.8);
 });

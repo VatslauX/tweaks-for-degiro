@@ -10,6 +10,7 @@ const EXT = path.resolve(__dirname, '../../extension');
 const MOCK = fs.readFileSync(path.resolve(__dirname, '../fixtures/degiro.html'), 'utf8');
 const PORTFOLIO = fs.readFileSync(path.resolve(__dirname, '../fixtures/portfolio.html'), 'utf8');
 const ORDERS_PAGE = fs.readFileSync(path.resolve(__dirname, '../fixtures/orders.html'), 'utf8');
+const TRANSACTIONS_PAGE = fs.readFileSync(path.resolve(__dirname, '../fixtures/transactions.html'), 'utf8');
 
 // portfolio value series per period, newest first (like DEGIRO)
 const PERIOD_DAYS = { ONE_MONTH: 22, THREE_MONTHS: 65, YEAR_TO_DATE: 205, ONE_YEAR: 260 };
@@ -95,6 +96,7 @@ const test = base.extend({
         if (u.pathname.includes('/secure/')) return route.fulfill({ contentType: 'application/json', body: '{}' });
         if (u.searchParams.get('mock') === 'portfolio') return route.fulfill({ contentType: 'text/html', body: PORTFOLIO });
         if (u.searchParams.get('mock') === 'orders') return route.fulfill({ contentType: 'text/html', body: ORDERS_PAGE });
+        if (u.searchParams.get('mock') === 'transactions') return route.fulfill({ contentType: 'text/html', body: TRANSACTIONS_PAGE });
         return route.fulfill({ contentType: 'text/html', body: MOCK });
       });
       const page = await context.newPage();

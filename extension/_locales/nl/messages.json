@@ -78,7 +78,26 @@
     "message": "Filters en totalen bij Orders"
   },
   "optOrdersFilterHelp": {
-    "message": "Filter openstaande orders op actie, valuta en product; totalen kopen/verkopen per valuta."
+    "message": "Filter openstaande orders op actie, valuta en product; totalen kopen/verkopen per valuta; kies welke kolommen je ziet."
+  },
+  "optTransactionsFilter": {
+    "message": "Filters en totalen bij Transacties"
+  },
+  "optTransactionsFilterHelp": {
+    "message": "Filter op actie, valuta en product; totalen kopen, verkopen en netto per valuta, plus kosten; kies welke kolommen je ziet. Geldt voor de getoonde pagina."
+  },
+  "optNavLinks": {
+    "message": "Orders en Transacties in de zijbalk"
+  },
+  "optNavLinksHelp": {
+    "message": "Twee links onder Producten in het linkermenu van DEGIRO."
+  },
+  "navOrders": {
+    "message": "Orders",
+    "description": "Sidebar link, DEGIRO's own wording"
+  },
+  "navTransactions": {
+    "message": "Transacties"
   },
   "optHideSections": {
     "message": "Onderdelen verbergen"
@@ -178,6 +197,30 @@
   },
   "ordersCount": {
     "message": "$1 van $2 orders"
+  },
+  "txNet": {
+    "message": "Netto (kopen − verkopen)"
+  },
+  "txFees": {
+    "message": "Kosten"
+  },
+  "txCount": {
+    "message": "$1 van $2 transacties"
+  },
+  "txPageOnly": {
+    "message": "alleen deze pagina"
+  },
+  "columns": {
+    "message": "Kolommen"
+  },
+  "allColumns": {
+    "message": "Alle kolommen"
+  },
+  "columnsHidden": {
+    "message": "$1 verborgen"
+  },
+  "columnsReset": {
+    "message": "Standaard herstellen"
   },
   "badgeBuy": {
     "message": "KOOP"

@@ -145,23 +145,38 @@
       }
       return null;
     };
-    return { canvas: c, left: first / scale, right: last / scale, height: Hh / scale, lineY };
+    return { canvas: c, w: W, h: Hh, left: first / scale, right: last / scale, height: Hh / scale, lineY };
   }
 
-  // DEGIRO greys the line right of the cursor while hovering, so read the canvas while not hovered
-  let geoCache = null, geoAt = 0, geoKey = '';
+  // DEGIRO greys the line right of the cursor while hovering, so read the canvas while not hovered.
+  // The cache belongs to one canvas: DEGIRO builds a new chart when Portfolio is reached from another
+  // page (same size, same data), and the old canvas is detached (its rect is all zeros). If the pointer
+  // is already over the new chart, the line's extent is kept from the replaced canvas (`stale`), and
+  // only the canvas and where the line is are read from the new one, until it is measured unhovered.
+  let geoCache = null, geoAt = 0, geoKey = '', stale = null;
   function refreshGeometry(force) {
     const area = $(SEL.perfArea);
     const c = lineCanvas();
     if (!area || !c) return;
+    if (geoCache && geoCache.canvas !== c) { stale = geoCache; geoCache = null; geoKey = ''; }
     const key = [version, c.width, c.height].join('|');
     const settling = Date.now() - versionAt < 3000; // DEGIRO redraws shortly after new data
     if (!force && !settling && key === geoKey && Date.now() - geoAt < 10000) return;
-    if (area.matches(':hover')) return;
+    if (area.matches(':hover')) {
+      if (!geoCache && stale && stale.w === c.width && stale.h === c.height) {
+        const g = geometry();
+        if (g) geoCache = { ...g, left: stale.left, right: stale.right, height: stale.height }; // geoKey stays '': re-measured once unhovered
+      }
+      return;
+    }
     const g = geometry();
-    if (g) { geoCache = g; geoAt = Date.now(); geoKey = key; }
+    if (g) { geoCache = g; geoAt = Date.now(); geoKey = key; stale = null; }
   }
-  const cachedGeometry = () => { if (!geoCache) refreshGeometry(true); return geoCache || geometry(); };
+  const cachedGeometry = () => {
+    refreshGeometry(false); // drops a cache of a replaced canvas
+    if (!geoCache) refreshGeometry(true);
+    return geoCache || geometry();
+  };
 
   // ---------- drag-to-select ----------
   // the chart area we attached to, its clear(), and the hide-values filter of the shown selection

@@ -78,7 +78,26 @@
     "message": "Filtres et totaux sur Ordres"
   },
   "optOrdersFilterHelp": {
-    "message": "Filtrer les ordres en cours par action, devise et produit ; totaux achat/vente par devise."
+    "message": "Filtrer les ordres en cours par action, devise et produit ; totaux achat/vente par devise ; choix des colonnes affichées."
+  },
+  "optTransactionsFilter": {
+    "message": "Filtres et totaux sur Transactions"
+  },
+  "optTransactionsFilterHelp": {
+    "message": "Filtrer par action, devise et produit ; totaux achat, vente et net par devise, plus les frais ; choix des colonnes affichées. Porte sur la page affichée."
+  },
+  "optNavLinks": {
+    "message": "Ordres et Transactions dans la barre latérale"
+  },
+  "optNavLinksHelp": {
+    "message": "Deux liens sous Produits dans le menu de gauche de DEGIRO."
+  },
+  "navOrders": {
+    "message": "Ordres",
+    "description": "Sidebar link, DEGIRO's own wording"
+  },
+  "navTransactions": {
+    "message": "Transactions"
   },
   "optHideSections": {
     "message": "Masquer des sections"
@@ -178,6 +197,30 @@
   },
   "ordersCount": {
     "message": "$1 ordres sur $2"
+  },
+  "txNet": {
+    "message": "Net (achat − vente)"
+  },
+  "txFees": {
+    "message": "Frais"
+  },
+  "txCount": {
+    "message": "$1 transactions sur $2"
+  },
+  "txPageOnly": {
+    "message": "cette page uniquement"
+  },
+  "columns": {
+    "message": "Colonnes"
+  },
+  "allColumns": {
+    "message": "Toutes les colonnes"
+  },
+  "columnsHidden": {
+    "message": "$1 masquées"
+  },
+  "columnsReset": {
+    "message": "Rétablir par défaut"
   },
   "badgeBuy": {
     "message": "ACHAT"

@@ -118,3 +118,73 @@ test('DEGIRO "hide values" mode also hides our amounts and percentages, not the 
   await expect(label).toBeHidden({ timeout: 3000 });
   await expect.poll(async () => (await filters())[0], { timeout: 3000 }).toBe('none');
 });
+
+test('selection stays on the chart after in-app navigation rebuilds it', async ({ degiro }) => {
+  // DEGIRO builds a new chart (new canvas, same size) when Portfolio is reached from another page;
+  // a geometry cached from the old, detached canvas put the band at the top of the page
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(3500); // geometry of the first chart is cached, and DEGIRO's redraws have settled
+  await page.evaluate(() => { location.hash = '#/favourites'; });
+  await expect(page.locator('[data-name="performance-chart"]')).toHaveCount(0);
+  await page.evaluate(() => { location.hash = '#/portfolio'; });
+  await expect(page.locator('[data-name="performance-chart-interaction-area"][data-dg-sel]')).toHaveCount(1);
+  await page.waitForTimeout(600); // the new chart is drawn with the same data (well within the 10 s cache)
+  await drag(page, 0.25, 0.75);
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  await expect(label).toBeVisible();
+  const r = await page.evaluate(() => {
+    const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
+    const band = [...area.children].find(d => d.style.borderLeftWidth === '1px');
+    const b = band.getBoundingClientRect(), c = document.getElementById('c1').getBoundingClientRect();
+    const dots = [...area.children].filter(d => d.style.borderRadius === '50%' && d.style.display === 'block')
+      .map(d => d.getBoundingClientRect()).map(d => d.top + d.height / 2);
+    return { band: [b.top, b.bottom, b.left, b.right], chart: [c.top, c.bottom, c.left, c.right], dots };
+  });
+  expect(Math.abs(r.band[0] - r.chart[0])).toBeLessThanOrEqual(2);
+  expect(Math.abs(r.band[1] - r.chart[1])).toBeLessThanOrEqual(2);
+  expect(r.band[2]).toBeGreaterThanOrEqual(r.chart[2] + 0.2 * (r.chart[3] - r.chart[2]));
+  expect(r.band[3]).toBeLessThanOrEqual(r.chart[2] + 0.8 * (r.chart[3] - r.chart[2]));
+  expect(r.dots.length).toBe(2);
+  for (const y of r.dots) { expect(y).toBeGreaterThan(r.chart[0]); expect(y).toBeLessThan(r.chart[1]); }
+});
+
+test('a chart rebuilt under the pointer still selects up to its right edge', async ({ degiro }) => {
+  // DEGIRO greys the line right of the cursor while hovered; measuring the rebuilt chart then
+  // would end the line (and the selection) at the cursor
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(3500); // geometry of the first chart is cached
+  const box = await page.locator('#c1').boundingBox();
+  const y = box.y + box.height / 2, at = f => box.x + box.width * f;
+  await page.evaluate(() => { location.hash = '#/favourites'; });
+  await expect(page.locator('[data-name="performance-chart"]')).toHaveCount(0);
+  await page.mouse.move(at(0.4), y); // where the chart will be
+  await page.evaluate(() => { location.hash = '#/portfolio'; });
+  await page.mouse.move(at(0.4) + 1, y); // the new chart is hovered (and greyed) from the start
+  await expect(page.locator('[data-name="performance-chart-interaction-area"][data-dg-sel]')).toHaveCount(1);
+  await page.waitForTimeout(600); // drawn, and the extension has run on it while hovered
+  // the mock really greys the line right of the cursor
+  const grey = await page.evaluate(x => {
+    const c = document.getElementById('c1'), ctx = c.getContext('2d');
+    const col = cx => { const d = ctx.getImageData(cx, 0, 1, c.height).data; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] < 40 && Math.abs(d[i + 1] - 159) < 40) return true; return false; };
+    return { left: col(Math.round(x * 0.5)), right: col(Math.round(x * 1.5)) };
+  }, box.width * 0.4);
+  expect(grey).toEqual({ left: true, right: false });
+  await page.mouse.down();
+  await page.mouse.move(at(0.7), y, { steps: 3 });
+  await page.mouse.move(at(0.999), y, { steps: 3 });
+  await page.mouse.up();
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  await expect(label).toBeVisible();
+  const r = await page.evaluate(() => {
+    const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
+    const band = [...area.children].find(d => d.style.borderLeftWidth === '1px');
+    const b = band.getBoundingClientRect(), c = document.getElementById('c1').getBoundingClientRect();
+    return { band: [b.left, b.right], chart: [c.left, c.right] };
+  });
+  expect(r.band[1]).toBeGreaterThanOrEqual(r.chart[1] - 10); // the last point (7 px padding), not the cursor
+  expect(r.band[0]).toBeLessThanOrEqual(r.chart[0] + 0.45 * (r.chart[1] - r.chart[0]));
+});

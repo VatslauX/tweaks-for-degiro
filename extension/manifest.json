@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tweaks for DEGIRO (unofficial)",
-  "version": "1.19.3",
+  "version": "1.20.0",
   "minimum_chrome_version": "111",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
@@ -41,6 +41,7 @@
         "hide.js",
         "adjust-close.js",
         "orders-table.js",
+        "nav.js",
         "status.js"
       ],
       "run_at": "document_idle"

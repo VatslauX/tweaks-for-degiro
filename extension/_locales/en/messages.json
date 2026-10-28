@@ -97,7 +97,26 @@
     "description": "Feature name"
   },
   "optOrdersFilterHelp": {
-    "message": "Filter Outstanding orders by action, currency and product; buy/sell totals per currency."
+    "message": "Filter Outstanding orders by action, currency and product; buy/sell totals per currency; choose which columns to show."
+  },
+  "optTransactionsFilter": {
+    "message": "Filters and totals on Transactions"
+  },
+  "optTransactionsFilterHelp": {
+    "message": "Filter by action, currency and product; buy, sell and net totals per currency, plus fees; choose which columns to show. Covers the page shown."
+  },
+  "optNavLinks": {
+    "message": "Orders and Transactions in the sidebar"
+  },
+  "optNavLinksHelp": {
+    "message": "Two links below Products in DEGIRO's left menu."
+  },
+  "navOrders": {
+    "message": "Orders",
+    "description": "Sidebar link, DEGIRO's own wording"
+  },
+  "navTransactions": {
+    "message": "Transactions"
   },
   "optHideSections": {
     "message": "Hide sections",
@@ -211,6 +230,34 @@
   },
   "ordersCount": {
     "message": "$1 of $2 orders"
+  },
+  "txNet": {
+    "message": "Net (buy − sell)",
+    "description": "Transactions page: bought minus sold, per currency"
+  },
+  "txFees": {
+    "message": "Fees"
+  },
+  "txCount": {
+    "message": "$1 of $2 transactions",
+    "description": "$1 = shown, $2 = all on this page"
+  },
+  "txPageOnly": {
+    "message": "this page only",
+    "description": "DEGIRO shows more pages of transactions; totals cover only this one"
+  },
+  "columns": {
+    "message": "Columns"
+  },
+  "allColumns": {
+    "message": "All columns"
+  },
+  "columnsHidden": {
+    "message": "$1 hidden",
+    "description": "$1 = number of hidden columns"
+  },
+  "columnsReset": {
+    "message": "Reset to default"
   },
   "badgeBuy": {
     "message": "BUY",

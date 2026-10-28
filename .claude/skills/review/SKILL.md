@@ -1,9 +1,13 @@
 ---
-name: pre-commit-review
-description: Use before every git commit in this repo (after update-docs), and when the user says "review" or "code review". Reviews the pending changes of Tweaks for DEGIRO against the project's safety, store and robustness rules, runs the tests, and reports findings by priority.
+name: review
+description: Use after every development task in this repo (any change to extension/, tests/ or scripts/), before every git commit (after update-docs), and when the user says "review" or "code review". Runs in its own sub-agent with a fresh context. Reviews the pending changes of Tweaks for DEGIRO against the project's safety, store and robustness rules, runs the tests (`npm run test:report` in the background), and reports findings by priority.
+context: fork
+agent: general-purpose
 ---
 
-# Pre-commit code review
+# Code review
+
+You run in a separate sub-agent with a fresh context: you see only the working tree, not the conversation that made the change. Work from `git diff` and the files. Report only: don't fix, commit or push anything, and leave the working tree as you found it (restore anything you stash). The session that called you fixes the findings.
 
 Review the changes about to be committed for "Tweaks for DEGIRO (unofficial)". Find real defects, not style. The tests already cover the invariants they encode. Look for what they miss.
 
@@ -12,8 +16,8 @@ Review the changes about to be committed for "Tweaks for DEGIRO (unofficial)". F
 1. **Collect the change.** Run `git status --short`, `git diff`, `git diff --cached`, and list untracked files. If only `.md` files changed, check only the doc rules below and skip the tests.
 2. **Read every changed source file in full**, not just the hunks. For changes to `common.js`, also read the scripts that use the changed names (`grep -n "<name>" extension/*.js`).
 3. **Check the change against the checklist below.** For each suspected problem, trace it in the code or reproduce it with a test before reporting it. Drop anything you can't back up.
-4. **Run `npm test`** (typecheck, lint, unit, e2e). If the change touches one feature only, run its spec first for a quick signal, then the full suite. If the run takes long, use `run_in_background`.
-5. **Report** in the format below. Fix P1 findings before the commit, or ask the user if the fix is a judgement call. Don't commit with a failing test.
+4. **Run the tests directly with Bash**, not `npm test` and not the `run-tests` skill: a background skill started from a sub-agent reports to the main session, not to you. Start early (right after step 1), with `run_in_background: true` and `timeout: 600000`: `npm run --silent test:report -- <scope>`, first the spec of the changed feature for a quick signal (`tests/e2e/<spec>.spec.js`), then with no scope (and no `--`) for the full suite (about 8 minutes). Keep reviewing meanwhile. Stdout is one JSON object (overall `ok`, per-stage counts, each failure with `file:line`, title and trimmed error lines); exit code non-zero on any failure. Before writing the report, wait for the shell's own completion notification and read the output once; never report without it, and don't poll or `sleep` for it. Scopes: a spec path (`:line` allowed), `-g "<name>"` for one test by name, or a stage (`typecheck`, `lint`, `unit`, `e2e`).
+5. **Report** in the format below. The calling session fixes P1 findings before any commit (or asks the user when the fix is a judgement call), and never commits with a failing test.
 
 ## Checklist
 
@@ -58,7 +62,7 @@ Review the changes about to be committed for "Tweaks for DEGIRO (unofficial)". F
 - Unit tests (`tests/unit/`) for logic that runs without a page: parsing, sanitising, the manifest, translations, the static source rules.
 - E2E tests (`tests/e2e/`) for behaviour on the page: what appears, what is clicked, what requests go to DEGIRO and how often, settings on → off → on.
 - Where both apply, both. Missing coverage for a behaviour change is a finding (P2, or P1 when it guards safety or load on DEGIRO).
-- A test must fail without the change. If unsure, check it against the old code (`git stash` the source file and run the spec).
+- A test must fail without the change. If unsure, check it against the old code (`git stash` the source file and run the spec with `npm run --silent test:report -- <spec>`).
 - When a feature depends on new DEGIRO DOM, the mock (`tests/fixtures/*.html`) is extended to match. The mock must not drift further from the real page.
 - No `zz-*` or other scratch files are left in `tests/`.
 
@@ -68,7 +72,7 @@ Review the changes about to be committed for "Tweaks for DEGIRO (unofficial)". F
 
 ## Report format
 
-Start with one line: what you reviewed (files, about how many lines) and the `npm test` result (passed/failed/skipped counts).
+Start with one line: what you reviewed (files, about how many lines) and the test result from `test:report` (`ok`, and passed/failed/skipped per stage). List each test failure from its `failures` array (stage, `file:line`, title, error lines).
 
 Then the findings, most severe first. Each finding gets:
 - its priority:

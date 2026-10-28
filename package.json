@@ -6,6 +6,7 @@
     "typecheck": "tsc -p tsconfig.isolated.json && tsc -p tsconfig.page.json && tsc -p tsconfig.options.json",
     "test:unit": "node --test tests/unit/*.test.js",
     "test:e2e": "playwright test",
+    "test:report": "node scripts/test-report.js",
     "build": "node scripts/build.js",
     "store-images": "playwright test --config scripts/store-images.config.js",
     "sync-common": "node -e \"require('fs').copyFileSync('extension/common.js','extension/common-isolated.js')\"",

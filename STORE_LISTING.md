@@ -43,6 +43,9 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > AN ORDERS PAGE THAT SCALES
 > • Filter outstanding orders by Buy/Sell, currency and product
 > • Total buy and sell value per currency for the orders shown. Know how much cash your open orders need
+> • Transactions: the same filters, with buy, sell and net totals per currency and the fees
+> • Choose which columns to show on Orders and Transactions; long product names shown in full
+> • Orders and Transactions links right in DEGIRO's left menu
 > • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved)
 >
 > LESS CLUTTER
@@ -67,7 +70,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 1. Product page with spread row and orders on the chart
 2. Range selection showing % change
 3. Portfolio chart with the period change
-4. Orders page with filters and totals
+4. Orders page with filters, totals and the new sidebar links
 5. Settings popup with *On this page*
 
 Take them from the real page with every personal number replaced: paste `scripts/screenshot-mask.js` into the DevTools console of a logged-in DEGIRO tab, save the four shots to `dist/screenshots-real/raw/` (see `scripts/store-images.spec.js`), and check each one. `npm run store-images` then writes the five screenshots (caption bar, 1280×800 JPEG, the settings popup added from the extension) and both promo tiles to `dist/store/`.
@@ -80,13 +83,13 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings and the list of page sections to hide.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide and the columns hidden on the Orders and Transactions pages.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.
 
 **Remote code:** No, I am not using remote code. All JavaScript is included in the package.
 
 **Data usage — select:**
-- **Financial and payment information** — the user's open orders and portfolio value history are read from DEGIRO to draw them on the charts. Used locally only.
+- **Financial and payment information** — the user's open orders and portfolio value history are read from DEGIRO to draw them on the charts, and the orders and transactions shown on DEGIRO's Orders and Transactions pages are read from the page for filters and totals. Used locally only.
 - **Authentication information** — the DEGIRO session identifier and internal account number are used, locally, to request the user's own orders from DEGIRO. If DEGIRO's request URLs don't contain them, they are read from DEGIRO's own session and client endpoints (only the account number is read from the client answer).
 - **Personally identifiable information** — only in that fallback case: DEGIRO's client answer also contains the user's profile (name, contact details). It is received and parsed in page memory; only the account number is kept, the rest is discarded and never stored or sent anywhere. (Alternative, if you'd rather not tick this: remove the `/pa/secure/client` request from `orders.js` and wait for the account number to appear in DEGIRO's own request URLs.)
 

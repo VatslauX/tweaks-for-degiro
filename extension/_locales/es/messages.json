@@ -78,7 +78,26 @@
     "message": "Filtros y totales en Órdenes"
   },
   "optOrdersFilterHelp": {
-    "message": "Filtra las órdenes pendientes por operación, divisa y producto; totales de compra/venta por divisa."
+    "message": "Filtra las órdenes pendientes por operación, divisa y producto; totales de compra/venta por divisa; elige qué columnas mostrar."
+  },
+  "optTransactionsFilter": {
+    "message": "Filtros y totales en Transacciones"
+  },
+  "optTransactionsFilterHelp": {
+    "message": "Filtra por acción, divisa y producto; totales de compra, venta y neto por divisa, más comisiones; elige qué columnas mostrar. Cubre la página mostrada."
+  },
+  "optNavLinks": {
+    "message": "Órdenes y Transacciones en la barra lateral"
+  },
+  "optNavLinksHelp": {
+    "message": "Dos enlaces bajo Productos en el menú izquierdo de DEGIRO."
+  },
+  "navOrders": {
+    "message": "Órdenes",
+    "description": "Sidebar link, DEGIRO's own wording"
+  },
+  "navTransactions": {
+    "message": "Transacciones"
   },
   "optHideSections": {
     "message": "Ocultar secciones"
@@ -178,6 +197,30 @@
   },
   "ordersCount": {
     "message": "$1 de $2 órdenes"
+  },
+  "txNet": {
+    "message": "Neto (compra − venta)"
+  },
+  "txFees": {
+    "message": "Comisiones"
+  },
+  "txCount": {
+    "message": "$1 de $2 transacciones"
+  },
+  "txPageOnly": {
+    "message": "solo esta página"
+  },
+  "columns": {
+    "message": "Columnas"
+  },
+  "allColumns": {
+    "message": "Todas las columnas"
+  },
+  "columnsHidden": {
+    "message": "$1 ocultas"
+  },
+  "columnsReset": {
+    "message": "Restablecer"
   },
   "badgeBuy": {
     "message": "COMPRA"

@@ -78,7 +78,26 @@
     "message": "Filter und Summen bei Orders"
   },
   "optOrdersFilterHelp": {
-    "message": "Offene Orders nach Aktion, Währung und Produkt filtern; Kauf-/Verkaufssummen je Währung."
+    "message": "Offene Orders nach Aktion, Währung und Produkt filtern; Kauf-/Verkaufssummen je Währung; sichtbare Spalten wählen."
+  },
+  "optTransactionsFilter": {
+    "message": "Filter und Summen bei Transaktionen"
+  },
+  "optTransactionsFilterHelp": {
+    "message": "Nach Aktion, Währung und Produkt filtern; Kauf-, Verkaufs- und Nettosummen je Währung sowie Gebühren; sichtbare Spalten wählen. Gilt für die angezeigte Seite."
+  },
+  "optNavLinks": {
+    "message": "Orders und Transaktionen in der Seitenleiste"
+  },
+  "optNavLinksHelp": {
+    "message": "Zwei Links unter Produkte im linken Menü von DEGIRO."
+  },
+  "navOrders": {
+    "message": "Orders",
+    "description": "Sidebar link, DEGIRO's own wording"
+  },
+  "navTransactions": {
+    "message": "Transaktionen"
   },
   "optHideSections": {
     "message": "Bereiche ausblenden"
@@ -178,6 +197,30 @@
   },
   "ordersCount": {
     "message": "$1 von $2 Orders"
+  },
+  "txNet": {
+    "message": "Netto (Kauf − Verkauf)"
+  },
+  "txFees": {
+    "message": "Gebühren"
+  },
+  "txCount": {
+    "message": "$1 von $2 Transaktionen"
+  },
+  "txPageOnly": {
+    "message": "nur diese Seite"
+  },
+  "columns": {
+    "message": "Spalten"
+  },
+  "allColumns": {
+    "message": "Alle Spalten"
+  },
+  "columnsHidden": {
+    "message": "$1 ausgeblendet"
+  },
+  "columnsReset": {
+    "message": "Standard wiederherstellen"
   },
   "badgeBuy": {
     "message": "KAUF"

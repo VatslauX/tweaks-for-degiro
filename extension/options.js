@@ -65,7 +65,8 @@
   const FEATURES = {
     spread: 'optSpread', exDividend: 'optExDividend', compactPricing: 'optCompact',
     periodChange: 'optPeriodChange', chartSelect: 'optChartSelect', orders: 'optOrdersChart',
-    portfolio: 'featPortfolio', ordersFilter: 'optOrdersFilter', hideSections: 'optHideSections'
+    portfolio: 'featPortfolio', ordersFilter: 'optOrdersFilter', transactionsFilter: 'optTransactionsFilter',
+    navLinks: 'optNavLinks',     hideSections: 'optHideSections'
   };
   const STATES = { ok: 'statusOk', loading: 'statusLoading', idle: 'statusIdle', error: 'statusError', missing: 'statusMissing' };
   async function loadStatus() {

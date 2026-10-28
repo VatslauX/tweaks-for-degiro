@@ -10,7 +10,7 @@
   function decimalSep() {
     if (typeof document === 'undefined') return ',';
     if (sepCache && Date.now() - sepAt < 10000) return sepCache;
-    const els = document.querySelectorAll('[data-field$="Price"], [data-field="RelativeDifference"], [data-field="valuableColumnValue"]');
+    const els = document.querySelectorAll('[data-field$="Price"], [data-field="RelativeDifference"], [data-field="valuableColumnValue"], [data-field="totalInBaseCurrency"]');
     let sep = null;
     for (const el of els) {
       const m = (el.textContent || '').match(/\d([.,])(\d+)\D*$/);
@@ -23,7 +23,8 @@
 
   // "€ 1.234,56" / "$1,234.56" / "130,995" / "1.000" -> number. `sep` defaults to the page's.
   function parseNum(text, sep = decimalSep()) {
-    let s = String(text ?? '').replace(/[^\d.,-]/g, '');
+    // U+2212 (typographic minus) counts as '-'
+    let s = String(text ?? '').replace(/\u2212/g, '-').replace(/[^\d.,-]/g, '');
     if (!/\d/.test(s)) return NaN;
     const c = s.lastIndexOf(','), d = s.lastIndexOf('.');
     if (c > -1 && d > -1) {
@@ -66,13 +67,35 @@
     // portfolio: the Cash compensation section (its title is localised)
     cashCompensation: '[data-name=cashFundCompensations]',
     appLayout: '[data-name=app-layout]',
+    // left sidebar: Orders and Transactions links go below Products
+    sideBar: '[data-name=sideNavigation]',
+    sideNav: '[data-name=sideNavigation] nav',
+    productsMenuItem: 'a[data-name=productsMenuItem]',
+    menuItem: 'a[data-name$=MenuItem]',
     orderLimit: '[data-field="limitColumnValue"]',
     orderStop: '[data-field="stopPriceColumnValue"]',
     orderValue: '[data-field="valuableColumnValue"]',
     orderProduct: '[data-name="productName"]',
     orderQuantity: '[data-field="quantity"]',
     orderPrice: '[data-field="price"]',
+    // Orders and Transactions tables: columns found by their hooks (the headers are localised)
+    rowDate: '[data-field="date"]',
+    symbolIsin: '[data-name=symbolIsin]',
+    exchangeAbbr: '[data-name=exchangeAbbr]',
+    openOrders: '[data-name=openOrders]',
+    orderQtyColumn: '[data-field="quantityColumnValue"]',
+    orderOutstanding: '[data-field="outstandingColumnValue"]',
+    orderExecuted: '[data-field="executedColumnValue"]',
     buySellBadge: '[data-name=buySellBadge]', // data-action="BUY" | "SELL"; its text is localised
+    // Transactions page: DEGIRO's filters, table and pager; values are signed (buys negative)
+    transactions: '[data-name=transactions]',
+    transactionsFilters: '[data-name=transactionsFilters]',
+    txLocalValue: '[data-field="total"]',
+    txValue: '[data-field="totalInBaseCurrency"]',
+    txTotal: '[data-field="totalPlusAllFeesInBaseCurrency"]',
+    txFee: '[data-field="feeInBaseCurrency"]',
+    txPrice: '[data-field="price"]',
+    pageButtons: '[data-name=prevPageButton], [data-name=nextPageButton]',
     // portfolio chart
     perfChart: '[data-name="performance-chart"]',
     perfValue: '[data-name="performance-chart-value"]',
@@ -101,6 +124,7 @@
     productId: () => +((location.hash.match(/products\/(\d+)/) || [])[1] || 0),
     isProduct: () => /#\/products\/\d+/.test(location.hash),
     isOrders: () => /#\/orders\/open/.test(location.hash),
+    isTransactions: () => /#\/transactions/.test(location.hash),
     isPortfolio: () => !!document.querySelector(SEL.perfChart)
   });
 

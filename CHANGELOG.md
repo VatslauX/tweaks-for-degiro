@@ -1,5 +1,13 @@
 # Release notes
 
+## 1.20.0 — 2026-10-28
+- **Transactions: filters and totals.** Filter by Buy/Sell, currency and product; total buy, total sell and net (buy − sell) per currency, and the fees, for the transactions shown.
+- **Choose the columns** on *Orders → Outstanding* and *Transactions* (every column but Product). Hidden by default: *Exchange* on Orders; *Exchange*, *Venue*, *Exchange Rate* and *AutoFX Fee* on Transactions. The choice is remembered and synced.
+- **Full product names** on both pages: the other columns fit their content and Product gets the spare width.
+- **Orders and Transactions in the sidebar**, below Products, with their own switch in Settings.
+- **Orders filter** now recognises Buy/Sell in any DEGIRO language, and drops a picked currency that is no longer in the table.
+- **Fix**: on the Portfolio chart, the range selection could be drawn over the top of the page after coming back from another page.
+
 ## 1.19.3 — 2026-10-27
 - **Order badges**: one badge per order. Orders at the same price no longer add up into one badge that opened only the first; they sit side by side, and each opens its own order.
 

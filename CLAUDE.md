@@ -16,6 +16,7 @@ npm run typecheck           # tsc per world: tsconfig.isolated.json, tsconfig.pa
 npm run lint                # eslint . (mistakes only: undefined names, unused code; no style rules)
 npm run test:unit           # node --test tests/unit/*.test.js
 npm run test:e2e            # playwright test
+npm run test:report         # agents: same stages, one structured JSON summary (scope: -- unit | -- tests/e2e/x.spec.js | -- -g "name")
 npm run build               # dist/tweaks-for-degiro-<manifest version>.zip (zips extension/ only)
 npm run store-images        # dist/store/: store screenshots and promo tiles (needs the real shots, see scripts/store-images.spec.js)
 
@@ -24,9 +25,13 @@ npx playwright test tests/e2e/bridge.spec.js # one e2e file
 npx playwright test -g "adds a Spread row"   # one e2e test by name
 ```
 
+**The main session runs tests through the `run-tests` skill** (Haiku, own context, background; scope as its argument, e.g. `unit`, `tests/e2e/bridge.spec.js`, `-g "adds a Spread row"`) and gets the structured result: overall `ok`, per stage (typecheck, lint, unit, e2e) passed/failed/skipped and duration, each failure with `file:line`, title and trimmed error lines, and the command run. **Sub-agents and forked skills (`review`, bug-fix sub-agents) don't use the skill**: a background skill or sub-agent started from a sub-agent reports to the main session once the caller's turn ends, not to the caller. They run `npm run --silent test:report -- <scope>` directly with Bash (`run_in_background: true`, `timeout: 600000`; same JSON, exit code non-zero on any failure) and wait for the shell's own completion notification. The full suite takes about 8 minutes: run it in the background and wait for the notification, never poll. `npm test` stays the command for CI and humans (it stops at the first failing stage; `test:report` runs every stage in scope).
+
 ESLint globals for the shared scripts (`__dgt`, the `flags.js` names) are listed in `eslint.config.js`. The version lives only in `extension/manifest.json` (`package.json` has none); bump it for releases. CI (`.github/workflows/test.yml`) runs `npm test` under `xvfb-run` on pushes to main and on pull requests.
 
-**Before every commit, run the `update-docs` skill, then the `pre-commit-review` skill.** `update-docs` updates README, CHANGELOG, CLAUDE.md, PRIVACY and STORE_LISTING to match the change; `pre-commit-review` checks the change against the safety, store, load and robustness rules, runs `npm test`, and must have no P1 findings left before committing.
+**Bug fixes run in a sub-agent.** When a bug is identified and clear (a user report, a review finding, a failing test), spawn a fresh sub-agent to find the root cause and fix it, with a test that fails without the fix. Don't fix it inline. Give the sub-agent the symptom, where it shows, what it must not touch (files other work is changing; on the real DEGIRO page: read-only, never log in, never close tabs), and the deliverable (cause, files changed, test results from `npm run --silent test:report`).
+
+**After every development task** (any change to `extension/`, `tests/` or `scripts/`), check it with the `run-tests` skill (in a sub-agent: `npm run --silent test:report` with Bash), then run the `review` skill before reporting the work as done, then fix its P1 findings. **Before every commit, run the `update-docs` skill, then `review` again.** `update-docs` updates README, CHANGELOG, CLAUDE.md, PRIVACY and STORE_LISTING to match the change; `review` runs in its own sub-agent with a fresh context (`context: fork` in its frontmatter), so it judges the change only from the diff and the files. It checks the change against the safety, store, load and robustness rules, runs the tests with `npm run test:report`, and reports without editing; there must be no P1 findings left before committing.
 
 ## Layout
 
@@ -35,7 +40,7 @@ extension/          the shipped extension (only this folder is zipped)
 tests/unit/         static checks: manifest, permissions, no eval/remote code/innerHTML, i18n, cws-publish
 tests/e2e/          Playwright: real Chromium with the extension loaded
 tests/fixtures/     mock of trader.degiro.nl (Highcharts 4 chart, orders panel, Adjust order form)
-scripts/            build.js (zip), cws-publish.js (store upload), store-images (store screenshots)
+scripts/            build.js (zip), cws-publish.js (store upload), store-images (store screenshots), test-report.js (structured test summary)
 .github/workflows/  test.yml (CI), release.yml (v* tags), cws-auth-check.yml (manual)
 PRIVACY.md          privacy policy (public URL for the store); STORE_LISTING.md: dashboard answers
 ```
@@ -52,7 +57,8 @@ Files in `extension/`, one feature each unless noted:
 | `exdiv.js` | Ex-dividend date in the header |
 | `compact.js` | Compact Pricing data |
 | `hide.js` | Hides sections listed in Settings |
-| `orders-table.js` | Orders page: filters and totals |
+| `orders-table.js` | Orders → Outstanding and Transactions: filters, totals and the column picker (an owned `<style>` hides columns and widens Product) |
+| `nav.js` | Orders and Transactions links in the left sidebar |
 | `adjust-close.js` | Click outside or Esc closes *Adjust order* |
 | `status.js` | Answers the popup's "On this page" status |
 | `chart-select.js` | Chart range selection (page world) |
@@ -67,7 +73,7 @@ Bump `version` in `extension/manifest.json`, add the CHANGELOG entry, commit and
 ## Architecture
 
 **Two execution worlds** (see `manifest.json` `content_scripts`):
-- **Isolated world**: `common-isolated.js`, `flags.js`, `content.js` (spread row and header spread), `exdiv.js`, `compact.js`, `hide.js`, `adjust-close.js`, `orders-table.js`, `status.js`. These can use `chrome.storage`.
+- **Isolated world**: `common-isolated.js`, `flags.js`, `content.js` (spread row and header spread), `exdiv.js`, `compact.js`, `hide.js`, `adjust-close.js`, `orders-table.js`, `nav.js`, `status.js`. These can use `chrome.storage`.
 - **Page world (`world: "MAIN"`)**: `common.js`, `chart-select.js`, `orders.js`, `period.js`, `portfolio.js`. Highcharts features act only on `__dgt.mainChart()` (the largest visible chart with a price series). They need `window.Highcharts` and the page's DEGIRO session, but cannot access `chrome.*`.
 - Each world has its own tsc project whose `files` must match the manifest list (a unit test checks this), so using `chrome.*` or `dgSettings` in the page world fails `npm run typecheck`.
 
@@ -99,4 +105,4 @@ These are store-review and safety requirements. Do not loosen them:
 
 ## E2E tests
 
-`tests/e2e/fixtures.js` launches persistent Chromium (`--headless=new`) with the unpacked extension and routes **all** `trader.degiro.nl` requests to the local mock `tests/fixtures/degiro.html` (Highcharts served from `node_modules`, orders endpoint answered from the `orders` option). Tests never touch the real DEGIRO. Fixtures: `degiro({ orders, url, initScript, respond })` → `{ page, calls }` (`respond(url)` can return `route.fulfill` options, e.g. a 401, or `'hang'` to never answer), mock switches set in `initScript`: `__MOCK_NO_URL_SESSION`, `__MOCK_MAIN_SECTION` (real product layout: one `mainPageSection`), `__MOCK_NO_HOOKS` (order rows without hooks), `__MOCK_SIDES` / `__MOCK_PANEL_LABELS` (localised panel), `__MOCK_TICK_MS` (live price ticker), `settings()` opens `options.html`, `setFlag(page, key, on)` toggles a flag through the UI. Tests run serially (`workers: 1`). When a feature depends on new DEGIRO DOM, extend the mock to match.
+`tests/e2e/fixtures.js` launches persistent Chromium (`--headless=new`) with the unpacked extension and routes **all** `trader.degiro.nl` requests to the local mock `tests/fixtures/degiro.html` (Highcharts served from `node_modules`, orders endpoint answered from the `orders` option). Tests never touch the real DEGIRO. Fixtures: `degiro({ orders, url, initScript, respond })` → `{ page, calls }` (`respond(url)` can return `route.fulfill` options, e.g. a 401, or `'hang'` to never answer), mock switches set in `initScript`: `__MOCK_NO_URL_SESSION`, `__MOCK_MAIN_SECTION` (real product layout: one `mainPageSection`), `__MOCK_NO_HOOKS` (order rows without hooks), `__MOCK_SIDES` / `__MOCK_PANEL_LABELS` (localised panel), `__MOCK_TICK_MS` (live price ticker); more pages by query: `?mock=orders` (`tests/fixtures/orders.html`), `?mock=transactions` (`transactions.html`, switches `__MOCK_TX_LABELS`, `__MOCK_MORE_PAGES`, `__MOCK_NO_TX_TOTAL`, `__MOCK_NO_TX_FEE`, `__MOCK_TX_HEADERS`, `__MOCK_CALENDAR`), the portfolio mock (rebuilds its chart on in-app navigation and greys the line right of the cursor, like DEGIRO); the mocks carry DEGIRO's left sidebar (100vh flex column), `settings()` opens `options.html`, `setFlag(page, key, on)` toggles a flag through the UI. Tests run serially (`workers: 1`). When a feature depends on new DEGIRO DOM, extend the mock to match.

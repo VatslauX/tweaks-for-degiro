@@ -1,15 +1,26 @@
-// Orders → Outstanding: filters (action, currency, product — multi-select) and totals
-// (buy / sell value per currency) for the rows that are shown.
-// Works on DEGIRO's own table: rows are only hidden, never changed.
+// Orders → Outstanding and Transactions: filters (action, currency, product — multi-select) and
+// totals for the rows that are shown (Orders: buy / sell value per currency; Transactions: also
+// net buy − sell per currency and fees). Works on DEGIRO's own table: rows are only hidden, never
+// changed. Each page has its own panel, state and hidden-row marker, so they never undo each other.
 (() => {
-  const PANEL_ID = 'dg-orders-panel';
-  const HIDDEN = 'data-dg-filtered';
-  const { SEL, LABELS, page, own, feature, parseNum: num, fmt, t } = __dgt; // common.js
+  const { SEL, LABELS, page, own, feature, schedule, parseNum: num, fmt, t } = __dgt; // common.js
   const BUY = LABELS.buy, SELL = LABELS.sell;
+  // currency symbol or code in a value cell: "€ -1.234,56", "$1,234.56", "USD 12,00"
+  const currencyOf = text => (String(text || '').match(/[^\d\s.,—−+-]+/) || [''])[0];
 
-  const state = { action: 'all', currencies: new Set(), products: new Set() };
+  /**
+   * @typedef {{ tr: HTMLElement, action: string, currency: string, product: string, value: number,
+   *   actionCell?: Element | null, base?: string, fee?: number }} Row
+   * @typedef {{ name: string, enabled: () => boolean, panelId: string, hidden: string,
+   *   isPage: () => boolean, table: () => Element | null, rows: (table: Element) => Row[],
+   *   place: (panel: HTMLElement, table: Element) => void, countKey: string, extras: boolean,
+   *   columns?: Columns }} Config
+   * @typedef {{ key: string, index: number, label: string }} Column
+   * @typedef {{ find: (table: Element) => Column[], hidden: () => string[], save: (keys: string[]) => void,
+   *   defaults: string[], apply: (table: Element | null, indexes: number[]) => void }} Columns
+   */
 
-  // ---------- reading the table ----------
+  // ---------- Orders → Outstanding ----------
 
   // the Outstanding table: has the limit / value columns DEGIRO marks with data-field
   function ordersTable() {
@@ -21,28 +32,23 @@
     return [...(table.querySelector('thead tr')?.children || [])].findIndex(th => re.test(th.textContent.trim()));
   }
 
-  // DEGIRO's own Buy/Sell colours, read from the Action column (fallback: DEGIRO palette)
-  let pageBuy = null, pageSell = null;
-  function readActionColours(rows) {
-    const leaf = td => { let e = td; while (e && e.firstElementChild) e = e.firstElementChild; return e; };
-    const b = rows.find(r => r.action === 'buy'), s = rows.find(r => r.action === 'sell');
-    if (b?.actionCell) pageBuy = getComputedStyle(leaf(b.actionCell)).color;
-    if (s?.actionCell) pageSell = getComputedStyle(leaf(s.actionCell)).color;
-  }
-
-  function readRows(table) {
+  /** @returns {Row[]} */
+  function ordersRows(table) {
     const actionIdx = columnIndex(table, LABELS.actionColumn);
     return [...table.querySelectorAll('tbody tr')].map(tr => {
       const cells = [...tr.children];
       const limit = tr.querySelector(SEL.orderLimit)?.textContent.trim() || '';
       const stop = tr.querySelector(SEL.orderStop)?.textContent.trim() || '';
       const currency = (limit.match(/^[^\d\s—-]+/) || stop.match(/^[^\d\s—-]+/) || [''])[0].trim();
-      // action: from the Action column, or any cell that says Buy/Sell
-      const actionCell = actionIdx >= 0 ? cells[actionIdx] : cells.find(c => BUY.test(c.textContent.trim()) || SELL.test(c.textContent.trim()));
+      // action: DEGIRO's badge says BUY / SELL in data-action whatever the language; else the
+      // Action column, or any cell that says Buy/Sell
+      const badge = tr.querySelector(SEL.buySellBadge);
+      const side = (badge?.getAttribute('data-action') || '').toUpperCase();
+      const actionCell = badge || (actionIdx >= 0 ? cells[actionIdx] : cells.find(c => BUY.test(c.textContent.trim()) || SELL.test(c.textContent.trim())));
       const actionText = actionCell?.textContent.trim() || '';
-      const action = BUY.test(actionText) ? 'buy' : SELL.test(actionText) ? 'sell' : '';
+      const action = side === 'BUY' ? 'buy' : side === 'SELL' ? 'sell' : BUY.test(actionText) ? 'buy' : SELL.test(actionText) ? 'sell' : '';
       return {
-        tr, action, currency, actionCell,
+        tr: /** @type {HTMLElement} */ (tr), action, currency, actionCell,
         // DEGIRO marks the name; the cell also holds a category badge (A/H…) we must not include
         product: (tr.querySelector(SEL.orderProduct)?.textContent || cells[0]?.textContent || '').trim(),
         value: num(tr.querySelector(SEL.orderValue)?.textContent)
@@ -50,189 +56,410 @@
     }).filter(r => r.product);
   }
 
-  // ---------- filtering ----------
-  const matches = r =>
-    (state.action === 'all' || r.action === state.action) &&
-    (!state.currencies.size || state.currencies.has(r.currency)) &&
-    (!state.products.size || state.products.has(r.product));
-
-  function applyFilter(rows) {
-    rows.forEach(r => {
-      const show = matches(r);
-      if (show && r.tr.hasAttribute(HIDDEN)) { r.tr.style.removeProperty('display'); r.tr.removeAttribute(HIDDEN); }
-      if (!show && !r.tr.hasAttribute(HIDDEN)) { r.tr.style.setProperty('display', 'none', 'important'); r.tr.setAttribute(HIDDEN, ''); }
-    });
+  // insert above the table's block (below DEGIRO's own search box)
+  function ordersPlace(panel, table) {
+    /** @type {Element} */
+    let anchor = table;
+    while (anchor.parentElement && !anchor.parentElement.querySelector('input')) anchor = anchor.parentElement;
+    if (panel.nextElementSibling !== anchor) anchor.before(panel);
   }
 
-  function unhideAll() {
-    /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(`[${HIDDEN}]`)).forEach(tr => { tr.style.removeProperty('display'); tr.removeAttribute(HIDDEN); });
+  // ---------- Transactions ----------
+
+  function transactionsTable() {
+    if (!page.isTransactions()) return null;
+    // the one with DEGIRO's value hooks (not, say, a date picker's calendar)
+    return [...(document.querySelector(SEL.transactions)?.querySelectorAll('table') || [])].find(t => t.querySelector(SEL.txValue)) || null;
   }
 
-  // ---------- UI ----------
-  const money = (n, cur) => `${cur} ${fmt(n)}`;
+  /** @returns {Row[]} */
+  function transactionsRows(table) {
+    return [...table.querySelectorAll('tbody tr')].map(tr => {
+      const text = sel => tr.querySelector(sel)?.textContent.trim() || '';
+      // DEGIRO's badge says BUY / SELL in data-action whatever the language; its text as a fallback
+      const badge = tr.querySelector(SEL.buySellBadge);
+      const side = (badge?.getAttribute('data-action') || '').toUpperCase(), label = badge?.textContent.trim() || '';
+      const action = side === 'BUY' || (!side && BUY.test(label)) ? 'buy' : side === 'SELL' || (!side && SELL.test(label)) ? 'sell' : '';
+      // values are signed (a buy is negative): totals use the amount
+      const local = text(SEL.txLocalValue), value = text(SEL.txValue);
+      // fees in the account currency: Value − Total covers every fee (AutoFX too); else the Fees column
+      const fee = num(value) - num(text(SEL.txTotal));
+      return {
+        tr: /** @type {HTMLElement} */ (tr), action, actionCell: badge,
+        product: text(SEL.orderProduct),
+        currency: currencyOf(local),
+        value: Math.abs(num(local)),
+        base: currencyOf(value || text(SEL.txFee)),
+        fee: isFinite(fee) ? fee : -num(text(SEL.txFee))
+      };
+    }).filter(r => r.product);
+  }
 
-  function theme() {
-    const c = getComputedStyle(document.body).backgroundColor;
-    const bg = /rgba\(0, 0, 0, 0\)|transparent/.test(c) ? 'rgb(255, 255, 255)' : c;
-    const [r, g, b] = (bg.match(/\d+/g) || ['255', '255', '255']).map(Number);
-    const dark = 0.299 * r + 0.587 * g + 0.114 * b < 128;
-    const text = getComputedStyle(document.body).color;
+  // below DEGIRO's own filters (search, dates, period), above the table
+  function transactionsPlace(panel, table) {
+    const filters = document.querySelector(SEL.transactions)?.querySelector(SEL.transactionsFilters);
+    if (filters && !filters.contains(table)) { if (filters.nextElementSibling !== panel) filters.after(panel); return; }
+    if (table.previousElementSibling !== panel) table.before(panel);
+  }
+
+  // DEGIRO shows 100 rows per page by default: is there another page?
+  const morePages = () => [.../** @type {NodeListOf<HTMLButtonElement>} */ (document.querySelector(SEL.transactions)?.querySelectorAll(SEL.pageButtons) || [])]
+    .some(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true');
+
+  // ---------- columns (both pages) ----------
+
+  // DEGIRO's header texts are localised: each column is found by the hook in its body cells. Product
+  // is never offered. Only DEGIRO's table (`scope`) counts: the style below hides by that selector.
+  /** @returns {{ index: Record<string, number>, heads: Element[], product: number } | null} */
+  function columnHooks(table, scope, hooks) {
+    if (!table?.matches(scope)) return null;
+    const cells = [...(table.querySelector('tbody tr')?.children || [])];
+    const heads = [...(table.querySelector('thead tr')?.children || [])];
+    if (!cells.length || heads.length !== cells.length) return null; // colspans: nth-child would hit the wrong cells
+    const at = sel => cells.findIndex(td => td.matches(sel) || td.querySelector(sel));
+    /** @type {Record<string, number>} */
+    const index = {};
+    for (const [k, sel] of Object.entries(hooks)) index[k] = at(sel);
+    return { index, heads, product: at(SEL.orderProduct) };
+  }
+
+  /**
+   * One columns setting: the picker's list, the hiding style, the saved choice.
+   * @param {{ key: string, keys: string[], scope: string, styleId: string, hooks: Record<string, string>,
+   *   derive?: (i: Record<string, number>) => void }} c
+   * @returns {Columns}
+   */
+  function columnsSetting(c) {
     return {
-      dark, bg, text,
-      muted: dark ? '#8FA0A6' : '#65757B',            // DEGIRO's unselected tab text
-      buy: pageBuy || (dark ? '#4CB82E' : '#1E8302'),  // DEGIRO green
-      sell: pageSell || (dark ? '#FF5A5F' : '#E40101'), // DEGIRO red
-      line: dark ? 'rgba(255,255,255,.18)' : '#D6DFE3'
+      find: table => {
+        const found = columnHooks(table, c.scope, c.hooks);
+        if (!found) return [];
+        const { index: i, heads, product } = found;
+        c.derive?.(i);
+        // offered under DEGIRO's own (localised) header; a column without one isn't offered
+        return c.keys.filter(k => i[k] >= 0 && i[k] !== product)
+          .map(k => ({ key: k, index: i[k], label: heads[i[k]].textContent.trim() }))
+          .filter(col => col.label);
+      },
+      hidden: () => dgSettings[c.key],
+      defaults: DG_DEFAULTS[c.key],
+      // one owned style element hides the chosen columns, so DEGIRO's re-rendered rows are hidden at
+      // once. It also fits the other columns to their content and gives Product the rest: DEGIRO pins
+      // Product at 320px and spreads the spare width over the other columns, truncating long names.
+      apply: (table, indexes) => {
+        let style = document.getElementById(c.styleId);
+        const product = columnHooks(table, c.scope, {})?.product ?? -1;
+        if (!indexes.length && product < 0) { style?.remove(); return; }
+        const T = c.scope;
+        let css = indexes.length ? indexes.map(n => `${T} tr > :nth-child(${n + 1})`).join(',\n') + ' { display: none !important; }' : '';
+        if (product >= 0) css += `\n${T} tr > * { width: 1px !important; white-space: nowrap; }\n${T} tr > :nth-child(${product + 1}) { width: auto !important; max-width: none !important; }`;
+        if (!style) { style = own(document.createElement('style')); style.id = c.styleId; document.head.append(style); }
+        if (style.textContent !== css) style.textContent = css;
+      },
+      // shown at once, then saved (chrome.storage.sync: other tabs and devices follow)
+      save: keys => {
+        const list = c.keys.filter(k => keys.includes(k));
+        dgSettings[c.key] = list;
+        try { chrome.storage.sync.set({ [c.key]: list }).catch(() => {}); } catch (e) {}
+      }
     };
   }
 
-  // DEGIRO-style pill: selected = filled (dark, or green/red for Buy/Sell), unselected = plain text
-  function chip(label, on, onClick, th, accent) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = label;
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    const fill = accent || th.text;
-    b.style.cssText = `font:inherit;font-size:12px;line-height:16px;height:28px;padding:0 12px;border-radius:300px;cursor:pointer;border:0;` +
-      `background:${on ? fill : 'transparent'};color:${on ? (accent ? '#fff' : th.bg) : (accent || th.muted)};font-weight:${accent ? 500 : 400};`;
-    b.addEventListener('click', onClick);
-    return b;
-  }
-
-  function group(title, th, ...children) {
-    const g = document.createElement('div');
-    g.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
-    const name = document.createElement('span');
-    name.textContent = title;
-    name.style.cssText = `font-size:12px;color:${th.muted};margin-right:2px;`;
-    g.append(name, ...children);
-    return g;
-  }
-
-  let openMenu = false;
-  function productPicker(rows, th) {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;';
-    const products = [...new Set(rows.map(r => r.product))].sort((a, b) => a.localeCompare(b));
-    const n = state.products.size;
-    const btn = chip((n ? t('ordersSelected', n) : t('ordersAllProducts')) + ' ▾', n > 0, () => { openMenu = !openMenu; render(); }, th);
-    if (!n) { btn.style.border = `1px solid ${th.line}`; btn.style.color = th.text; }
-    btn.setAttribute('aria-haspopup', 'listbox');
-    btn.setAttribute('aria-expanded', openMenu ? 'true' : 'false');
-    btn.dataset.dgProducts = '';
-    wrap.append(btn);
-    if (openMenu) {
-      const menu = document.createElement('div');
-      menu.setAttribute('role', 'listbox');
-      menu.setAttribute('aria-multiselectable', 'true');
-      menu.style.cssText = `position:absolute;z-index:50;top:calc(100% + 4px);left:0;min-width:280px;max-height:300px;overflow:auto;` +
-        `background:${th.bg};color:${th.text};border:1px solid ${th.line};border-radius:6px;padding:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);`;
-      products.forEach(p => {
-        const lab = document.createElement('label');
-        lab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:12px;cursor:pointer;white-space:nowrap;';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = state.products.has(p);
-        cb.addEventListener('change', () => { cb.checked ? state.products.add(p) : state.products.delete(p); render(); });
-        const count = rows.filter(r => r.product === p).length;
-        const span = document.createElement('span');
-        span.textContent = `${p} (${count})`;
-        lab.append(cb, span);
-        menu.append(lab);
-      });
-      wrap.append(menu);
+  // Transactions: the columns without a hook (Venue, Qty, Exchange Rate, AutoFX Fee) are found by
+  // their place between two that have one, only when the gap fits exactly
+  const txColumns = columnsSetting({
+    key: 'txHiddenColumns', keys: DG_TX_COLUMNS, styleId: 'dg-tx-columns',
+    scope: `${SEL.transactions} table:has(${SEL.txValue})`,
+    hooks: { date: SEL.rowDate, symbolIsin: SEL.symbolIsin, exchange: SEL.exchangeAbbr, action: SEL.buySellBadge,
+      price: SEL.txPrice, localValue: SEL.txLocalValue, value: SEL.txValue, fees: SEL.txFee, total: SEL.txTotal },
+    derive: i => {
+      const between = (a, b, gap) => i[a] >= 0 && i[b] - i[a] === gap + 1;
+      i.venue = between('exchange', 'action', 1) ? i.exchange + 1 : -1;
+      i.qty = between('action', 'price', 1) ? i.action + 1 : -1;
+      i.exchangeRate = between('value', 'fees', 2) ? i.value + 1 : -1;
+      i.autoFxFee = between('value', 'fees', 2) ? i.value + 2 : -1;
     }
-    return wrap;
-  }
+  });
+  // Orders → Outstanding: every column has a hook
+  const ordersColumns = columnsSetting({
+    key: 'ordersHiddenColumns', keys: DG_ORDER_COLUMNS, styleId: 'dg-orders-columns',
+    scope: `${SEL.openOrders} table:has(${SEL.orderValue})`,
+    hooks: { date: SEL.rowDate, symbolIsin: SEL.symbolIsin, exchange: SEL.exchangeAbbr, action: SEL.buySellBadge,
+      qty: SEL.orderQtyColumn, limit: SEL.orderLimit, stopPrice: SEL.orderStop, value: SEL.orderValue,
+      outstanding: SEL.orderOutstanding, executed: SEL.orderExecuted }
+  });
+  // the scheduler hears only flags bridged to the page: a column choice from another tab needs a nudge
+  dgOnSettings(() => schedule(true));
 
-  function totals(rows, th) {
-    const box = document.createElement('div');
-    box.dataset.dgTotals = '';
-    box.style.cssText = 'display:flex;gap:18px;flex-wrap:wrap;font-size:12px;';
-    const shown = rows.filter(matches);
-    const sum = {};
-    shown.forEach(r => {
-      if (!r.action || !isFinite(r.value)) return;
-      const k = r.currency || '?';
-      sum[k] = sum[k] || { buy: 0, sell: 0, nb: 0, ns: 0 };
-      if (r.action === 'buy') { sum[k].buy += r.value; sum[k].nb++; } else { sum[k].sell += r.value; sum[k].ns++; }
-    });
-    const line = (kind, color) => {
+  // ---------- panel ----------
+
+  /** @param {Config} cfg */
+  function filterPanel(cfg) {
+    const state = { action: 'all', currencies: new Set(), products: new Set() };
+    /** @type {null | 'products' | 'columns'} */
+    let openMenu = null;
+
+    // DEGIRO's own Buy/Sell colours, read from the Action column (fallback: DEGIRO palette)
+    let pageBuy = null, pageSell = null;
+    function readActionColours(rows) {
+      const leaf = el => { let e = el; while (e && e.firstElementChild) e = e.firstElementChild; return e; };
+      const b = rows.find(r => r.action === 'buy'), s = rows.find(r => r.action === 'sell');
+      if (b?.actionCell) pageBuy = getComputedStyle(leaf(b.actionCell)).color;
+      if (s?.actionCell) pageSell = getComputedStyle(leaf(s.actionCell)).color;
+    }
+
+    // ---------- filtering ----------
+    const matches = r =>
+      (state.action === 'all' || r.action === state.action) &&
+      (!state.currencies.size || state.currencies.has(r.currency)) &&
+      (!state.products.size || state.products.has(r.product));
+
+    function applyFilter(rows) {
+      rows.forEach(r => {
+        const show = matches(r);
+        if (show && r.tr.hasAttribute(cfg.hidden)) { r.tr.style.removeProperty('display'); r.tr.removeAttribute(cfg.hidden); }
+        if (!show && !r.tr.hasAttribute(cfg.hidden)) { r.tr.style.setProperty('display', 'none', 'important'); r.tr.setAttribute(cfg.hidden, ''); }
+      });
+    }
+
+    function unhideAll() {
+      /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(`[${cfg.hidden}]`)).forEach(tr => { tr.style.removeProperty('display'); tr.removeAttribute(cfg.hidden); });
+    }
+
+    // a new date range or a filled order can take away what was picked: forget it, or nothing shows
+    function dropMissing(rows) {
+      if (!rows.length) return; // DEGIRO is re-rendering
+      const cur = new Set(rows.map(r => r.currency)), prod = new Set(rows.map(r => r.product));
+      state.currencies.forEach(c => { if (!cur.has(c)) state.currencies.delete(c); });
+      state.products.forEach(p => { if (!prod.has(p)) state.products.delete(p); });
+    }
+
+    // ---------- UI ----------
+    const money = (n, cur) => `${cur} ${fmt(n)}`;
+
+    function theme() {
+      const c = getComputedStyle(document.body).backgroundColor;
+      const bg = /rgba\(0, 0, 0, 0\)|transparent/.test(c) ? 'rgb(255, 255, 255)' : c;
+      const [r, g, b] = (bg.match(/\d+/g) || ['255', '255', '255']).map(Number);
+      const dark = 0.299 * r + 0.587 * g + 0.114 * b < 128;
+      const text = getComputedStyle(document.body).color;
+      return {
+        dark, bg, text,
+        muted: dark ? '#8FA0A6' : '#65757B',            // DEGIRO's unselected tab text
+        buy: pageBuy || (dark ? '#4CB82E' : '#1E8302'),  // DEGIRO green
+        sell: pageSell || (dark ? '#FF5A5F' : '#E40101'), // DEGIRO red
+        line: dark ? 'rgba(255,255,255,.18)' : '#D6DFE3'
+      };
+    }
+
+    // DEGIRO-style pill: selected = filled (dark, or green/red for Buy/Sell), unselected = plain text
+    function chip(label, on, onClick, th, accent) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      const fill = accent || th.text;
+      b.style.cssText = `font:inherit;font-size:12px;line-height:16px;height:28px;padding:0 12px;border-radius:300px;cursor:pointer;border:0;` +
+        `background:${on ? fill : 'transparent'};color:${on ? (accent ? '#fff' : th.bg) : (accent || th.muted)};font-weight:${accent ? 500 : 400};`;
+      b.addEventListener('click', onClick);
+      return b;
+    }
+
+    function group(title, th, ...children) {
+      const g = document.createElement('div');
+      g.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+      const name = document.createElement('span');
+      name.textContent = title;
+      name.style.cssText = `font-size:12px;color:${th.muted};margin-right:2px;`;
+      g.append(name, ...children);
+      return g;
+    }
+
+    // DEGIRO-style dropdown of checkboxes (products, columns)
+    function picker(kind, label, active, items, th, footer) {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative;';
+      const btn = chip(label + ' ▾', active, () => { openMenu = openMenu === kind ? null : kind; render(); }, th);
+      if (!active) { btn.style.border = `1px solid ${th.line}`; btn.style.color = th.text; }
+      btn.setAttribute('aria-haspopup', 'listbox');
+      btn.setAttribute('aria-expanded', openMenu === kind ? 'true' : 'false');
+      btn.setAttribute(`data-dg-${kind}`, '');
+      wrap.append(btn);
+      if (openMenu === kind) {
+        const menu = document.createElement('div');
+        menu.setAttribute('role', 'listbox');
+        menu.setAttribute('aria-multiselectable', 'true');
+        menu.style.cssText = `position:absolute;z-index:50;top:calc(100% + 4px);left:0;min-width:280px;max-height:300px;overflow:auto;` +
+          `background:${th.bg};color:${th.text};border:1px solid ${th.line};border-radius:6px;padding:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);`;
+        items.forEach(({ text, checked, change }) => {
+          const lab = document.createElement('label');
+          lab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:12px;cursor:pointer;white-space:nowrap;';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = checked;
+          cb.addEventListener('change', () => { change(cb.checked); render(); });
+          const span = document.createElement('span');
+          span.textContent = text;
+          lab.append(cb, span);
+          menu.append(lab);
+        });
+        if (footer) menu.append(footer);
+        wrap.append(menu);
+      }
+      return wrap;
+    }
+
+    function productPicker(rows, th) {
+      const n = state.products.size;
+      const items = [...new Set(rows.map(r => r.product))].sort((a, b) => a.localeCompare(b)).map(p => ({
+        text: `${p} (${rows.filter(r => r.product === p).length})`,
+        checked: state.products.has(p),
+        change: on => { on ? state.products.add(p) : state.products.delete(p); }
+      }));
+      return picker('products', n ? t('ordersSelected', n) : t('ordersAllProducts'), n > 0, items, th);
+    }
+
+    // checked = shown; Reset brings back the default hidden columns
+    function columnPicker(cols, th) {
+      const c = /** @type {Columns} */ (cfg.columns);
+      const hidden = c.hidden(), n = cols.filter(col => hidden.includes(col.key)).length;
+      const items = cols.map(col => ({
+        text: col.label,
+        checked: !hidden.includes(col.key),
+        change: on => c.save(on ? c.hidden().filter(k => k !== col.key) : [...c.hidden(), col.key])
+      }));
+      const reset = chip(t('columnsReset'), false, () => { c.save(c.defaults); render(); }, th);
+      reset.dataset.dgColumnsReset = '';
+      reset.style.marginTop = '4px';
+      return picker('columns', n ? t('columnsHidden', n) : t('allColumns'), n > 0, items, th, reset);
+    }
+
+    // "Label  part · part": coloured label, plain values ('—' when there are none)
+    function line(kind, label, color, parts) {
       const el = document.createElement('div');
       el.dataset.dgTotal = kind;
       const name = document.createElement('span');
-      name.textContent = t(kind === 'buy' ? 'ordersTotalBuy' : 'ordersTotalSell') + ' ';
+      name.textContent = label + ' ';
       name.style.cssText = `color:${color};font-weight:500;`;
-      el.append(name);
-      const parts = Object.keys(sum).sort().filter(c => (kind === 'buy' ? sum[c].nb : sum[c].ns) > 0)
-        .map(c => `${money(kind === 'buy' ? sum[c].buy : sum[c].sell, c)} (${kind === 'buy' ? sum[c].nb : sum[c].ns})`);
       const v = document.createElement('span');
       v.textContent = parts.length ? parts.join(' · ') : '—';
-      el.append(v);
+      el.append(name, v);
       return el;
-    };
-    const count = document.createElement('div');
-    count.style.color = th.muted;
-    count.textContent = t('ordersCount', shown.length, rows.length);
-    box.append(line('buy', th.buy), line('sell', th.sell), count);
-    return box;
+    }
+
+    function totals(rows, th, more) {
+      const box = document.createElement('div');
+      box.dataset.dgTotals = '';
+      box.style.cssText = 'display:flex;gap:18px;flex-wrap:wrap;font-size:12px;';
+      const shown = rows.filter(matches);
+      const sum = {}, fees = {};
+      shown.forEach(r => {
+        if (r.base && isFinite(r.fee)) fees[r.base] = (fees[r.base] || 0) + r.fee;
+        if (!r.action || !isFinite(r.value)) return;
+        const k = r.currency || '?';
+        sum[k] = sum[k] || { buy: 0, sell: 0, nb: 0, ns: 0 };
+        if (r.action === 'buy') { sum[k].buy += r.value; sum[k].nb++; } else { sum[k].sell += r.value; sum[k].ns++; }
+      });
+      const cur = Object.keys(sum).sort();
+      const side = kind => cur.filter(c => (kind === 'buy' ? sum[c].nb : sum[c].ns) > 0)
+        .map(c => `${money(kind === 'buy' ? sum[c].buy : sum[c].sell, c)} (${kind === 'buy' ? sum[c].nb : sum[c].ns})`);
+      box.append(line('buy', t('ordersTotalBuy'), th.buy, side('buy')), line('sell', t('ordersTotalSell'), th.sell, side('sell')));
+      if (cfg.extras) {
+        box.append(
+          line('net', t('txNet'), th.text, cur.map(c => money(sum[c].buy - sum[c].sell, c))),
+          line('fees', t('txFees'), th.text, Object.keys(fees).sort().map(c => money(fees[c], c))));
+      }
+      const count = document.createElement('div');
+      count.dataset.dgCount = '';
+      count.style.color = th.muted;
+      count.textContent = t(cfg.countKey, shown.length, rows.length) + (more ? ` · ${t('txPageOnly')}` : '');
+      box.append(count);
+      return box;
+    }
+
+    function render() {
+      if (!cfg.enabled()) return 'idle'; // the menu's own handlers call render() outside the scheduler
+      const table = cfg.table();
+      let panel = document.getElementById(cfg.panelId);
+      if (!table) { panel?.remove(); unhideAll(); cfg.columns?.apply(null, []); return cfg.isPage() ? 'missing' : 'idle'; }
+      const rows = cfg.rows(table);
+      readActionColours(rows);
+      dropMissing(rows);
+      applyFilter(rows);
+      const cols = cfg.columns ? cfg.columns.find(table) : [];
+      const hiddenCols = cfg.columns ? cfg.columns.hidden() : [];
+      cfg.columns?.apply(table, cols.filter(c => hiddenCols.includes(c.key)).map(c => c.index));
+
+      if (!panel) {
+        panel = own(document.createElement('div'));
+        panel.id = cfg.panelId;
+      }
+      cfg.place(panel, table);
+
+      const th = theme();
+      const more = cfg.extras && morePages();
+      // rebuild only when something we show changed (the page updates constantly)
+      const key = JSON.stringify([rows.map(r => [r.product, r.action, r.currency, r.value, r.base, r.fee]), state.action,
+        [...state.currencies], [...state.products], openMenu, more, cols, hiddenCols, th.bg, th.text]);
+      if (panel.isConnected && panel.dataset.key === key) return 'ok';
+      panel.dataset.key = key;
+      panel.style.cssText = `display:flex;flex-direction:column;gap:8px;margin:8px 0 12px;padding:0 16px;font-family:inherit;color:${th.text};`; // aligned with the table headers
+      const currencies = [...new Set(rows.map(r => r.currency).filter(Boolean))].sort();
+      const filters = document.createElement('div');
+      filters.style.cssText = 'display:flex;gap:18px;flex-wrap:wrap;align-items:center;';
+      filters.append(
+        group(t('ordersAction'), th, ...[['all', t('ordersAll'), null], ['buy', t('ordersBuy'), th.buy], ['sell', t('ordersSell'), th.sell]].map(([k, l, accent]) =>
+          chip(l, state.action === k, () => { state.action = k; render(); }, th, accent))),
+        group(t('ordersCurrency'), th, ...currencies.map(c =>
+          chip(c, state.currencies.has(c), () => { state.currencies.has(c) ? state.currencies.delete(c) : state.currencies.add(c); render(); }, th))),
+        group(t('ordersProduct'), th, productPicker(rows, th))
+      );
+      if (cols.length) filters.append(group(t('columns'), th, columnPicker(cols, th)));
+      const active = state.action !== 'all' || state.currencies.size || state.products.size;
+      if (active) {
+        const reset = chip(t('ordersClear'), false, () => { state.action = 'all'; state.currencies.clear(); state.products.clear(); openMenu = null; render(); }, th);
+        reset.dataset.dgReset = '';
+        filters.append(reset);
+      }
+      panel.replaceChildren(filters, totals(rows, th, more));
+      return 'ok';
+    }
+
+    // close the product menu on outside click; inside the panel, redraw only after the click, or a
+    // rebuilt panel would swallow the click on the chip that was pressed (e.g. Clear filters)
+    document.addEventListener('mousedown', e => {
+      const target = /** @type {Element} */ (e.target);
+      if (!openMenu || !cfg.enabled() || target.closest?.(`#${cfg.panelId} [role=listbox], #${cfg.panelId} [data-dg-${openMenu}]`)) return;
+      openMenu = null;
+      if (target.closest?.(`#${cfg.panelId}`)) document.addEventListener('click', () => render(), { once: true });
+      else render();
+    }, true);
+
+    // DEGIRO re-renders rows (live updates, paging, sorting): the scheduler re-applies
+    feature({
+      name: cfg.name,
+      enabled: cfg.enabled,
+      run: render,
+      // switched off: forget the filters too, so switching on again starts with every row shown
+      stop: () => {
+        openMenu = null;
+        cfg.columns?.apply(null, []);
+        state.action = 'all'; state.currencies.clear(); state.products.clear();
+        document.getElementById(cfg.panelId)?.remove(); unhideAll();
+      }
+    });
   }
 
-  function render() {
-    const table = ordersTable();
-    let panel = document.getElementById(PANEL_ID);
-    if (!table) { panel?.remove(); unhideAll(); return page.isOrders() ? 'missing' : 'idle'; }
-    const rows = readRows(table);
-    readActionColours(rows);
-    applyFilter(rows);
-
-    // insert above the table's block (below DEGIRO's own search box)
-    /** @type {HTMLElement} */
-    let anchor = table;
-    while (anchor.parentElement && !anchor.parentElement.querySelector('input')) anchor = anchor.parentElement;
-    if (!panel) {
-      panel = own(document.createElement('div'));
-      panel.id = PANEL_ID;
-    }
-    if (panel.nextElementSibling !== anchor) anchor.before(panel);
-
-    const th = theme();
-    // rebuild only when something we show changed (the page updates constantly)
-    const key = JSON.stringify([rows.map(r => [r.product, r.action, r.currency, r.value]), state.action,
-      [...state.currencies], [...state.products], openMenu, th.bg, th.text]);
-    if (panel.isConnected && panel.dataset.key === key) return 'ok';
-    panel.dataset.key = key;
-    panel.style.cssText = `display:flex;flex-direction:column;gap:8px;margin:8px 0 12px;padding:0 16px;font-family:inherit;color:${th.text};`; // aligned with the table headers
-    const currencies = [...new Set(rows.map(r => r.currency).filter(Boolean))].sort();
-    const filters = document.createElement('div');
-    filters.style.cssText = 'display:flex;gap:18px;flex-wrap:wrap;align-items:center;';
-    filters.append(
-      group(t('ordersAction'), th, ...[['all', t('ordersAll'), null], ['buy', t('ordersBuy'), th.buy], ['sell', t('ordersSell'), th.sell]].map(([k, l, accent]) =>
-        chip(l, state.action === k, () => { state.action = k; render(); }, th, accent))),
-      group(t('ordersCurrency'), th, ...currencies.map(c =>
-        chip(c, state.currencies.has(c), () => { state.currencies.has(c) ? state.currencies.delete(c) : state.currencies.add(c); render(); }, th))),
-      group(t('ordersProduct'), th, productPicker(rows, th))
-    );
-    const active = state.action !== 'all' || state.currencies.size || state.products.size;
-    if (active) {
-      const reset = chip(t('ordersClear'), false, () => { state.action = 'all'; state.currencies.clear(); state.products.clear(); openMenu = false; render(); }, th);
-      reset.dataset.dgReset = '';
-      filters.append(reset);
-    }
-    panel.replaceChildren(filters, totals(rows, th));
-    return 'ok';
-  }
-
-  // close the product menu on outside click
-  document.addEventListener('mousedown', e => {
-    if (openMenu && !/** @type {Element} */ (e.target).closest?.(`#${PANEL_ID} [role=listbox], #${PANEL_ID} [data-dg-products]`)) { openMenu = false; render(); }
-  }, true);
-
-  // DEGIRO re-renders rows (live updates, paging, sorting): the scheduler re-applies
-  feature({
-    name: 'ordersFilter',
-    enabled: () => dgSettings.ordersFilter,
-    run: render,
-    stop: () => { document.getElementById(PANEL_ID)?.remove(); unhideAll(); }
+  filterPanel({
+    name: 'ordersFilter', enabled: () => dgSettings.ordersFilter,
+    panelId: 'dg-orders-panel', hidden: 'data-dg-filtered',
+    isPage: page.isOrders, table: ordersTable, rows: ordersRows, place: ordersPlace,
+    countKey: 'ordersCount', extras: false, columns: ordersColumns
+  });
+  filterPanel({
+    name: 'transactionsFilter', enabled: () => dgSettings.transactionsFilter,
+    panelId: 'dg-transactions-panel', hidden: 'data-dg-tx-filtered',
+    isPage: page.isTransactions, table: transactionsTable, rows: transactionsRows, place: transactionsPlace,
+    countKey: 'txCount', extras: true, columns: txColumns
   });
 })();

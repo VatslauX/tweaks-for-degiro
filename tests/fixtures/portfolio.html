@@ -35,6 +35,8 @@
 <script>
   // Draw like DEGIRO: DEGIRO-blue line, equally spaced points, light fill.
   const PAD = 7;
+  let cursorX = null;
+  window.addEventListener('pointermove', e => { cursorX = e.clientX; if (window.__points && document.getElementById('c1')) draw(window.__points); });
   function draw(points) {
     const c = document.getElementById('c1'), ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
@@ -46,8 +48,16 @@
     ctx.beginPath(); ctx.moveTo(X(0), c.height);
     points.forEach((p, i) => ctx.lineTo(X(i), Y(p.value)));
     ctx.lineTo(X(points.length - 1), c.height); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = 'rgb(0, 159, 223)'; ctx.lineWidth = 2;
-    ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(X(i), Y(p.value)) : ctx.moveTo(X(i), Y(p.value))); ctx.stroke();
+    // while hovered, DEGIRO greys the line right of the cursor
+    const area = c.closest('[data-name="performance-chart-interaction-area"]');
+    const cut = cursorX != null && area.matches(':hover') ? cursorX - c.getBoundingClientRect().left : c.width;
+    [[0, cut, 'rgb(0, 159, 223)'], [cut, c.width, 'rgb(190, 196, 198)']].forEach(([x0, x1, color]) => {
+      if (x1 <= x0) return;
+      ctx.save(); ctx.beginPath(); ctx.rect(x0, 0, x1 - x0, c.height); ctx.clip();
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(X(i), Y(p.value)) : ctx.moveTo(X(i), Y(p.value))); ctx.stroke();
+      ctx.restore();
+    });
     document.getElementById('total').textContent = '€ ' + points[points.length - 1].value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   async function load(period) {
@@ -57,10 +67,24 @@
     window.__points = list.slice().reverse();
     draw(window.__points);
   }
-  document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(b => b.onclick = () => {
-    document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(x => x.classList.toggle('on', x === b));
-    load(b.dataset.p);
+  function wire() {
+    document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(b => b.onclick = () => {
+      document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(x => x.classList.toggle('on', x === b));
+      load(b.dataset.p);
+    });
+  }
+  // In-app navigation like DEGIRO: leaving #/portfolio removes the chart; coming back builds a new one
+  // (new interaction area and canvases, same size) and refetches the same data.
+  const chartTpl = document.querySelector('[data-name="performance-chart"]').cloneNode(true);
+  window.addEventListener('hashchange', () => {
+    const old = document.querySelector('[data-name="performance-chart"]');
+    if (!location.hash.startsWith('#/portfolio')) { old?.remove(); return; }
+    if (old) return;
+    document.querySelector('[data-name="app-layout"]').append(chartTpl.cloneNode(true));
+    wire();
+    load('ONE_YEAR');
   });
+  wire();
   load('ONE_YEAR');
 </script>
 </body>
