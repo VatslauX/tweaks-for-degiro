@@ -1,5 +1,8 @@
 # Release notes
 
+## 1.20.1 — 2026-10-28
+- **Feedback link** in Settings: opens a new issue on the project's GitHub page, with the extension version, Chrome version and language filled in.
+
 ## 1.20.0 — 2026-10-28
 - **Transactions: filters and totals.** Filter by Buy/Sell, currency and product; total buy, total sell and net (buy − sell) per currency, and the fees, for the transactions shown.
 - **Choose the columns** on *Orders → Outstanding* and *Transactions* (every column but Product). Hidden by default: *Exchange* on Orders; *Exchange*, *Venue*, *Exchange Rate* and *AutoFX Fee* on Transactions. The choice is remembered and synced.

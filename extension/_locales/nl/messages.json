@@ -108,6 +108,10 @@
   "optHiddenTitles": {
     "message": "Titels van te verbergen onderdelen, één per regel (exacte titel, hoofdletters maken niet uit)"
   },
+  "optFeedback": {
+    "message": "Feedback geven of een probleem melden",
+    "description": "Link in Settings: opens a new issue on the project's GitHub page"
+  },
   "optDisclaimer": {
     "message": "Onofficiële extensie — niet gelieerd aan DEGIRO of flatexDEGIRO Bank, en niet door hen goedgekeurd of ondersteund. DEGIRO is een handelsmerk van de eigenaar."
   },

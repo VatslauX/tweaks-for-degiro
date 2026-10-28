@@ -108,6 +108,10 @@
   "optHiddenTitles": {
     "message": "Titel der auszublendenden Bereiche, einer pro Zeile (genauer Titel, Groß-/Kleinschreibung egal)"
   },
+  "optFeedback": {
+    "message": "Feedback geben oder Problem melden",
+    "description": "Link in Settings: opens a new issue on the project's GitHub page"
+  },
   "optDisclaimer": {
     "message": "Inoffizielle Erweiterung — nicht mit DEGIRO oder der flatexDEGIRO Bank verbunden und nicht von ihnen unterstützt oder empfohlen. DEGIRO ist eine Marke ihres Inhabers."
   },

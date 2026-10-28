@@ -12,6 +12,21 @@
   document.documentElement.lang = chrome.i18n.getUILanguage();
   $('#version').textContent = t('optVersion', chrome.runtime.getManifest().version);
 
+  // Feedback: a new GitHub issue on the project's homepage (manifest homepage_url), with the
+  // version, Chrome version and language filled in; nothing else about the user or the page.
+  // Opened only when clicked; the extension itself sends nothing.
+  const feedback = /** @type {HTMLAnchorElement} */ ($('#feedback'));
+  try {
+    const home = new URL(chrome.runtime.getManifest().homepage_url || '');
+    if (home.protocol === 'https:' && home.hostname === 'github.com') {
+      const chromeVersion = (navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || '?';
+      const body = ['**What happened**', '', '', '**What you expected**', '', '', '---',
+        `Extension ${chrome.runtime.getManifest().version} · Chrome ${chromeVersion} · ${chrome.i18n.getUILanguage()}`].join('\n');
+      feedback.href = `${home.origin}${home.pathname.replace(/\/$/, '')}/issues/new?body=${encodeURIComponent(body)}`;
+      feedback.hidden = false;
+    }
+  } catch (e) {} // no homepage: no link
+
   let hideTimer;
   const show = (text, isError) => {
     status.textContent = text;

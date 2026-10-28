@@ -108,6 +108,10 @@
   "optHiddenTitles": {
     "message": "Titoli delle sezioni da nascondere, uno per riga (titolo esatto, maiuscole indifferenti)"
   },
+  "optFeedback": {
+    "message": "Lascia un feedback o segnala un problema",
+    "description": "Link in Settings: opens a new issue on the project's GitHub page"
+  },
   "optDisclaimer": {
     "message": "Estensione non ufficiale — non affiliata a DEGIRO o a flatexDEGIRO Bank, né approvata o supportata da loro. DEGIRO è un marchio del suo proprietario."
   },

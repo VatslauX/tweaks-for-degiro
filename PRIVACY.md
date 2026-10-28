@@ -21,6 +21,7 @@ The extension does not collect, store, sell or share your personal data. Everyth
 
 ## What the extension does not do
 
+- The **Feedback** link in Settings only opens GitHub in a new tab, with the extension version, Chrome version and language pre-filled in a new issue. Nothing is sent unless you submit that issue yourself on GitHub.
 - It does not place, change or cancel orders. It can open DEGIRO's own *Adjust order* form and press **Cancel** to close it. Any order change is made and confirmed by you in DEGIRO's interface.
 - It does not send data to the developer or any third-party server.
 - It has no analytics, tracking, ads or remote code.

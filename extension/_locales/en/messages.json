@@ -128,6 +128,10 @@
   "optHiddenTitles": {
     "message": "Section titles to hide, one per line (exact title, any case)"
   },
+  "optFeedback": {
+    "message": "Feedback or report a problem",
+    "description": "Link in Settings: opens a new issue on the project's GitHub page"
+  },
   "optDisclaimer": {
     "message": "Unofficial extension — not affiliated with DEGIRO or flatexDEGIRO Bank, and not endorsed or supported by them. DEGIRO is a trademark of its owner.",
     "description": "Keep the meaning exactly"

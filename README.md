@@ -85,6 +85,8 @@ Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome pr
 
 Opened from the toolbar over a DEGIRO tab, the popup also shows **On this page**: for each feature, whether it is working, not used on this page, or *Not found* — the last one means DEGIRO probably changed its page, which is useful to mention in a bug report. Nothing is stored or sent anywhere.
 
+**Feedback or report a problem**, at the bottom of Settings, opens a new issue on the project's GitHub page with the extension version, Chrome version and language filled in. You see and edit everything before submitting it.
+
 ## Installation
 
 Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/gfeegkcebffmddfipcbaoincmnfdjock). Chrome keeps it up to date automatically.
