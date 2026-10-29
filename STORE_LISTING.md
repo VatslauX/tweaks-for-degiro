@@ -48,6 +48,12 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Orders and Transactions links right in DEGIRO's left menu
 > • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved)
 >
+> PRICE ALARMS FOR YOUR FAVOURITES
+> • Alarm button on the page of any product in your Favourites: set a price, above or below, once, once a day or every time
+> • A banner appears in every open DEGIRO tab when the price is reached
+> • An Alarms page and sidebar item to see, switch and delete all alarms
+> • Checked while DEGIRO's Favourites or a product page is open; stored in Chrome, nothing sent anywhere
+>
 > LESS CLUTTER
 > • Hide sections you never use, such as Cash compensation, or add your own
 >
@@ -58,7 +64,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 >
 > SAFE BY DESIGN
 > • Everything runs locally in your browser. No analytics, no tracking, nothing sent to the developer or third parties
-> • Only one permission (storage, for your settings). Runs only on trader.degiro.nl
+> • Only one permission (storage, for your settings and price alarms). Runs only on trader.degiro.nl
 > • Read-only: it never places, changes or cancels orders
 > • Open source: you can read every line of code
 >
@@ -83,7 +89,7 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings, the list of page sections to hide and the columns hidden on the Orders and Transactions pages.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders and Transactions pages, and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.
 
 **Remote code:** No, I am not using remote code. All JavaScript is included in the package.

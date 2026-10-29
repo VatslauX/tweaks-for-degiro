@@ -49,8 +49,15 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - Covers the page shown; if DEGIRO has more pages, the count says *this page only*.
 - **Columns**: as on Orders. *Exchange*, *Venue*, *Exchange Rate* and *AutoFX Fee* are hidden by default.
 
-**Orders and Transactions in the sidebar**
-- Two links below *Products* in DEGIRO's left menu, in DEGIRO's own style; the open page's link is highlighted. On a window too short for them, they are left out so DEGIRO's own items stay on screen.
+**Orders, Transactions and Alarms in the sidebar**
+- Orders and Transactions links, and the Alarms item (only while *Price alarms* is on), below *Products* in DEGIRO's left menu, in DEGIRO's own style; the open page's link is highlighted. On a window too short for them, they are left out so DEGIRO's own items stay on screen.
+
+**Price alarms**
+- On the page of a product in your *Favourites* (filled star), an **Alarm** button (bell) sits after DEGIRO's *Sell*. It opens a *Set price alarm* panel: the price, the direction (above or below, chosen from the current price), how often it repeats (*Once*, *Once a day*, *Every time*), and this product's alarms with an on/off switch and delete.
+- When the price reaches an alarm, a banner appears at the top of the page in every open DEGIRO tab, with *Open product* and *Alarms* links and a close button. *Once* alarms switch themselves off. *Once a day* fires at most once per day. *Every time* fires each time the price crosses the level again.
+- **Alarms** in the sidebar (below Orders and Transactions, with a count of open banners) opens a page with all your alarms: filter by status (*All*, *On*, *Off*, *Fired today*) or product, switch or delete them, and see live prices.
+- Prices are read only from what DEGIRO shows on screen (the *Favourites* list and the product page); the extension makes no requests for them.
+- Up to 25 alarms. **Where are they stored?** In Chrome's own storage, not on a server. The alarm list syncs with your Chrome profile when Chrome sync is on; the last seen prices and open banners stay in this browser. Logging in or out of DEGIRO doesn't change them; removing the extension deletes them.
 
 **Adjust order: click outside or press Esc to close**
 - Clicking anywhere outside the *Adjust order* panel, or pressing Esc, closes it, the same as the Cancel or × button, without saving changes. An open DEGIRO confirmation, dropdown or menu takes the Esc first.
@@ -78,7 +85,8 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Click outside or Esc closes Adjust order | On |
 | Filters and totals on Orders (+ columns) | On (*Exchange* hidden) |
 | Filters and totals on Transactions (+ columns) | On (*Exchange*, *Venue*, *Exchange Rate*, *AutoFX Fee* hidden) |
-| Orders and Transactions in the sidebar | On |
+| Orders, Transactions and Alarms in the sidebar | On |
+| Price alarms (button, Alarms page, sidebar item, banner) | On |
 | Hide sections (+ editable list of titles) | On (*Cash compensation*, in any DEGIRO language) |
 
 Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles. The columns are chosen on the Orders and Transactions pages themselves.
@@ -104,6 +112,9 @@ Requires Chrome 111 or newer.
 - The Transactions totals cover the transactions on the page shown (DEGIRO shows up to 100 per page); the extension makes no extra requests for them.
 - Orders are shown only on the chart of the exact listing (exchange/currency) they were placed on.
 - If DEGIRO shows a shortened product name that fits more than one order, nothing opens and the badge says so.
+- Price alarms are checked only while DEGIRO's *Favourites* or a product page is open in a tab, and only for the *Favourites* list on screen. They don't run when DEGIRO is closed or on other DEGIRO pages.
+- At most 25 alarms. An alarm shows an in-page banner only; there are no system notifications yet.
+- The Alarms item in the sidebar needs both *Price alarms* and *Orders, Transactions and Alarms in the sidebar* switched on.
 - The extension relies on DEGIRO's current page structure, so a DEGIRO redesign may break individual features.
 - The extension's own texts are in English, Dutch, German, French, Spanish, Italian and Portuguese. They follow Chrome's language, not the language chosen in DEGIRO; other languages fall back to English.
 

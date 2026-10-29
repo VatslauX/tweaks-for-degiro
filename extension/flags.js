@@ -10,7 +10,8 @@ const DG_DEFAULTS = {
   orders: true,        // open orders on the chart
   ordersClick: true,   // click an order badge to open "Adjust order"
   adjustClose: true,   // click outside "Adjust order" closes it
-  navLinks: true,      // Orders and Transactions links in the left sidebar
+  navLinks: true,      // Orders, Transactions and Alarms in the left sidebar
+  priceAlarms: true,   // price alarms: Alarm button on favourites, Alarms page, banner (alarms*.js)
   ordersFilter: true,  // Orders page: filters and buy/sell totals
   ordersHiddenColumns: ['exchange'], // Orders columns to hide (DG_ORDER_COLUMNS)
   transactionsFilter: true, // Transactions page: filters, buy/sell/net totals and fees

@@ -106,10 +106,16 @@
     "message": "Filter by action, currency and product; buy, sell and net totals per currency, plus fees; choose which columns to show. Covers the page shown."
   },
   "optNavLinks": {
-    "message": "Orders and Transactions in the sidebar"
+    "message": "Orders, Transactions and Alarms in the sidebar"
   },
   "optNavLinksHelp": {
-    "message": "Two links below Products in DEGIRO's left menu."
+    "message": "Links below Products in DEGIRO's left menu. Alarms shows only while Price alarms is on."
+  },
+  "optPriceAlarms": {
+    "message": "Price alarms"
+  },
+  "optPriceAlarmsHelp": {
+    "message": "Alarm button on products in your Favourites, an Alarms page in the left menu, and a banner when a price is reached. Checked only while a Favourites or product page is open."
   },
   "navOrders": {
     "message": "Orders",
@@ -117,6 +123,9 @@
   },
   "navTransactions": {
     "message": "Transactions"
+  },
+  "navAlarms": {
+    "message": "Alarms"
   },
   "optHideSections": {
     "message": "Hide sections",
@@ -291,5 +300,152 @@
   "badgeMerged": {
     "message": "$1 orders",
     "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  },
+  "bannerRose": {
+    "message": "$1 rose to $2"
+  },
+  "bannerFell": {
+    "message": "$1 fell to $2"
+  },
+  "bannerAlarm": {
+    "message": "alarm $1"
+  },
+  "bannerOnceOff": {
+    "message": "this alarm is now off"
+  },
+  "bannerDaily": {
+    "message": "fires again tomorrow at the earliest"
+  },
+  "bannerEachAbove": {
+    "message": "fires again after the price is back below $1"
+  },
+  "bannerEachBelow": {
+    "message": "fires again after the price is back above $1"
+  },
+  "bannerOpen": {
+    "message": "Open product"
+  },
+  "bannerAlarms": {
+    "message": "Alarms"
+  },
+  "bannerClose": {
+    "message": "Close"
+  },
+  "alarmButton": {
+    "message": "Alarm"
+  },
+  "alarmPanelTitle": {
+    "message": "Set price alarm"
+  },
+  "alarmLatest": {
+    "message": "Latest $1"
+  },
+  "alarmPriceLabel": {
+    "message": "Alarm price"
+  },
+  "alarmHintAbove": {
+    "message": "Alarm when the price rises to $1 ($2)"
+  },
+  "alarmHintBelow": {
+    "message": "Alarm when the price falls to $1 ($2)"
+  },
+  "alarmErrorPrice": {
+    "message": "Enter a price above 0."
+  },
+  "alarmErrorEqual": {
+    "message": "That is the current price. Enter a higher or lower price."
+  },
+  "alarmRepeat": {
+    "message": "Repeat"
+  },
+  "alarmOnce": {
+    "message": "Once"
+  },
+  "alarmDaily": {
+    "message": "Once a day"
+  },
+  "alarmEach": {
+    "message": "Every time"
+  },
+  "alarmSet": {
+    "message": "Set alarm"
+  },
+  "alarmFull": {
+    "message": "You have $1 alarms, the most there can be. Delete one first."
+  },
+  "alarmSaveError": {
+    "message": "Could not save the alarm."
+  },
+  "alarmForProduct": {
+    "message": "Alarms for $1"
+  },
+  "alarmAll": {
+    "message": "All alarms ›"
+  },
+  "alarmCheckedNote": {
+    "message": "Checked while Favourites or this product's page is open in a DEGIRO tab."
+  },
+  "alarmOnAria": {
+    "message": "Alarm $1 on"
+  },
+  "alarmDelete": {
+    "message": "Delete alarm"
+  },
+  "alarmPageTitle": {
+    "message": "Price alarms"
+  },
+  "alarmCount": {
+    "message": "$1 alarms · $2 on"
+  },
+  "alarmFilterAll": {
+    "message": "All"
+  },
+  "alarmFilterOn": {
+    "message": "On"
+  },
+  "alarmFilterOff": {
+    "message": "Off"
+  },
+  "alarmFilterFired": {
+    "message": "Fired today"
+  },
+  "alarmColProduct": {
+    "message": "Product"
+  },
+  "alarmColAlarm": {
+    "message": "Alarm"
+  },
+  "alarmColRepeat": {
+    "message": "Repeat"
+  },
+  "alarmColLatest": {
+    "message": "Latest"
+  },
+  "alarmColDistance": {
+    "message": "Distance"
+  },
+  "alarmColStatus": {
+    "message": "Status"
+  },
+  "alarmColOn": {
+    "message": "On"
+  },
+  "alarmStatusWaiting": {
+    "message": "Waiting"
+  },
+  "alarmStatusFired": {
+    "message": "Fired $1"
+  },
+  "alarmStatusFiredOff": {
+    "message": "Fired $1 · off"
+  },
+  "alarmStatusNotInList": {
+    "message": "Not in current list"
+  },
+  "alarmSeen": {
+    "message": "seen $1"
+  },
+  "alarmEmpty": {
+    "message": "No alarms yet. Open a product in your Favourites and press Alarm."
   }
 }

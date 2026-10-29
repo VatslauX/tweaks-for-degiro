@@ -87,10 +87,16 @@
     "message": "Filter op actie, valuta en product; totalen kopen, verkopen en netto per valuta, plus kosten; kies welke kolommen je ziet. Geldt voor de getoonde pagina."
   },
   "optNavLinks": {
-    "message": "Orders en Transacties in de zijbalk"
+    "message": "Orders, Transacties en Alarmen in de zijbalk"
   },
   "optNavLinksHelp": {
-    "message": "Twee links onder Producten in het linkermenu van DEGIRO."
+    "message": "Links onder Producten in het linkermenu van DEGIRO. Alarmen verschijnt alleen als Koersalarmen aan staat."
+  },
+  "optPriceAlarms": {
+    "message": "Koersalarmen"
+  },
+  "optPriceAlarmsHelp": {
+    "message": "Alarmknop bij producten in je Favorieten, een pagina Alarmen in het linkermenu en een banner zodra een koers is bereikt. Alleen gecontroleerd terwijl een pagina Favorieten of product open staat."
   },
   "navOrders": {
     "message": "Orders",
@@ -98,6 +104,9 @@
   },
   "navTransactions": {
     "message": "Transacties"
+  },
+  "navAlarms": {
+    "message": "Alarmen"
   },
   "optHideSections": {
     "message": "Onderdelen verbergen"
@@ -251,5 +260,152 @@
   "badgeMerged": {
     "message": "$1 orders",
     "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  },
+  "bannerRose": {
+    "message": "$1 is gestegen naar $2"
+  },
+  "bannerFell": {
+    "message": "$1 is gedaald naar $2"
+  },
+  "bannerAlarm": {
+    "message": "alarm $1"
+  },
+  "bannerOnceOff": {
+    "message": "dit alarm staat nu uit"
+  },
+  "bannerDaily": {
+    "message": "gaat op zijn vroegst morgen opnieuw af"
+  },
+  "bannerEachAbove": {
+    "message": "gaat opnieuw af zodra de koers weer onder $1 is"
+  },
+  "bannerEachBelow": {
+    "message": "gaat opnieuw af zodra de koers weer boven $1 is"
+  },
+  "bannerOpen": {
+    "message": "Product openen"
+  },
+  "bannerAlarms": {
+    "message": "Alarmen"
+  },
+  "bannerClose": {
+    "message": "Sluiten"
+  },
+  "alarmButton": {
+    "message": "Alarm"
+  },
+  "alarmPanelTitle": {
+    "message": "Koersalarm instellen"
+  },
+  "alarmLatest": {
+    "message": "Laatste $1"
+  },
+  "alarmPriceLabel": {
+    "message": "Alarmprijs"
+  },
+  "alarmHintAbove": {
+    "message": "Alarm als de koers stijgt naar $1 ($2)"
+  },
+  "alarmHintBelow": {
+    "message": "Alarm als de koers daalt naar $1 ($2)"
+  },
+  "alarmErrorPrice": {
+    "message": "Voer een prijs boven 0 in."
+  },
+  "alarmErrorEqual": {
+    "message": "Dit is de huidige prijs. Voer een hogere of lagere prijs in."
+  },
+  "alarmRepeat": {
+    "message": "Herhalen"
+  },
+  "alarmOnce": {
+    "message": "Eenmalig"
+  },
+  "alarmDaily": {
+    "message": "Eén keer per dag"
+  },
+  "alarmEach": {
+    "message": "Elke keer"
+  },
+  "alarmSet": {
+    "message": "Alarm instellen"
+  },
+  "alarmFull": {
+    "message": "Je hebt $1 alarmen, het maximum. Verwijder er eerst een."
+  },
+  "alarmSaveError": {
+    "message": "Het alarm kon niet worden opgeslagen."
+  },
+  "alarmForProduct": {
+    "message": "Alarmen voor $1"
+  },
+  "alarmAll": {
+    "message": "Alle alarmen ›"
+  },
+  "alarmCheckedNote": {
+    "message": "Wordt gecontroleerd zolang Favorieten of de pagina van dit product open staat in een DEGIRO-tabblad."
+  },
+  "alarmOnAria": {
+    "message": "Alarm $1 aan"
+  },
+  "alarmDelete": {
+    "message": "Alarm verwijderen"
+  },
+  "alarmPageTitle": {
+    "message": "Koersalarmen"
+  },
+  "alarmCount": {
+    "message": "$1 alarmen · $2 aan"
+  },
+  "alarmFilterAll": {
+    "message": "Alle"
+  },
+  "alarmFilterOn": {
+    "message": "Aan"
+  },
+  "alarmFilterOff": {
+    "message": "Uit"
+  },
+  "alarmFilterFired": {
+    "message": "Vandaag afgegaan"
+  },
+  "alarmColProduct": {
+    "message": "Product"
+  },
+  "alarmColAlarm": {
+    "message": "Alarm"
+  },
+  "alarmColRepeat": {
+    "message": "Herhaling"
+  },
+  "alarmColLatest": {
+    "message": "Laatste"
+  },
+  "alarmColDistance": {
+    "message": "Afstand"
+  },
+  "alarmColStatus": {
+    "message": "Status"
+  },
+  "alarmColOn": {
+    "message": "Aan"
+  },
+  "alarmStatusWaiting": {
+    "message": "Wacht"
+  },
+  "alarmStatusFired": {
+    "message": "Afgegaan $1"
+  },
+  "alarmStatusFiredOff": {
+    "message": "Afgegaan $1 · uit"
+  },
+  "alarmStatusNotInList": {
+    "message": "Niet in huidige lijst"
+  },
+  "alarmSeen": {
+    "message": "gezien $1"
+  },
+  "alarmEmpty": {
+    "message": "Nog geen alarmen. Open een product in je Favorieten en druk op Alarm."
   }
 }

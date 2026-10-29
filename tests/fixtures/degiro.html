@@ -45,11 +45,32 @@
     <div><a class="navItem" href="#/theme"><span>Theme</span></a></div>
     <div><a class="navItem" href="#/logout"><span>Log off</span></a></div>
   </nav></aside>
-  <main>
+  <main id="mainContent">
     <h1 id="product">Mock ETF</h1>
     <div id="priceHeader" style="display:flex;align-items:baseline;gap:6px">
-      <div><span data-field="CurrentPrice">€16,92</span></div>
+      <div><span data-id="123" data-field="CurrentPrice" title="16,92">€16,92</span></div>
       <span id="dayChange"><h4 style="display:inline;margin:0"><span data-field="AbsoluteDifference">+0,10</span></h4><h4 style="display:inline;margin:0"><span data-field="RelativeDifference">(+0,59%)</span></h4></span>
+    </div>
+    <div id="favWidget" hidden><svg data-name="icon-starFilled-20" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l3 6z"></path></svg></div>
+    <div id="productHeader">
+      <span data-id="123" data-name="productBriefInfo">MOCK</span> • <span data-id="123" data-name="productBriefInfo">Euronext Amsterdam</span>
+      <span data-id="123" data-name="productName" title="Mock ETF" hidden>Mock ETF</span>
+      <div id="headerActions" style="display:flex;gap:8px;align-items:center">
+        <button type="button" data-name="productActionButton" aria-label="note" title="note"><svg data-name="icon-note-20" viewBox="0 0 24 24" width="20" height="20"><path d="M5 5h14v14H5z"></path></svg></button>
+        <button type="button" aria-label="Favourites" id="favStar"><svg id="favIcon" class="favIconCopy" data-name="icon-starFilled-20" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"></path></svg></button>
+        <button type="button" data-name="productDetailsShareButton" aria-label="share" title="share"><svg data-name="icon-share-20" viewBox="0 0 24 24" width="20" height="20"><path d="M6 12h12"></path></svg></button>
+        <div id="tradeButtons" style="display:inline-grid;grid-template-columns:100px 100px;gap:4px"><button type="button" class="trade buy" id="buyBtn">Buy</button><button type="button" class="trade sell" id="sellBtn">Sell</button></div>
+      </div>
+    </div>
+    <!-- DEGIRO keeps a second, compact copy of the product header (sticky); it is not laid out until the page scrolls -->
+    <div id="stickyHeader" style="display:none">
+      <span data-id="123" data-name="productBriefInfo">MOCK</span> • <span data-id="123" data-name="productBriefInfo">Euronext Amsterdam</span>
+      <span data-id="123" data-name="productName" title="Mock ETF" hidden>Mock ETF</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" data-name="productActionButton" aria-label="note" title="note"><svg data-name="icon-note-20" viewBox="0 0 24 24" width="20" height="20"><path d="M5 5h14v14H5z"></path></svg></button>
+        <button type="button" aria-label="Favourites" id="stickyStar"><svg class="favIconCopy" data-name="icon-starFilled-20" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"></path></svg></button>
+        <div style="display:inline-grid;grid-template-columns:100px 100px;gap:4px"><button type="button" class="trade buy" id="stickyBuy">Buy</button><button type="button" class="trade sell" id="stickySell">Sell</button></div>
+      </div>
     </div>
     <div id="chart"></div>
     <div id="periods"><button>YTD</button><button>1 D</button><button>1 W</button><button>1 M</button><button class="on">6 M</button></div>
@@ -103,6 +124,32 @@
 
 <script>
   window.__log = [];
+  // product header: favourite star, Buy/Sell (logged, never pressed by the extension), live price
+  const starIcons = () => document.querySelectorAll('.favIconCopy');
+  if (window.__MOCK_NOT_FAVOURITE) starIcons().forEach(i => i.setAttribute('data-name', 'icon-star-20'));
+  const toggleStar = () => {
+    const on = document.getElementById('favIcon').getAttribute('data-name') !== 'icon-starFilled-20';
+    starIcons().forEach(i => i.setAttribute('data-name', on ? 'icon-starFilled-20' : 'icon-star-20'));
+  };
+  document.getElementById('favStar').onclick = toggleStar;
+  document.getElementById('stickyStar').onclick = toggleStar;
+  document.getElementById('buyBtn').onclick = document.getElementById('stickyBuy').onclick = () => window.__log.push('BUY');
+  document.getElementById('sellBtn').onclick = document.getElementById('stickySell').onclick = () => window.__log.push('SELL');
+  // as DEGIRO does on scroll: the full header is not laid out any more, the compact copy is
+  window.__stickyHeader = on => {
+    document.getElementById('productHeader').style.display = on ? 'none' : '';
+    document.getElementById('stickyHeader').style.display = on ? '' : 'none';
+  };
+  window.__setPrice = (id, v) => document.querySelectorAll(`[data-field=CurrentPrice][data-id="${id}"]`).forEach(e => {
+    const s = v.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 8 }); e.title = s; e.textContent = '€' + s;
+  });
+  // DEGIRO's Place order panel has its own Buy/Sell pair and product name (Review Focus 2)
+  if (window.__MOCK_ORDER_PANEL) {
+    const p = document.createElement('div');
+    p.id = 'mockOrderPanel';
+    p.innerHTML = '<span data-id="123" data-name="productName" title="Mock ETF">Mock ETF</span><div><button type="button">Buy</button><button type="button">Sell</button></div>';
+    document.body.append(p);
+  }
   const ORDERS = window.__MOCK_ORDERS || [];
 
   // ---- session info appears in DEGIRO's own request URLs (tests can turn this off)
@@ -241,7 +288,7 @@
       const bid = 16.9 + (k % 5) * 0.01, ask = bid + 0.04, f = n => '€ ' + n.toFixed(2).replace('.', ',');
       document.querySelectorAll('[data-field=BidPrice]').forEach(e => { e.textContent = f(bid); });
       document.querySelectorAll('[data-field=AskPrice]').forEach(e => { e.textContent = f(ask); });
-      document.querySelectorAll('[data-field=CurrentPrice]').forEach(e => { e.textContent = f(bid + 0.02); });
+      document.querySelectorAll('[data-field=CurrentPrice]').forEach(e => { e.textContent = f(bid + 0.02); e.title = f(bid + 0.02).replace('€ ', ''); });
       const s = window.__chart.series[0];
       s.data[s.data.length - 1].update(+(bid + 0.02).toFixed(3));
       window.__ticks = k;

@@ -87,10 +87,16 @@
     "message": "Filtra per azione, valuta e prodotto; totali di acquisti, vendite e netto per valuta, più commissioni; scegli quali colonne mostrare. Vale per la pagina mostrata."
   },
   "optNavLinks": {
-    "message": "Ordini e Transazioni nella barra laterale"
+    "message": "Ordini, Transazioni e Allarmi nella barra laterale"
   },
   "optNavLinksHelp": {
-    "message": "Due link sotto Prodotti nel menu a sinistra di DEGIRO."
+    "message": "Link sotto Prodotti nel menu a sinistra di DEGIRO. Allarmi compare solo quando Allarmi di prezzo è attivo."
+  },
+  "optPriceAlarms": {
+    "message": "Allarmi di prezzo"
+  },
+  "optPriceAlarmsHelp": {
+    "message": "Pulsante di allarme sui prodotti dei tuoi Preferiti, una pagina Allarmi nel menu a sinistra e un banner quando viene raggiunto un prezzo. Controllato solo mentre è aperta una pagina Preferiti o prodotto."
   },
   "navOrders": {
     "message": "Ordini",
@@ -98,6 +104,9 @@
   },
   "navTransactions": {
     "message": "Transazioni"
+  },
+  "navAlarms": {
+    "message": "Allarmi"
   },
   "optHideSections": {
     "message": "Nascondi sezioni"
@@ -251,5 +260,152 @@
   "badgeMerged": {
     "message": "$1 ordini",
     "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  },
+  "bannerRose": {
+    "message": "$1 è salito a $2"
+  },
+  "bannerFell": {
+    "message": "$1 è sceso a $2"
+  },
+  "bannerAlarm": {
+    "message": "allarme $1"
+  },
+  "bannerOnceOff": {
+    "message": "questo allarme è ora disattivato"
+  },
+  "bannerDaily": {
+    "message": "scatta di nuovo domani al più presto"
+  },
+  "bannerEachAbove": {
+    "message": "scatta di nuovo quando il prezzo torna sotto $1"
+  },
+  "bannerEachBelow": {
+    "message": "scatta di nuovo quando il prezzo torna sopra $1"
+  },
+  "bannerOpen": {
+    "message": "Apri prodotto"
+  },
+  "bannerAlarms": {
+    "message": "Allarmi"
+  },
+  "bannerClose": {
+    "message": "Chiudi"
+  },
+  "alarmButton": {
+    "message": "Allarme"
+  },
+  "alarmPanelTitle": {
+    "message": "Imposta allarme di prezzo"
+  },
+  "alarmLatest": {
+    "message": "Ultimo $1"
+  },
+  "alarmPriceLabel": {
+    "message": "Prezzo dell’allarme"
+  },
+  "alarmHintAbove": {
+    "message": "Allarme quando il prezzo sale a $1 ($2)"
+  },
+  "alarmHintBelow": {
+    "message": "Allarme quando il prezzo scende a $1 ($2)"
+  },
+  "alarmErrorPrice": {
+    "message": "Inserisci un prezzo superiore a 0."
+  },
+  "alarmErrorEqual": {
+    "message": "È il prezzo attuale. Inserisci un prezzo più alto o più basso."
+  },
+  "alarmRepeat": {
+    "message": "Ripeti"
+  },
+  "alarmOnce": {
+    "message": "Una volta"
+  },
+  "alarmDaily": {
+    "message": "Una volta al giorno"
+  },
+  "alarmEach": {
+    "message": "Ogni volta"
+  },
+  "alarmSet": {
+    "message": "Imposta allarme"
+  },
+  "alarmFull": {
+    "message": "Hai $1 allarmi, il massimo possibile. Eliminane prima uno."
+  },
+  "alarmSaveError": {
+    "message": "Impossibile salvare l’allarme."
+  },
+  "alarmForProduct": {
+    "message": "Allarmi per $1"
+  },
+  "alarmAll": {
+    "message": "Tutti gli allarmi ›"
+  },
+  "alarmCheckedNote": {
+    "message": "Controllato finché Preferiti o la pagina di questo prodotto è aperta in una scheda DEGIRO."
+  },
+  "alarmOnAria": {
+    "message": "Allarme $1 attivo"
+  },
+  "alarmDelete": {
+    "message": "Elimina allarme"
+  },
+  "alarmPageTitle": {
+    "message": "Allarmi di prezzo"
+  },
+  "alarmCount": {
+    "message": "$1 allarmi · $2 attivi"
+  },
+  "alarmFilterAll": {
+    "message": "Tutti"
+  },
+  "alarmFilterOn": {
+    "message": "Attivi"
+  },
+  "alarmFilterOff": {
+    "message": "Disattivati"
+  },
+  "alarmFilterFired": {
+    "message": "Scattati oggi"
+  },
+  "alarmColProduct": {
+    "message": "Prodotto"
+  },
+  "alarmColAlarm": {
+    "message": "Allarme"
+  },
+  "alarmColRepeat": {
+    "message": "Ripetizione"
+  },
+  "alarmColLatest": {
+    "message": "Ultimo"
+  },
+  "alarmColDistance": {
+    "message": "Distanza"
+  },
+  "alarmColStatus": {
+    "message": "Stato"
+  },
+  "alarmColOn": {
+    "message": "Attivo"
+  },
+  "alarmStatusWaiting": {
+    "message": "In attesa"
+  },
+  "alarmStatusFired": {
+    "message": "Scattato $1"
+  },
+  "alarmStatusFiredOff": {
+    "message": "Scattato $1 · disattivato"
+  },
+  "alarmStatusNotInList": {
+    "message": "Non nella lista attuale"
+  },
+  "alarmSeen": {
+    "message": "visto $1"
+  },
+  "alarmEmpty": {
+    "message": "Nessun allarme per ora. Apri un prodotto nei tuoi Preferiti e premi Allarme."
   }
 }

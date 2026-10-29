@@ -1,7 +1,7 @@
 // Shared helpers in extension/common.js: one number parser/formatter for every script.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseNum, fmt, xs, ys, isPriceSeries, priceSeries } = require('../../extension/common.js');
+const { parseNum, fmt, xs, ys, isPriceSeries, priceSeries, page } = require('../../extension/common.js');
 
 test('parses DEGIRO prices in both formats', () => {
   assert.strictEqual(parseNum('€ 1.234,56', ','), 1234.56);
@@ -58,4 +58,19 @@ test('price series: visible price types only, the longest wins', () => {
   assert.ok(isPriceSeries(area) && !isPriceSeries(volume) && !isPriceSeries(hidden));
   assert.strictEqual(priceSeries({ series: [shortLine, volume, hidden, area] }), area);
   assert.strictEqual(priceSeries({ series: [volume] }), undefined);
+});
+
+test('price alarm routes: Favourites and the Alarms page', () => {
+  const saved = globalThis.location;
+  const at = hash => { globalThis.location = /** @type {any} */ ({ hash }); };
+  try {
+    at('#/favourites'); assert.ok(page.isFavourites()); assert.ok(!page.isAlarms());
+    at('#/favourites?dg=alarms'); assert.ok(page.isFavourites()); assert.ok(page.isAlarms());
+    at('#/favourites?x=1&dg=alarms'); assert.ok(page.isAlarms());
+    at('#/favourites?dg=alarmsX'); assert.ok(!page.isAlarms());
+    at('#/products/1/overview?dg=alarms'); assert.ok(!page.isAlarms()); assert.ok(!page.isFavourites());
+    at('#/favouritesX'); assert.ok(!page.isFavourites());
+  } finally {
+    if (saved === undefined) delete globalThis.location; else globalThis.location = saved;
+  }
 });

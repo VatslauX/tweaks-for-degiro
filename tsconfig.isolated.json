@@ -5,6 +5,6 @@
   "files": [
     "types/common.d.ts",
     "extension/common-isolated.js", "extension/flags.js", "extension/content.js", "extension/exdiv.js",
-    "extension/compact.js", "extension/hide.js", "extension/adjust-close.js", "extension/orders-table.js", "extension/nav.js", "extension/status.js"
+    "extension/compact.js", "extension/hide.js", "extension/adjust-close.js", "extension/ui.js", "extension/orders-table.js", "extension/alarm-rules.js", "extension/alarms.js", "extension/alarm-panel.js", "extension/alarms-page.js", "extension/nav.js", "extension/status.js"
   ]
 }

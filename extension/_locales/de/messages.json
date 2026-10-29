@@ -87,10 +87,16 @@
     "message": "Nach Aktion, Währung und Produkt filtern; Kauf-, Verkaufs- und Nettosummen je Währung sowie Gebühren; sichtbare Spalten wählen. Gilt für die angezeigte Seite."
   },
   "optNavLinks": {
-    "message": "Orders und Transaktionen in der Seitenleiste"
+    "message": "Orders, Transaktionen und Alarme in der Seitenleiste"
   },
   "optNavLinksHelp": {
-    "message": "Zwei Links unter Produkte im linken Menü von DEGIRO."
+    "message": "Links unter Produkte im linken Menü von DEGIRO. Alarme erscheint nur, solange Kursalarme an ist."
+  },
+  "optPriceAlarms": {
+    "message": "Kursalarme"
+  },
+  "optPriceAlarmsHelp": {
+    "message": "Alarm-Schaltfläche bei Produkten in Ihren Favoriten, eine Seite Alarme im linken Menü und ein Banner, sobald ein Kurs erreicht ist. Wird nur geprüft, solange eine Favoriten- oder Produktseite geöffnet ist."
   },
   "navOrders": {
     "message": "Orders",
@@ -98,6 +104,9 @@
   },
   "navTransactions": {
     "message": "Transaktionen"
+  },
+  "navAlarms": {
+    "message": "Alarme"
   },
   "optHideSections": {
     "message": "Bereiche ausblenden"
@@ -251,5 +260,152 @@
   "badgeMerged": {
     "message": "$1 Orders",
     "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  },
+  "bannerRose": {
+    "message": "$1 ist auf $2 gestiegen"
+  },
+  "bannerFell": {
+    "message": "$1 ist auf $2 gefallen"
+  },
+  "bannerAlarm": {
+    "message": "Alarm $1"
+  },
+  "bannerOnceOff": {
+    "message": "dieser Alarm ist jetzt aus"
+  },
+  "bannerDaily": {
+    "message": "löst frühestens morgen wieder aus"
+  },
+  "bannerEachAbove": {
+    "message": "löst wieder aus, sobald der Kurs wieder unter $1 liegt"
+  },
+  "bannerEachBelow": {
+    "message": "löst wieder aus, sobald der Kurs wieder über $1 liegt"
+  },
+  "bannerOpen": {
+    "message": "Produkt öffnen"
+  },
+  "bannerAlarms": {
+    "message": "Alarme"
+  },
+  "bannerClose": {
+    "message": "Schließen"
+  },
+  "alarmButton": {
+    "message": "Alarm"
+  },
+  "alarmPanelTitle": {
+    "message": "Kursalarm setzen"
+  },
+  "alarmLatest": {
+    "message": "Letzter Kurs $1"
+  },
+  "alarmPriceLabel": {
+    "message": "Alarmkurs"
+  },
+  "alarmHintAbove": {
+    "message": "Alarm, wenn der Kurs auf $1 steigt ($2)"
+  },
+  "alarmHintBelow": {
+    "message": "Alarm, wenn der Kurs auf $1 fällt ($2)"
+  },
+  "alarmErrorPrice": {
+    "message": "Geben Sie einen Kurs über 0 ein."
+  },
+  "alarmErrorEqual": {
+    "message": "Das ist der aktuelle Kurs. Geben Sie einen höheren oder niedrigeren Kurs ein."
+  },
+  "alarmRepeat": {
+    "message": "Wiederholen"
+  },
+  "alarmOnce": {
+    "message": "Einmal"
+  },
+  "alarmDaily": {
+    "message": "Einmal am Tag"
+  },
+  "alarmEach": {
+    "message": "Jedes Mal"
+  },
+  "alarmSet": {
+    "message": "Alarm setzen"
+  },
+  "alarmFull": {
+    "message": "Sie haben $1 Alarme, mehr sind nicht möglich. Löschen Sie zuerst einen."
+  },
+  "alarmSaveError": {
+    "message": "Der Alarm konnte nicht gespeichert werden."
+  },
+  "alarmForProduct": {
+    "message": "Alarme für $1"
+  },
+  "alarmAll": {
+    "message": "Alle Alarme ›"
+  },
+  "alarmCheckedNote": {
+    "message": "Wird geprüft, solange Favoriten oder die Seite dieses Produkts in einem DEGIRO-Tab geöffnet ist."
+  },
+  "alarmOnAria": {
+    "message": "Alarm $1 an"
+  },
+  "alarmDelete": {
+    "message": "Alarm löschen"
+  },
+  "alarmPageTitle": {
+    "message": "Kursalarme"
+  },
+  "alarmCount": {
+    "message": "$1 Alarme · $2 an"
+  },
+  "alarmFilterAll": {
+    "message": "Alle"
+  },
+  "alarmFilterOn": {
+    "message": "An"
+  },
+  "alarmFilterOff": {
+    "message": "Aus"
+  },
+  "alarmFilterFired": {
+    "message": "Heute ausgelöst"
+  },
+  "alarmColProduct": {
+    "message": "Produkt"
+  },
+  "alarmColAlarm": {
+    "message": "Alarm"
+  },
+  "alarmColRepeat": {
+    "message": "Wiederholung"
+  },
+  "alarmColLatest": {
+    "message": "Letzter"
+  },
+  "alarmColDistance": {
+    "message": "Abstand"
+  },
+  "alarmColStatus": {
+    "message": "Status"
+  },
+  "alarmColOn": {
+    "message": "An"
+  },
+  "alarmStatusWaiting": {
+    "message": "Wartet"
+  },
+  "alarmStatusFired": {
+    "message": "Ausgelöst $1"
+  },
+  "alarmStatusFiredOff": {
+    "message": "Ausgelöst $1 · aus"
+  },
+  "alarmStatusNotInList": {
+    "message": "Nicht in aktueller Liste"
+  },
+  "alarmSeen": {
+    "message": "gesehen $1"
+  },
+  "alarmEmpty": {
+    "message": "Noch keine Alarme. Öffnen Sie ein Produkt in Ihren Favoriten und drücken Sie Alarm."
   }
 }

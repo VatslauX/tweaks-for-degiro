@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Favourites</title>
+  <style>html, body { height: 100%; } body { font-family: Inter, sans-serif; margin: 0 0 0 80px; } td, th { padding: 4px 8px; text-align: left; white-space: nowrap; }
+    [data-name=sideNavigation] { position: fixed; left: 0; top: 0; width: 72px; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; background: #fff; }
+    [data-name=sideNavigation] nav { flex: none; display: flex; flex-direction: column; gap: 8px; } [data-name=sideNavigation] .logo { height: 68px; flex: none; }
+    [data-name=sideNavigation] a { display: flex; flex-direction: column; align-items: center; color: rgb(214, 221, 224); }
+    #mainContent { display: flex; flex-direction: column; overflow-y: auto; height: 100vh; box-sizing: border-box; }
+    #mainContent > section[data-name=accountSummary] { flex: 0 0 auto; padding: 8px 20px; } #mainContent > [data-name=favourites] { flex: 1 0 0%; min-height: 0; } #mainContent > [data-name=data-vendors] { flex: 0 0 auto; padding: 8px 20px; }
+    [data-name=sideNavigation] a.current { color: rgb(0, 149, 210); } [data-name=sideNavigation] svg { width: 24px; height: 24px; } [data-name=sideNavigation] svg path { fill: currentColor; }</style>
+</head>
+<body>
+  <aside data-name="sideNavigation" aria-label="Side menu navigation"><a class="logo" href="#/" aria-label="DEGIRO"></a><nav aria-label="primary">
+    <div><div class="navCell"><a data-name="favouriteProductsMenuItem" class="navItem current" href="#/favourites"><i role="img" data-name="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z"></path></svg></i><span>Favourites</span></a></div></div>
+    <div><div class="navCell"><a data-name="portfolioMenuItem" class="navItem" href="#/portfolio"><i role="img" data-name="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z"></path></svg></i><span>Portfolio</span></a></div></div>
+    <div><div class="navCell"><a data-name="productsMenuItem" class="navItem" href="#/products"><i role="img" data-name="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z"></path></svg></i><span>Products</span></a></div></div>
+  </nav><nav aria-label="secondary">
+    <div><a class="navItem" href="#/settings"><span>Settings</span></a></div>
+    <div><a class="navItem" href="#/logout"><span>Log off</span></a></div>
+  </nav></aside>
+  <main id="mainContent">
+    <section data-name="accountSummary">Account summary</section>
+    <div data-name="favourites">
+      <div id="lists"><button data-list="Favourites">Favourites</button><button data-list="energy">energy</button></div>
+      <section data-name="mainPageSection">
+        <table><thead><tr><th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Latest</th></tr></thead><tbody id="rows"></tbody></table>
+      </section>
+    </div>
+    <div data-name="data-vendors">Data vendors footer</div>
+  </main>
+<script>
+  // like DEGIRO: only the list on screen is in the DOM; prices carry data-id and a plain-number title
+  const LISTS = {
+    Favourites: [[123, 'Mock ETF', 'MOCK', 'EAM', '€', 16.92], [456, 'Mock Tech Inc. Class A', 'MTEC', 'NDQ', '$', 1248.26], [789, 'Mock Chips ETF', 'CHIP', 'EAM', '€', 15.1]],
+    energy: [[901, 'Mock Oil', 'OIL', 'EAM', '€', 30]]
+  };
+  const prices = {};
+  Object.values(LISTS).flat().forEach(r => { prices[r[0]] = r[5]; });
+  Object.assign(prices, window.__MOCK_PRICES || {}); // tests: prices at load time
+  const nl = v => v.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  let shown = 'Favourites';
+  function render() {
+    const tb = document.getElementById('rows');
+    tb.replaceChildren(...LISTS[shown].map(([id, name, sym, ex, cur]) => {
+      const tr = document.createElement('tr');
+      const p = document.createElement('td');
+      const a = document.createElement('a');
+      a.setAttribute('data-name', 'productLink'); a.href = `#/products/${id}/overview`;
+      const s = document.createElement('span');
+      s.setAttribute('data-id', id); s.setAttribute('data-name', 'productName'); s.title = name; s.textContent = name;
+      a.append(s); p.append(a);
+      const symbol = document.createElement('td'); symbol.textContent = sym + ' | XX0000000000';
+      const exch = document.createElement('td'); exch.textContent = ex;
+      const last = document.createElement('td');
+      const v = document.createElement('span');
+      v.setAttribute('data-id', id); v.setAttribute('data-field', 'LastPrice');
+      if (!window.__MOCK_NO_TITLE) v.title = nl(prices[id]);
+      v.textContent = `${cur} ${nl(prices[id])}`;
+      last.append(v);
+      tr.append(p, symbol, exch, last);
+      return tr;
+    }));
+  }
+  window.__setPrice = (id, v) => {
+    prices[id] = v;
+    const el = document.querySelector(`[data-field=LastPrice][data-id="${id}"]`);
+    if (!el) return;
+    if (!window.__MOCK_NO_TITLE) el.title = nl(v);
+    el.textContent = el.textContent.replace(/[\d.,]+$/, nl(v));
+  };
+  window.__showList = name => { shown = name; render(); };
+  document.querySelectorAll('#lists button').forEach(b => b.onclick = () => window.__showList(b.dataset.list));
+  render();
+</script>
+</body>
+</html>

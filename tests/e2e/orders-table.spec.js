@@ -50,6 +50,16 @@ test('product filter (multi-select) without the category badge in names', async 
   await expect(totals(page)).toContainText('Total sell $ 2.500,00 (1)');
 });
 
+test('a very long product name wraps inside the product menu', async ({ degiro }) => {
+  const long = 'AMUNDI MSCI EMERGING MARKETS SRI CLIMATE PARIS ALIGNED UCITS ETF DR ACC';
+  const { page } = await degiro({ url: URL_O, initScript: `window.__ORDERS = [['${long}', 'Buy', 10, '€ 5,00', '50,00'], ['Mock Tech Inc. Class A', 'Sell', 1, '$ 1,00', '1,00']];` });
+  await panel(page).locator('[data-dg-products]').click();
+  const menu = panel(page).locator('[role=listbox]');
+  await expect(menu.locator('label', { hasText: 'AMUNDI' })).toBeVisible();
+  const r = await menu.evaluate(m => ({ sw: m.scrollWidth, cw: m.clientWidth }));
+  expect(r.sw).toBeLessThanOrEqual(r.cw);
+});
+
 test('filters combine, and Clear filters resets', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_O });
   await chip(page, 'Buy').click();
