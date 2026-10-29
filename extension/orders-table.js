@@ -66,10 +66,16 @@
 
   // ---------- Transactions ----------
 
+  // [data-name=transactions] is also the "Latest Transactions" mini list in the upper panel (first in
+  // the document while the panel is open): take the one that holds the table with DEGIRO's value hooks
+  function transactionsRoot() {
+    return [...document.querySelectorAll(SEL.transactions)].find(el => el.querySelector(`table ${SEL.txValue}`)) || null;
+  }
+
   function transactionsTable() {
     if (!page.isTransactions()) return null;
     // the one with DEGIRO's value hooks (not, say, a date picker's calendar)
-    return [...(document.querySelector(SEL.transactions)?.querySelectorAll('table') || [])].find(t => t.querySelector(SEL.txValue)) || null;
+    return [...(transactionsRoot()?.querySelectorAll('table') || [])].find(t => t.querySelector(SEL.txValue)) || null;
   }
 
   /** @returns {Row[]} */
@@ -97,13 +103,13 @@
 
   // below DEGIRO's own filters (search, dates, period), above the table
   function transactionsPlace(panel, table) {
-    const filters = document.querySelector(SEL.transactions)?.querySelector(SEL.transactionsFilters);
+    const filters = transactionsRoot()?.querySelector(SEL.transactionsFilters);
     if (filters && !filters.contains(table)) { if (filters.nextElementSibling !== panel) filters.after(panel); return; }
     if (table.previousElementSibling !== panel) table.before(panel);
   }
 
   // DEGIRO shows 100 rows per page by default: is there another page?
-  const morePages = () => [.../** @type {NodeListOf<HTMLButtonElement>} */ (document.querySelector(SEL.transactions)?.querySelectorAll(SEL.pageButtons) || [])]
+  const morePages = () => [.../** @type {NodeListOf<HTMLButtonElement>} */ (transactionsRoot()?.querySelectorAll(SEL.pageButtons) || [])]
     .some(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true');
 
   // ---------- columns (both pages) ----------

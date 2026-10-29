@@ -258,3 +258,26 @@ test('columns: the other columns fit their content and Product gets the spare wi
   await page.evaluate(() => document.body.appendChild(document.createElement('div'))); // DOM change: re-run
   await expect.poll(async () => (await widths())[0]).toBe(320);
 });
+
+// ---------- DEGIRO's upper panel: a second [data-name=transactions] (Latest Transactions mini list) comes first ----------
+const MINI = '#miniTransactions';
+for (const closed of [false, true]) {
+  test(`upper panel ${closed ? 'minimised' : 'open'}: filters, totals and columns work on the real table only`, async ({ degiro }) => {
+    const { page } = await degiro({ url: URL_T, initScript: closed ? 'window.__MOCK_PANEL_CLOSED = true' : undefined });
+    expect(await page.locator(MINI).count()).toBe(closed ? 0 : 1);
+    await expect(panel(page)).toBeVisible();
+    await expect(total(page, 'buy')).toHaveText('Total buy $ 2.701,50 (1) · € 6.100,00 (2)');
+    await chip(page, 'Sell').click();
+    expect((await visibleRows(page)).length).toBe(2);
+    await expect.poll(() => heads(page)).toEqual(without(...DEF));
+    await columnsBtn(page).click();
+    await columnItems(page).filter({ hasText: /^Date$/ }).locator('input').uncheck();
+    await expect.poll(() => heads(page)).toEqual(without('Date', ...DEF));
+    if (!closed) {
+      // the mini list is untouched: its date cell and rows stay visible
+      expect(await page.$$eval(`${MINI} td`, tds => tds.every(td => getComputedStyle(td).display !== 'none'))).toBe(true);
+      expect(await page.locator(`${MINI} tr`).count()).toBe(2);
+      expect(await page.locator(MINI).evaluate(el => !!el.querySelector('#dg-transactions-panel'))).toBe(false);
+    }
+  });
+}

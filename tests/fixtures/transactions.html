@@ -31,6 +31,15 @@
     <div><a class="navItem" href="#/theme"><span>Theme</span></a></div>
     <div><a class="navItem" href="#/logout"><span>Log off</span></a></div>
   </nav></aside>
+  <!-- DEGIRO's upper panel (open by default): account summary with the "Latest Transactions" mini list, first in the document.
+       No value hooks and no filters; one cell carries the date hook to catch column hiding leaking into it. -->
+  <div data-name="accountSummary" id="accountSummary">
+    <button data-name="panelToggleButton" data-value="opened">Hide</button>
+    <table data-name="transactions" id="miniTransactions"><tbody>
+      <tr><td data-field="date">10:15</td><td data-name="buySellBadge" data-action="BUY">B</td><td>3</td><td data-field="productName">Mock Mini Product</td><td>€ -30,00</td></tr>
+      <tr><td data-field="date">09:40</td><td data-name="buySellBadge" data-action="SELL">S</td><td>1</td><td data-field="productName">Mock Mini Other</td><td>€ 12,00</td></tr>
+    </tbody></table>
+  </div>
   <section data-name="transactions">
     <div>
       <div id="head">
@@ -55,6 +64,7 @@
   </section>
 </div>
 <script>
+  if (window.__MOCK_PANEL_CLOSED) document.getElementById('accountSummary').remove();
   // product, action, qty, local value, value, AutoFX fee, fees, total (value + fees)
   window.__TX = window.__TX || [
     ['Mock Chips ETF EUR', 'Buy', 200, '€ -3.600,00', '€ -3.600,00', '—', '€ -3,00', '€ -3.603,00'],
