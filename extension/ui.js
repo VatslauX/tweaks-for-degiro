@@ -3,6 +3,7 @@
 const dgUi = (() => {
   const BLUE = '#0095D2'; // DEGIRO blue
   const BELL = 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0';
+  const PENCIL = 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4';
 
   // the page's colours: light or dark, following DEGIRO's theme
   function theme() {
@@ -108,5 +109,5 @@ const dgUi = (() => {
     return svg;
   }
 
-  return Object.freeze({ BLUE, BELL, theme, chip, picker, icon });
+  return Object.freeze({ BLUE, BELL, PENCIL, theme, chip, picker, icon });
 })();

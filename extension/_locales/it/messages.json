@@ -309,6 +309,9 @@
   "alarmHintBelow": {
     "message": "Allarme quando il prezzo scende a $1 ($2)"
   },
+  "alarmHintNoPrice": {
+    "message": "Nessun prezzo attuale visto finora: l'allarme mantiene la sua direzione ($1)."
+  },
   "alarmErrorPrice": {
     "message": "Inserisci un prezzo superiore a 0."
   },
@@ -407,5 +410,20 @@
   },
   "alarmEmpty": {
     "message": "Nessun allarme per ora. Apri un prodotto nei tuoi Preferiti e premi Allarme."
+  },
+  "alarmEdit": {
+    "message": "Modifica"
+  },
+  "alarmEditAria": {
+    "message": "Modifica allarme $1"
+  },
+  "alarmEditTitle": {
+    "message": "Modifica allarme di prezzo"
+  },
+  "alarmSave": {
+    "message": "Salva"
+  },
+  "alarmCancel": {
+    "message": "Annulla"
   }
 }

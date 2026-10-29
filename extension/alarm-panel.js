@@ -1,7 +1,8 @@
 // Price alarms: the Alarm button on a product page, for a product in your Favourites, and the
 // Set price alarm panel it opens. The panel is our own, styled like DEGIRO's Place order panel, so
 // none of DEGIRO's order logic comes with it; DEGIRO's Buy/Sell and order form are never touched.
-(() => {
+// The same panel edits one alarm (Edit on the Alarms page, via dgAlarmPanel.edit): no product header needed.
+const dgAlarmPanel = (() => {
   const { SEL, LABELS, page, own, feature, t, parseNum, fmt } = __dgt; // common.js
   const R = dgAlarmRules, S = dgAlarmStore;
   const BTN = 'data-dg-alarm-button', PANEL = 'data-dg-alarm-panel';
@@ -96,7 +97,7 @@
   }
 
   // ---------- panel ----------
-  /** @type {null | { root: HTMLElement, id: number, h: any, repeat: string, latest: HTMLElement, input: HTMLInputElement, hint: HTMLElement,
+  /** @type {null | { root: HTMLElement, id: number, h: any, edit: any, repeat: string, latest: HTMLElement, input: HTMLInputElement, hint: HTMLElement,
    *   msg: HTMLElement, set: HTMLButtonElement, seg: HTMLButtonElement[], list: HTMLElement, listSig: string, touched: boolean, msgKind: string, saving: boolean }} */
   let ui = null;
 
@@ -120,17 +121,18 @@
     return e;
   }
 
-  /** @param {NonNullable<ReturnType<typeof header>>} h */
-  function open(h) {
+  /** What the panel needs of a product: from the product header, or from a stored alarm.
+   * @param {{ id: number, name: string, symbol: string, exchange?: string, currency: string }} h @param {any} [edit] the alarm to edit */
+  function open(h, edit) {
     close();
     const th = dgUi.theme();
     const root = own(el('div', `position:fixed;top:0;right:0;bottom:0;width:360px;max-width:100vw;z-index:2147483000;display:flex;flex-direction:column;` +
       `background:${th.bg};color:${th.text};border-left:1px solid ${th.line};box-shadow:-6px 0 18px rgba(0,0,0,.12);font-size:14px;`));
     root.setAttribute(PANEL, String(h.id));
     root.setAttribute('role', 'dialog');
-    root.setAttribute('aria-label', t('alarmPanelTitle'));
+    root.setAttribute('aria-label', t(edit ? 'alarmEditTitle' : 'alarmPanelTitle'));
 
-    const head = el('div', `display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid ${th.line};font-weight:600;`, t('alarmPanelTitle'));
+    const head = el('div', `display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid ${th.line};font-weight:600;`, t(edit ? 'alarmEditTitle' : 'alarmPanelTitle'));
     const x = /** @type {HTMLButtonElement} */ (el('button', `width:32px;height:32px;border-radius:50%;border:1px solid ${th.line};background:transparent;color:${dgUi.BLUE};font-size:18px;cursor:pointer;`, '×'));
     x.type = 'button';
     x.setAttribute('aria-label', t('bannerClose'));
@@ -148,7 +150,7 @@
     input.inputMode = 'decimal';
     input.setAttribute('data-dg-alarm-price', '');
     input.style.cssText = `height:42px;border:1.5px solid ${dgUi.BLUE};border-radius:21px;padding:0 16px;font:inherit;font-size:15px;background:transparent;color:${th.text};`;
-    const now = priceNow(h.id);
+    const now = edit ? edit.price : priceNow(h.id);
     // every decimal of the price (the saved price is rounded to 6), so Set never saves a price that was not shown
     const decimals = now ? Math.min(6, Math.max(2, (now.toFixed(6).split('.')[1] || '').replace(/0+$/, '').length)) : 2;
     input.value = now ? fmt(now, decimals) : '';
@@ -170,10 +172,14 @@
     segWrap.append(...seg);
     const repeatLabel = el('div', `font-size:12px;color:${th.muted};`, t('alarmRepeat'));
 
-    const set = /** @type {HTMLButtonElement} */ (el('button', `height:42px;border-radius:21px;border:0;background:${dgUi.BLUE};color:#fff;font:inherit;font-weight:600;cursor:pointer;`, t('alarmSet')));
+    const set = /** @type {HTMLButtonElement} */ (el('button', `height:42px;border-radius:21px;border:0;background:${dgUi.BLUE};color:#fff;font:inherit;font-weight:600;cursor:pointer;`, t(edit ? 'alarmSave' : 'alarmSet')));
     set.type = 'button';
     set.setAttribute('data-dg-alarm-set', '');
     set.addEventListener('click', () => save());
+    const cancel = /** @type {HTMLButtonElement} */ (el('button', `height:42px;border-radius:21px;border:1px solid ${dgUi.BLUE};background:transparent;color:${dgUi.BLUE};font:inherit;font-weight:600;cursor:pointer;`, t('alarmCancel')));
+    cancel.type = 'button';
+    cancel.setAttribute('data-dg-alarm-cancel', '');
+    cancel.addEventListener('click', close);
 
     const listTitle = el('div', `font-size:12px;color:${th.muted};text-transform:uppercase;letter-spacing:.05em;margin-top:4px;`, t('alarmForProduct', h.name));
     const list = el('div', 'display:grid;gap:6px;');
@@ -185,10 +191,11 @@
     all.addEventListener('click', close);
     note.append(all);
 
-    body.append(name, sub, latest, label, hint, repeatLabel, segWrap, set, msg, listTitle, list, note);
+    if (edit) body.append(name, sub, latest, label, hint, repeatLabel, segWrap, set, cancel, msg, note);
+    else body.append(name, sub, latest, label, hint, repeatLabel, segWrap, set, msg, listTitle, list, note);
     root.append(head, body);
     document.body.append(root);
-    ui = { root, id: h.id, h, repeat: 'once', latest, input, hint, msg, set, seg, list, listSig: '', touched: false, msgKind: '', saving: false };
+    ui = { root, id: h.id, h, edit: edit || null, repeat: edit ? edit.repeat : 'once', latest, input, hint, msg, set, seg, list, listSig: '', touched: false, msgKind: '', saving: false };
     input.addEventListener('input', () => { if (ui) { ui.touched = true; if (ui.msgKind === 'result') { ui.msg.textContent = ''; ui.msgKind = ''; } } update(); });
     input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
     document.addEventListener('keydown', onKey, true);
@@ -202,17 +209,24 @@
   function reading() {
     if (!ui) return { v: NaN, dir: null, now: 0 };
     const v = parseNum(ui.input.value);
-    const now = priceNow(ui.id);
-    return { v, now, dir: Number.isFinite(v) && v > 0 && now ? R.direction(v, now) : null };
+    // editing from the Alarms page: the live price is DEGIRO's Favourites row; else the last price seen
+    const now = priceNow(ui.id) || (ui.edit ? S.state()[ui.edit.id]?.last || 0 : 0);
+    const valid = Number.isFinite(v) && v > 0;
+    // editing with no price known at all (an alarm synced from another computer): it keeps its direction
+    const noPrice = !!ui.edit && !now && valid;
+    return { v, now, noPrice, dir: noPrice ? ui.edit?.dir || null : valid && now ? R.direction(v, now) : null };
   }
 
   function update() {
     if (!ui) return;
     const th = dgUi.theme(), { h } = ui;
-    const { v, now, dir } = reading();
+    const { v, now, dir, noPrice } = reading();
     const money = (/** @type {number} */ n) => `${h.currency} ${fmt(n, 2, 4)}`.trim();
     ui.latest.textContent = now ? t('alarmLatest', money(now)) : '';
-    if (dir) {
+    if (dir && noPrice) {
+      ui.hint.textContent = t('alarmHintNoPrice', `${dir === 'above' ? '↑' : '↓'} ${money(v)}`);
+      ui.hint.style.color = th.muted;
+    } else if (dir) {
       const pct = (v / now - 1) * 100;
       ui.hint.textContent = (dir === 'above' ? '↑ ' : '↓ ') + t(dir === 'above' ? 'alarmHintAbove' : 'alarmHintBelow', money(v), `${pct > 0 ? '+' : ''}${fmt(pct)}%`);
       ui.hint.style.color = dir === 'above' ? th.buy : th.sell;
@@ -232,7 +246,7 @@
       b.style.cssText = `padding:7px 4px;border-radius:17px;font:inherit;font-size:12.5px;cursor:pointer;background:transparent;` +
         `border:1px solid ${on ? dgUi.BLUE : th.line};color:${on ? th.text : th.muted};font-weight:${on ? 600 : 400};`;
     });
-    renderList(th);
+    if (!ui.edit) renderList(th);
   }
 
   /** @param {ReturnType<typeof dgUi.theme>} th */
@@ -268,19 +282,31 @@
     const { v, dir } = reading();
     if (!dir) return;
     const { h } = ui;
+    const edit = ui.edit;
+    const mine = ui; // the panel may be closed (and another opened) while the write is pending
     ui.saving = true;
     update();
+    if (edit) {
+      const r = await S.update(edit.id, { price: v, dir, repeat: ui.repeat });
+      if (ui !== mine) return;
+      if (r === 'ok' || r === 'gone') { close(); return; }
+      ui.saving = false;
+      ui.msg.textContent = t('alarmSaveError');
+      ui.msgKind = 'result';
+      update();
+      return;
+    }
     const res = await S.add({ id: crypto.randomUUID(), productId: h.id, name: h.name, symbol: h.symbol, currency: h.currency,
       price: v, dir, repeat: ui.repeat, on: true, created: Date.now() });
-    if (!ui) return;
+    if (ui !== mine) return;
     ui.saving = false;
     if (res === 'ok') { ui.input.value = ''; ui.msg.textContent = ''; ui.msgKind = ''; }
     else { ui.msg.textContent = res === 'full' ? t('alarmFull', R.MAX) : t('alarmSaveError'); ui.msgKind = 'result'; }
     update();
   }
 
-  function removeAll() {
-    close();
+  function removeAll(keepEdit = false) {
+    if (!(keepEdit && ui?.edit)) close();
     current = null;
     seen = null;
     lastScan = 0;
@@ -293,7 +319,9 @@
     every: 1000, // the star can change by attribute only, which the scheduler doesn't observe
     enabled: () => dgSettings.priceAlarms,
     run() {
-      if (!page.isProduct()) { removeAll(); return 'idle'; }
+      // an Edit panel (opened on the Alarms page) lives until it is closed, the page is left or its alarm is gone
+      if (ui?.edit && (!page.isAlarms() || (S.ready() && !S.list().some(a => a.id === ui?.edit?.id)))) close();
+      if (!page.isProduct()) { removeAll(true); if (ui) update(); return 'idle'; }
       const pid = page.productId();
       if (ui && ui.id !== pid) close();
       // nothing relevant changed since the last run: skip the header search (the panel still needs the live price).
@@ -331,6 +359,11 @@
       if (ui) { ui.h = h; update(); }
       return 'ok';
     },
-    stop: removeAll
+    stop: () => removeAll()
+  });
+
+  return Object.freeze({
+    /** @param {{ id: string, productId: number, name: string, symbol: string, currency: string, price: number, repeat: string }} a */
+    edit: a => open({ id: a.productId, name: a.name || a.symbol || `#${a.productId}`, symbol: a.symbol, currency: a.currency }, a)
   });
 })();

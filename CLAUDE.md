@@ -61,8 +61,8 @@ Files in `extension/`, one feature each unless noted:
 | `orders-table.js` | Orders → Outstanding and Transactions: filters, totals and the column picker (an owned `<style>` hides columns and widens Product); uses `ui.js` |
 | `alarm-rules.js` | Price alarms, pure rules: sanitising, limits (25 alarms, texts capped for the 8 KB sync item), direction, `decide` (global `dgAlarmRules`, unit-tested) |
 | `alarms.js` | Price alarms: storage, price detection and banners (global `dgAlarmStore`) |
-| `alarm-panel.js` | Price alarms: Alarm button (after Sell, in each copy of the product header, favourites only) and the *Set price alarm* panel |
-| `alarms-page.js` | Price alarms: the Alarms page at `#/favourites?dg=alarms`, drawn in place of the hidden Favourites list (DEGIRO keeps it updating) |
+| `alarm-panel.js` | Price alarms: Alarm button (after Sell, in each copy of the product header, favourites only) and the *Set price alarm* panel; also *Edit price alarm* for one alarm (global `dgAlarmPanel.edit(alarm)`, used by `alarms-page.js`; `dgAlarmStore.update` saves in place and clears the fired state) |
+| `alarms-page.js` | Price alarms: the Alarms page at `#/favourites?dg=alarms`, drawn in place of the hidden Favourites list (DEGIRO keeps it updating); each row has an Edit button |
 | `nav.js` | Orders and Transactions links and the Alarms item (with a count of open banners) in the left sidebar; on the Alarms page DEGIRO's Favourites loses its current class |
 | `adjust-close.js` | Click outside or Esc closes *Adjust order* |
 | `status.js` | Answers the popup's "On this page" status |

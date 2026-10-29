@@ -309,6 +309,9 @@
   "alarmHintBelow": {
     "message": "Alarm als de koers daalt naar $1 ($2)"
   },
+  "alarmHintNoPrice": {
+    "message": "Nog geen huidige koers gezien: het alarm behoudt zijn richting ($1)."
+  },
   "alarmErrorPrice": {
     "message": "Voer een prijs boven 0 in."
   },
@@ -407,5 +410,20 @@
   },
   "alarmEmpty": {
     "message": "Nog geen alarmen. Open een product in je Favorieten en druk op Alarm."
+  },
+  "alarmEdit": {
+    "message": "Bewerken"
+  },
+  "alarmEditAria": {
+    "message": "Alarm $1 bewerken"
+  },
+  "alarmEditTitle": {
+    "message": "Koersalarm bewerken"
+  },
+  "alarmSave": {
+    "message": "Opslaan"
+  },
+  "alarmCancel": {
+    "message": "Annuleren"
   }
 }

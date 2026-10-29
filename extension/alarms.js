@@ -77,6 +77,34 @@ const dgAlarmStore = (() => {
   /** @param {string} id */
   const remove = id => saveAlarms(alarms.filter(a => a.id !== id));
 
+  /**
+   * Change an alarm's price, direction and repeat in place (same id and position), switch it on and let it
+   * fire again: its fired time and open banner go, `last`/`lastAt` stay. Runs in the queue, like `record`.
+   * @param {string} id @param {{ price: number, dir: string, repeat: string }} patch @returns {Promise<'ok' | 'gone' | 'error'>}
+   */
+  const update = (id, patch) => serial(async () => {
+    try {
+      let base = alarms;
+      try { base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] }))?.dgAlarms); } catch (e) {}
+      const old = base.find(a => a.id === id);
+      if (!old) return 'gone';
+      const [next] = R.sanitize([{ ...old, price: patch.price, dir: patch.dir, repeat: patch.repeat, on: true }]);
+      if (!next) return 'error';
+      if (!(await saveAlarms(base.map(a => (a.id === id ? next : a))))) return 'error';
+      // saved: the rest is best effort (like closeEvent), a failing local write must not report an error
+      try {
+        if (state[id]) { const rest = { ...state[id] }; delete rest.firedAt; state = { ...state, [id]: rest }; }
+        events = events.filter(e => e.alarmId !== id);
+        changed();
+        const r = await chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] });
+        const st = R.sanitizeState(r?.dgAlarmState);
+        if (st[id]) delete st[id].firedAt;
+        await chrome.storage.local.set({ dgAlarmState: st, dgAlarmEvents: R.sanitizeEvents(r?.dgAlarmEvents).filter(e => e.alarmId !== id) });
+      } catch (e) {}
+      return 'ok';
+    } catch (e) { return 'error'; }
+  });
+
   /** @param {string} alarmId */
   function closeEvent(alarmId) {
     events = events.filter(e => e.alarmId !== alarmId);
@@ -136,7 +164,7 @@ const dgAlarmStore = (() => {
     list: () => alarms, state: () => state, events: () => events, live: () => live,
     /** @param {Map<number, number>} m */ setLive: m => { live = m; },
     /** @param {() => void} fn */ onChange: fn => { listeners.push(fn); },
-    add, setOn, remove, closeEvent, record
+    add, setOn, remove, update, closeEvent, record
   });
 })();
 
@@ -166,7 +194,8 @@ const dgAlarmStore = (() => {
   }
 
   // `armed` ('every time' alarms) is this tab's own memory and never stored: tabs would re-arm each other
-  /** @type {Map<string, boolean>} */
+  // keyed by the alarm's price, direction and repeat too: an edited alarm starts fresh, in every tab
+  /** @type {Map<string, { sig: string, armed: boolean }>} */
   const armedMap = new Map();
 
   /** @param {Map<number, number>} prices */
@@ -180,11 +209,12 @@ const dgAlarmStore = (() => {
       const st = all[a.id] || {};
       const next = { ...st };
       // first sight of an 'every time' alarm already past its price after it fired: stay quiet until it crosses back
-      const armed = armedMap.has(a.id) ? armedMap.get(a.id) : !(R.reached(a, price) && st.firedAt);
+      const sig = `${a.price}|${a.dir}|${a.repeat}`, mem = armedMap.get(a.id);
+      const armed = mem && mem.sig === sig ? mem.armed : !(R.reached(a, price) && st.firedAt);
       if (!st.lastAt || now - st.lastAt >= SEEN_EVERY) { next.last = price; next.lastAt = now; }
       if (a.on) {
         const d = R.decide(a, { ...st, armed }, price, now);
-        armedMap.set(a.id, d.armed);
+        armedMap.set(a.id, { sig, armed: d.armed });
         if (d.fire && S.foreign(a, st.firedAt, now)) d.fire = false; // another tab fired it just now
         if (d.fire) {
           Object.assign(next, { firedAt: now, last: price, lastAt: now });

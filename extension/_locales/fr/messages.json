@@ -309,6 +309,9 @@
   "alarmHintBelow": {
     "message": "Alarme lorsque le cours descend à $1 ($2)"
   },
+  "alarmHintNoPrice": {
+    "message": "Aucun cours actuel vu pour l'instant : l'alarme garde son sens ($1)."
+  },
   "alarmErrorPrice": {
     "message": "Saisissez un prix supérieur à 0."
   },
@@ -407,5 +410,20 @@
   },
   "alarmEmpty": {
     "message": "Aucune alarme pour l’instant. Ouvrez un produit de vos Favoris et appuyez sur Alarme."
+  },
+  "alarmEdit": {
+    "message": "Modifier"
+  },
+  "alarmEditAria": {
+    "message": "Modifier l’alarme $1"
+  },
+  "alarmEditTitle": {
+    "message": "Modifier l’alarme de cours"
+  },
+  "alarmSave": {
+    "message": "Enregistrer"
+  },
+  "alarmCancel": {
+    "message": "Annuler"
   }
 }

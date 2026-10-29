@@ -128,12 +128,21 @@
       sw.addEventListener('change', () => S.setOn(a.id, sw.checked));
       onc.append(sw);
       const delc = td();
+      const acts = el('div', 'display:flex;align-items:center;gap:8px;justify-content:flex-end;');
+      const edit = /** @type {HTMLButtonElement} */ (el('button', `display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:300px;` +
+        `border:1px solid ${dgUi.BLUE};background:transparent;color:${dgUi.BLUE};font:inherit;font-size:12px;font-weight:600;cursor:pointer;`));
+      edit.type = 'button';
+      edit.setAttribute('data-dg-alarm-edit', '');
+      edit.setAttribute('aria-label', t('alarmEditAria', money(a, a.price)));
+      edit.append(dgUi.icon(dgUi.PENCIL, 14), document.createTextNode(t('alarmEdit')));
+      edit.addEventListener('click', () => dgAlarmPanel.edit(a));
       const del = /** @type {HTMLButtonElement} */ (el('button', `border:0;background:transparent;color:${th.muted};cursor:pointer;font-size:15px;`, '×'));
       del.type = 'button';
       del.setAttribute('data-dg-alarm-delete', '');
       del.setAttribute('aria-label', t('alarmDelete'));
       del.addEventListener('click', () => S.remove(a.id));
-      delc.append(del);
+      acts.append(edit, del);
+      delc.append(acts);
       tr.append(prod, last, al, dist, rep, stc, onc, delc);
       tbody.append(tr);
     }
@@ -152,6 +161,7 @@
     if (row) {
       if (a.matches('input[type=checkbox]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] input[type=checkbox]`;
       if (a.matches('[data-dg-alarm-delete]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] [data-dg-alarm-delete]`;
+      if (a.matches('[data-dg-alarm-edit]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] [data-dg-alarm-edit]`;
       return '';
     }
     const f = a.getAttribute('data-dg-alarm-filter');

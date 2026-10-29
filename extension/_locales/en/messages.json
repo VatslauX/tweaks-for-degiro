@@ -349,6 +349,9 @@
   "alarmHintBelow": {
     "message": "Alarm when the price falls to $1 ($2)"
   },
+  "alarmHintNoPrice": {
+    "message": "No current price seen yet: the alarm keeps its direction ($1)."
+  },
   "alarmErrorPrice": {
     "message": "Enter a price above 0."
   },
@@ -447,5 +450,20 @@
   },
   "alarmEmpty": {
     "message": "No alarms yet. Open a product in your Favourites and press Alarm."
+  },
+  "alarmEdit": {
+    "message": "Edit"
+  },
+  "alarmEditAria": {
+    "message": "Edit alarm $1"
+  },
+  "alarmEditTitle": {
+    "message": "Edit price alarm"
+  },
+  "alarmSave": {
+    "message": "Save"
+  },
+  "alarmCancel": {
+    "message": "Cancel"
   }
 }

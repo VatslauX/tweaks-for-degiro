@@ -694,3 +694,216 @@ test('Alarms page columns: Latest comes before Alarm, numbers right-aligned', as
   for (const i of [1, 2, 3]) { expect(aligns[i]).toBe('right'); expect(aligns[n + i]).toBe('right'); }
   for (const i of [0, 4, 5]) expect(aligns[i]).not.toBe('right');
 });
+
+// ---------- Edit alarm (Alarms page) ----------
+const editBtn = (page, id) => page.locator(`tr[data-dg-alarm-id="${id}"] [data-dg-alarm-edit]`);
+const stateOf = (opt, id) => opt.evaluate(i => chrome.storage.local.get('dgAlarmState').then(r => (r.dgAlarmState || {})[i] || {}), id);
+
+test('Alarms page: every row has an Edit button that opens the Edit price alarm panel, pre-filled', async ({ degiro, settings }) => {
+  const a = alarm({ price: 18, repeat: 'daily' }), b = alarm({ productId: 901, name: 'Mock Oil', price: 40 });
+  await seed(settings, [a, b]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await expect(page.locator('[data-dg-alarm-edit]')).toHaveCount(2);
+  await expect(editBtn(page, a.id)).toContainText('Edit');
+  await expect(editBtn(page, a.id)).toHaveAttribute('aria-label', 'Edit alarm € 18,00');
+  await editBtn(page, a.id).click();
+  await expect(panelEl(page)).toBeVisible();
+  await expect(panelEl(page)).toContainText('Edit price alarm');
+  await expect(panelEl(page)).toContainText('Mock ETF');
+  await expect(page.locator('[data-dg-alarm-price]')).toHaveValue('18,00');
+  await expect(page.locator('[data-dg-alarm-repeat=daily]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-dg-alarm-repeat=once]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(panelEl(page)).toContainText('Latest');
+  await expect(page.locator('[data-dg-alarm-hint]')).toContainText('rises to € 18,00');
+  await expect(page.locator('[data-dg-alarm-row]')).toHaveCount(0); // no list of the product's alarms
+  await expect(page.locator('[data-dg-alarm-set]')).toHaveText('Save');
+  await expect(page.locator('[data-dg-alarm-cancel]')).toHaveText('Cancel');
+});
+
+test('Alarms page: the Edit panel subtitle is the symbol alone (no currency, no bullet)', async ({ degiro, settings }) => {
+  const a = alarm({ price: 18 });
+  await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await editBtn(page, a.id).click();
+  await expect(panelEl(page)).toBeVisible();
+  await expect(panelEl(page).getByText('Mock ETF', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText('MOCK');
+});
+
+test('Alarms page: Save updates the alarm in place (same id and position), switches it on', async ({ degiro, settings }) => {
+  const a = alarm({ price: 17, on: false }), b = alarm({ price: 19 });
+  const opt = await seed(settings, [a, b], { dgAlarmState: { [a.id]: { firedAt: Date.now() - 5000, last: 16.9, lastAt: Date.now() } } });
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await editBtn(page, a.id).click();
+  await page.fill('[data-dg-alarm-price]', '15,5');
+  await expect(page.locator('[data-dg-alarm-hint]')).toContainText('falls to € 15,50');
+  await page.click('[data-dg-alarm-repeat=each]');
+  await page.click('[data-dg-alarm-set]');
+  await expect(panelEl(page)).toHaveCount(0);
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, productId: 123, name: 'Mock ETF', symbol: 'MOCK', currency: '€', price: 15.5, dir: 'below', repeat: 'each', on: true }, { id: b.id, price: 19 }]);
+  await expect(rows(page)).toHaveCount(2);
+  await expect(rows(page).first()).toHaveAttribute('data-dg-alarm-id', a.id);
+  await expect(rows(page).first()).toContainText('↓ € 15,50');
+  await expect(rows(page).first()).toContainText('Every time');
+  await expect(page.locator(`tr[data-dg-alarm-id="${a.id}"] input[type=checkbox]`)).toBeChecked();
+  await expect.poll(async () => (await stateOf(opt, a.id)).firedAt).toBeUndefined();
+  expect((await stateOf(opt, a.id)).last).toBe(16.9);
+});
+
+test('Alarms page: an edited once alarm that had fired fires again at the new level', async ({ degiro, settings }) => {
+  const a = alarm({ price: 17 });
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await setPrice(page, 123, 17.2);
+  await expect(banner(page)).toHaveCount(1);
+  await expect.poll(async () => (await stored(opt))[0].on).toBe(false);
+  await editBtn(page, a.id).click();
+  await page.fill('[data-dg-alarm-price]', '18');
+  await page.click('[data-dg-alarm-set]');
+  await expect(panelEl(page)).toHaveCount(0);
+  await expect(banner(page)).toHaveCount(0); // its open banner goes
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, price: 18, dir: 'above', on: true }]);
+  await page.waitForTimeout(300);
+  await setPrice(page, 123, 18.1);
+  await expect(banner(page)).toHaveCount(1);
+  await expect(banner(page)).toContainText('Mock ETF rose to € 18,10');
+});
+
+test('Alarms page: an edited every-time alarm starts fresh, even after the old level disarmed it', async ({ degiro, settings }) => {
+  const a = alarm({ price: 17, repeat: 'each' });
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await setPrice(page, 123, 17.2);
+  await expect(banner(page)).toHaveCount(1);
+  await page.locator('[data-dg-alarm-close]').click();
+  await editBtn(page, a.id).click();
+  await page.fill('[data-dg-alarm-price]', '17,1'); // below the price now: a new alarm
+  await page.click('[data-dg-alarm-set]');
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, price: 17.1, dir: 'below', repeat: 'each', on: true }]);
+  await page.waitForTimeout(300);
+  await setPrice(page, 123, 17);
+  await expect(banner(page)).toHaveCount(1);
+  await expect(banner(page)).toContainText('Mock ETF fell to € 17,00');
+});
+
+test('Alarms page: Cancel, Esc, × and a click outside leave the alarm unchanged', async ({ degiro, settings }) => {
+  const a = alarm({ price: 18 });
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  for (const how of ['cancel', 'esc', 'x', 'outside']) {
+    await editBtn(page, a.id).click();
+    await expect(panelEl(page)).toBeVisible();
+    await page.fill('[data-dg-alarm-price]', '25');
+    await page.click('[data-dg-alarm-repeat=each]');
+    if (how === 'cancel') await page.click('[data-dg-alarm-cancel]');
+    else if (how === 'esc') await page.keyboard.press('Escape');
+    else if (how === 'x') await page.click('[data-dg-alarm-x]');
+    else await page.mouse.click(200, 700);
+    await expect(panelEl(page)).toHaveCount(0);
+  }
+  expect(await stored(opt)).toMatchObject([{ id: a.id, price: 18, dir: 'above', repeat: 'once', on: true }]);
+});
+
+test('Alarms page: Save needs a price from somewhere; the last seen price is used when none is live', async ({ degiro, settings }) => {
+  const g = alarm({ productId: 999, name: 'Ghost Fund', price: 30 });
+  const opt = await seed(settings, [g]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await editBtn(page, g.id).click();
+  await expect(panelEl(page)).toContainText('Ghost Fund');
+  // no live price and none seen: the alarm keeps its direction (g is 'above' by default), Save works
+  await expect(page.locator('[data-dg-alarm-set]')).toBeEnabled();
+  await page.fill('[data-dg-alarm-price]', '35');
+  await expect(page.locator('[data-dg-alarm-msg]')).toHaveText('');
+  await expect(page.locator('[data-dg-alarm-hint]')).toContainText('No current price seen yet');
+  await expect(page.locator('[data-dg-alarm-set]')).toBeEnabled();
+  await page.fill('[data-dg-alarm-price]', '');
+  await expect(page.locator('[data-dg-alarm-set]')).toBeDisabled();
+  await page.fill('[data-dg-alarm-price]', 'abc');
+  await expect(page.locator('[data-dg-alarm-msg]')).toContainText('Enter a price');
+  await expect(page.locator('[data-dg-alarm-set]')).toBeDisabled();
+  await page.fill('[data-dg-alarm-price]', '40');
+  await page.click('[data-dg-alarm-set]');
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: g.id, price: 40, dir: g.dir }]);
+  await editBtn(page, g.id).click();
+  await page.click('[data-dg-alarm-cancel]');
+  await opt.evaluate(i => chrome.storage.local.set({ dgAlarmState: { [i]: { last: 25, lastAt: Date.now() } } }), g.id);
+  await expect(editBtn(page, g.id)).toBeVisible();
+  await editBtn(page, g.id).click();
+  await expect(panelEl(page)).toContainText('Latest');
+  await expect(page.locator('[data-dg-alarm-hint]')).toContainText('rises to');
+  await expect(page.locator('[data-dg-alarm-set]')).toBeEnabled();
+  await page.fill('[data-dg-alarm-price]', '20');
+  await page.click('[data-dg-alarm-set]');
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: g.id, price: 20, dir: 'below' }]);
+});
+
+test('Alarms page: a save that finishes after another panel opened leaves that panel alone', async ({ degiro, settings }) => {
+  const a = alarm({ price: 18 }), b = alarm({ price: 19 });
+  const opt = await seed(settings, [a, b]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await editBtn(page, a.id).click();
+  await expect(panelEl(page)).toContainText('Mock ETF');
+  await page.fill('[data-dg-alarm-price]', '20');
+  // Save and, in the same tick (before the storage write answers), Edit on the other row
+  await page.evaluate(id => {
+    /** @type {HTMLElement} */ (document.querySelector('[data-dg-alarm-set]')).click();
+    /** @type {HTMLElement} */ (document.querySelector(`tr[data-dg-alarm-id="${id}"] [data-dg-alarm-edit]`)).click();
+  }, b.id);
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, price: 20 }, { id: b.id, price: 19 }]);
+  await expect(panelEl(page)).toBeVisible();
+  await expect(page.locator('[data-dg-alarm-price]')).toHaveValue('19,00');
+});
+
+test('Alarms page: deleting the alarm while its panel is open closes the panel', async ({ degiro, settings }) => {
+  const a = alarm({ price: 18 });
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await editBtn(page, a.id).click();
+  await expect(panelEl(page)).toBeVisible();
+  await opt.evaluate(() => chrome.storage.sync.set({ dgAlarms: [] }));
+  await expect(panelEl(page)).toHaveCount(0);
+});
+
+test('Alarms page: the Edit panel closes when the page is left and when Price alarms is switched off', async ({ degiro, settings }) => {
+  const a = alarm({ price: 18 });
+  await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  const opt = await settings();
+  await page.bringToFront();
+  await editBtn(page, a.id).click();
+  await expect(panelEl(page)).toBeVisible();
+  await page.waitForTimeout(1300); // the panel survives the page's own runs
+  await expect(panelEl(page)).toBeVisible();
+  await page.evaluate(() => { location.hash = '#/favourites'; });
+  await expect(panelEl(page)).toHaveCount(0);
+  await page.evaluate(() => { location.hash = '#/favourites?dg=alarms'; });
+  await editBtn(page, a.id).click();
+  await expect(panelEl(page)).toBeVisible();
+  await setFlag(opt, 'priceAlarms', false);
+  await expect(panelEl(page)).toHaveCount(0);
+});
+
+test('Alarms page: keyboard focus on Edit survives a price tick; a press on Edit is not eaten by one', async ({ degiro, settings }) => {
+  const a = alarm({ price: 18 });
+  await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await editBtn(page, a.id).focus();
+  await setPrice(page, 123, 16.5);
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => document.activeElement?.hasAttribute('data-dg-alarm-edit'))).toBe(true);
+  await editBtn(page, a.id).hover();
+  await page.mouse.down();
+  await setPrice(page, 123, 16.6);
+  await page.waitForTimeout(300);
+  await page.mouse.up();
+  await expect(panelEl(page)).toBeVisible();
+});
