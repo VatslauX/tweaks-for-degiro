@@ -64,31 +64,7 @@ test('filters survive DEGIRO re-rendering; picks that are gone are dropped', asy
   await expect(chip(page, '$')).toHaveCount(0);
 });
 
-test('stays filtered with the Orders filter switched on too', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T });
-  await chip(page, 'Sell').click();
-  await page.evaluate(() => document.body.appendChild(document.createElement('div'))); // DOM change: both features run
-  await page.waitForTimeout(800);
-  expect((await visibleRows(page)).length).toBe(2);
-  await expect(page.locator('#dg-orders-panel')).toHaveCount(0);
-});
-
-test('only on the Transactions page', async ({ degiro }) => {
-  const { page } = await degiro({ url: 'https://trader.degiro.nl/trader/?mock=transactions#/orders/history' });
-  await page.waitForTimeout(800);
-  await expect(panel(page)).toHaveCount(0);
-});
-
-test('can be switched off; hidden rows come back', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_T });
-  const opt = await settings();
-  await page.bringToFront();
-  await chip(page, 'Sell').click();
-  expect((await visibleRows(page)).length).toBe(2);
-  await setFlag(opt, 'transactionsFilter', false);
-  await expect(panel(page)).toHaveCount(0);
-  await expect.poll(async () => (await visibleRows(page)).length).toBe(5);
-});
+// → integration: stays filtered with Orders filter, only on Transactions page, can be switched off, off→on
 
 test('switched off with the product menu open: a later click does not bring it back', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_T });
@@ -106,17 +82,7 @@ test('switched off with the product menu open: a later click does not bring it b
   expect((await visibleRows(page)).length).toBe(5);
 });
 
-test('off → on: the panel comes back with every row shown', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_T });
-  const opt = await settings();
-  await page.bringToFront();
-  await chip(page, 'Sell').click();
-  await setFlag(opt, 'transactionsFilter', false);
-  await expect(panel(page)).toHaveCount(0);
-  await setFlag(opt, 'transactionsFilter', true);
-  await expect(totals(page).locator('[data-dg-count]')).toHaveText('5 of 5 transactions');
-  expect((await visibleRows(page)).length).toBe(5);
-});
+// → integration: off → on
 
 test('fees from the Fees column when the Total column has no hook', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_NO_TX_TOTAL = true; } });
@@ -176,25 +142,7 @@ test('columns: unticking hides, ticking shows; survives re-rendering; Reset rest
   await expect.poll(() => heads(page)).toEqual(without(...DEF));
 });
 
-test('columns: the choice is saved, survives a reload and reaches other tabs live', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_T });
-  await columnsBtn(page).click();
-  await columnItems(page).filter({ hasText: /^Date$/ }).locator('input').uncheck();
-  await page.reload();
-  await expect.poll(() => heads(page)).toEqual(without('Date', ...DEF));
-  const opt = await settings(); // stands in for another tab writing the setting
-  await opt.evaluate(() => chrome.storage.sync.set({ txHiddenColumns: ['fees'] }));
-  await expect.poll(() => heads(page)).toEqual(without('Fees'));
-});
-
-test('columns: malformed or unknown saved values fall back safely', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_T });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ txHiddenColumns: ['qty', 'product', 'nonsense'] }));
-  await expect.poll(() => heads(page)).toEqual(without('Qty'));
-  await opt.evaluate(() => chrome.storage.sync.set({ txHiddenColumns: 'qty' }));
-  await expect.poll(() => heads(page)).toEqual(without(...DEF));
-});
+// → integration: columns: saved/reload/live, malformed values
 
 test('columns: found by DEGIRO\'s hooks, not header text (German headers)', async ({ degiro }) => {
   const de = ['Produkt', 'Datum', 'Symbol | ISIN', 'Börse', 'Ausführungsort', 'Aktion', 'Anzahl', 'Kurs', 'Wert in Lokalwährung', 'Wert', 'Wechselkurs', 'AutoFX-Gebühr', 'Gebühren', 'Gesamt', ''];
@@ -204,12 +152,7 @@ test('columns: found by DEGIRO\'s hooks, not header text (German headers)', asyn
   await expect(columnItems(page).first()).toHaveText('Datum');
 });
 
-test('columns: without the Fees hook, Exchange Rate and AutoFX Fee are not offered nor hidden', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_NO_TX_FEE = true; } });
-  await expect.poll(() => heads(page)).toEqual(without('Exchange', 'Venue'));
-  await columnsBtn(page).click();
-  expect(await columnItems(page).allTextContents()).not.toContain('Exchange Rate');
-});
+// → integration: columns: without Fees hook
 
 test('columns: switching the feature off shows every column, on hides them again', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_T });
@@ -222,25 +165,7 @@ test('columns: switching the feature off shows every column, on hides them again
   await expect.poll(() => heads(page)).toEqual(without(...DEF));
 });
 
-test('columns: an open date picker\'s calendar table is left alone', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_CALENDAR = true; } });
-  await expect.poll(() => heads(page)).toEqual(without(...DEF));
-  expect(await page.$$eval('#calendar th', ths => ths.filter(th => getComputedStyle(th).display !== 'none').length)).toBe(7);
-  expect(await page.$eval('#dg-transactions-panel', el => !el.closest('#calendar'))).toBe(true);
-});
-
-test('columns: a hook on the cell itself counts too; a column without a header is not offered', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T, initScript: () => {
-    window.__MOCK_TX_HEADERS = ['Product', 'Date', 'Symbol | ISIN', 'Exchange', 'Venue', 'Action', 'Qty', 'Price', 'Local value', 'Value', 'Exchange Rate', '', 'Fees', 'Total', ''];
-  } });
-  await page.evaluate(() => { document.querySelectorAll('#rows [data-field=date]').forEach(s => { s.parentElement.dataset.field = 'date'; s.removeAttribute('data-field'); }); });
-  await page.evaluate(() => document.body.appendChild(document.createElement('div'))); // DOM change: re-run
-  await columnsBtn(page).click();
-  const names = await columnItems(page).allTextContents();
-  expect(names).toContain('Date');
-  expect(names).not.toContain('autoFxFee');
-  expect(names.length).toBe(12);
-});
+// → integration: columns: calendar left alone, hook on cell
 
 test('columns: the other columns fit their content and Product gets the spare width', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_T });

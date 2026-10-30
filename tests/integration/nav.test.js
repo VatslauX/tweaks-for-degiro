@@ -1,5 +1,6 @@
 // Left-sidebar links (nav.js): the Alarms item's badge counts open alarm banners, in every tab.
-// Stays in Playwright: whether the links fit the sidebar's height, current-item looks (computed styles).
+// Stays in Playwright: sidebar height fitting (layout), current-item colour (getComputedStyle),
+// hover/flyout interaction (computed styles + pointer events).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createWorld, alarm } = require('./harness');
@@ -70,4 +71,211 @@ test('the Alarms item goes with the Price alarms switch (and comes back with its
   await A.setFlag('priceAlarms', true);
   await w.advance(200);
   assert.deepEqual([badge(A), badge(B)], ['1', '1']);
+});
+
+// ── Additional nav structure tests ──────────────────────────────────────────
+
+async function openOrders() {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'orders', hash: '/orders/open' });
+  await w.advance(200);
+  return { w, tab };
+}
+
+test("nav links: no data-name/data-type attributes copied from DEGIRO's Products item", async () => {
+  const { w, tab } = await openOrders();
+  assert.equal(tab.$$('[data-dg-nav] [data-name], [data-dg-nav] [data-type]').length, 0, 'no DEGIRO hooks in our items');
+  assert.equal(tab.$$('[data-name=productsMenuItem]').length, 1, "DEGIRO's own item not duplicated");
+  const link = tab.$('[data-dg-nav=orders] a');
+  assert.ok(link.classList.contains('navItem'), 'our link has navItem class');
+  noErrors(w);
+});
+
+test('on a page without a current item, no nav link looks current', async () => {
+  // product page: Products is the current DEGIRO item but none of our links are
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'degiro', hash: '/products/123/overview',
+    globals: { __MOCK_NO_URL_SESSION: true, Highcharts: { Chart: function() { const s = { setData() {}, data: [{ update() {} }] }; return { series: [s] }; } } } });
+  await w.advance(200);
+  const hasCurrent = tab.$$('[data-dg-nav] a').some(a => a.classList.contains('current'));
+  assert.equal(hasCurrent, false, 'no nav link is current on the product page');
+  noErrors(w);
+});
+
+test('only once, and back in place after DEGIRO re-renders the sidebar', async () => {
+  const { w, tab } = await openOrders();
+  assert.equal(tab.$$('[data-dg-nav]').length, 3);
+  // DEGIRO re-renders: replace the nav and remove our items (like a full re-render)
+  const nav = tab.$('[data-name=sideNavigation] nav[aria-label=primary]');
+  nav.replaceWith(nav.cloneNode(true));
+  tab.$$('[data-dg-nav]').forEach(el => el.remove());
+  await w.advance(300);
+  assert.equal(tab.$$('[data-dg-nav]').length, 3, 'items restored after re-render');
+  // settled: further DOM changes do not add duplicates
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  assert.equal(tab.$$('[data-dg-nav]').length, 3, 'count stays at 3');
+  noErrors(w);
+});
+
+test("without DEGIRO's Products item, nothing is added", async () => {
+  const { w, tab } = await openOrders();
+  assert.equal(tab.$$('[data-dg-nav]').length, 3);
+  // Live removal of the Products item's data-name: the extension should remove our links
+  tab.$('[data-name=productsMenuItem]').removeAttribute('data-name');
+  tab.document.body.appendChild(tab.document.createElement('div')); // DOM change
+  await w.advance(400);
+  assert.equal(tab.$$('[data-dg-nav]').length, 0, 'items removed when Products item gone');
+  noErrors(w);
+});
+
+test('current class remembered on a page where no item looks current', async () => {
+  const { w, tab } = await openOrders();
+  const link = tab.$('[data-dg-nav=orders] a');
+  assert.ok(link.classList.contains('current'), 'orders link current on orders page');
+  // remove DEGIRO's current class from its item (simulating a re-render where it loses it)
+  tab.$('[data-name=accountActivityMenuItem]').classList.remove('current');
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(400);
+  assert.ok(tab.$('[data-dg-nav=orders] a').classList.contains('current'), 'our current class remembered');
+  noErrors(w);
+});
+
+test("a one-off class on another DEGIRO link is not taken for the current class", async () => {
+  const { w, tab } = await openOrders();
+  // An unread badge class on Inbox (not the current item)
+  tab.$('[data-name=accountActivityMenuItem]').classList.add('unread');
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  tab.$('[data-name=accountActivityMenuItem]').classList.remove('unread');
+  // A "More" link with navItem class that isn't one of DEGIRO's menu items
+  const more = tab.document.createElement('a');
+  more.className = 'navItem more'; more.href = '#/products/123/overview'; more.textContent = 'More';
+  tab.$('[data-name=sideNavigation] nav').append(more);
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  more.remove();
+  // navigate to orders: our orders link should be current
+  await tab.go('#/orders/open');
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  assert.ok(tab.$('[data-dg-nav=orders] a')?.getAttribute('aria-current') === 'page', 'orders aria-current correct');
+  noErrors(w);
+});
+
+test("DEGIRO's tooltip and accessible name for Products are not copied", async () => {
+  const { w, tab } = await openOrders();
+  // Add title/aria attributes to DEGIRO's Products item, then force a rebuild
+  const productsLink = tab.$('[data-name=productsMenuItem]');
+  productsLink.setAttribute('title', 'Products');
+  productsLink.setAttribute('aria-label', 'Products');
+  productsLink.setAttribute('aria-describedby', 'productsTip');
+  productsLink.setAttribute('aria-labelledby', 'productsTip');
+  tab.$$('[data-dg-nav]').forEach(el => el.remove()); // remove so extension rebuilds
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  assert.equal(tab.$('[data-dg-nav=orders] a').getAttribute('title'), 'Orders', 'our link has its own title');
+  assert.equal(tab.$('[data-dg-nav=orders] a').getAttribute('aria-label'), 'Orders', 'our link has its own aria-label');
+  assert.equal(tab.$('[data-dg-nav=transactions] a').getAttribute('aria-label'), 'Transactions');
+  const badAttrs = tab.$$('[data-dg-nav], [data-dg-nav] *').filter(el =>
+    [...el.attributes].some(at => /Products|productsTip/.test(at.value))
+  );
+  assert.equal(badAttrs.length, 0, "none of our elements have DEGIRO's Products values");
+  noErrors(w);
+});
+
+test("made again when DEGIRO's Products item changes its classes", async () => {
+  const { w, tab } = await openOrders();
+  assert.equal(tab.$$('[data-dg-nav]').length, 3);
+  const cellClass = () => tab.$('[data-dg-nav=orders] .navCell')?.className;
+  // DEGIRO marks the current item's parent with 'active'
+  tab.$('[data-name=productsMenuItem]').parentElement.classList.add('active');
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  assert.ok(cellClass().includes('active'), 'our cell reflects active class');
+  tab.$('[data-name=productsMenuItem]').parentElement.classList.remove('active');
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  assert.equal(cellClass(), 'navCell', 'active class removed');
+  assert.equal(tab.$$('[data-dg-nav]').length, 3, 'still exactly 3 items');
+  noErrors(w);
+});
+
+const FAV = '/favourites';
+const ALARMS_HASH = '/favourites?dg=alarms';
+
+test('on the Alarms page only our Alarms item looks current; Favourites gets it back after', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'favourites', hash: ALARMS_HASH });
+  await w.advance(200);
+  const alarmLink = tab.$('[data-dg-nav=alarms] a');
+  const favLink = tab.$('a[data-name=favouriteProductsMenuItem]');
+  assert.ok(alarmLink.classList.contains('current'), 'alarms link is current on Alarms page');
+  assert.ok(!favLink.classList.contains('current'), 'Favourites is not current on Alarms page');
+  assert.equal(alarmLink.getAttribute('aria-current'), 'page');
+  // navigate back to Favourites
+  await tab.go(FAV);
+  assert.ok(favLink.classList.contains('current'), 'Favourites gets current back');
+  assert.ok(!alarmLink.classList.contains('current'), 'Alarms no longer current');
+  // leaving to a non-Favourites page: extension cleans up its own tracking attribute
+  await tab.go('#/portfolio');
+  assert.ok(!alarmLink.classList.contains('current'), 'alarms not current on portfolio page');
+  assert.equal(favLink.hasAttribute('data-dg-nav-uncurrent'), false, 'no uncurrent marker left on Favourites');
+  noErrors(w);
+});
+
+test('Favourites is made not-current again when DEGIRO re-adds the class on the Alarms page', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'favourites', hash: ALARMS_HASH });
+  await w.advance(200);
+  const favLink = tab.$('a[data-name=favouriteProductsMenuItem]');
+  const alarmLink = tab.$('[data-dg-nav=alarms] a');
+  assert.ok(!favLink.classList.contains('current'), 'Favourites not current');
+  // DEGIRO re-renders and re-adds current to Favourites
+  favLink.classList.add('current'); favLink.setAttribute('aria-current', 'page');
+  tab.document.body.appendChild(tab.document.createElement('div'));
+  await w.advance(300);
+  assert.ok(!favLink.classList.contains('current'), 'extension removed Favourites current');
+  assert.ok(!favLink.hasAttribute('aria-current'), 'extension removed aria-current');
+  assert.ok(alarmLink.classList.contains('current'), 'Alarms still current');
+  // give back on navigate to real Favourites
+  await tab.go(FAV);
+  assert.ok(favLink.classList.contains('current'), 'Favourites gets current back');
+  noErrors(w);
+});
+
+test('switching Price alarms or navLinks off gives Favourites its class back', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'favourites', hash: ALARMS_HASH });
+  await w.advance(200);
+  const favLink = tab.$('a[data-name=favouriteProductsMenuItem]');
+  assert.ok(!favLink.classList.contains('current'), 'Favourites not current on Alarms page');
+  await tab.setFlag('priceAlarms', false);
+  await w.advance(300);
+  assert.ok(favLink.classList.contains('current'), 'Favourites gets current back when priceAlarms off');
+  await tab.setFlag('priceAlarms', true);
+  await w.advance(300);
+  assert.ok(!favLink.classList.contains('current'), 'Favourites not current when priceAlarms back on');
+  await tab.setFlag('navLinks', false);
+  await w.advance(300);
+  assert.ok(favLink.classList.contains('current'), 'Favourites gets current back when navLinks off');
+  noErrors(w);
+});
+
+test('a copy made while the flyout is open has no flyout links in our items', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'orders', hash: '/orders/open', globals: {
+    __BEFORE_EXT: () => {
+      // simulate: pointer already on Products when sidebar first renders
+      document.querySelector('[data-name=productsMenuItem]').parentElement.dispatchEvent(new MouseEvent('mouseenter'));
+    }
+  } });
+  await w.advance(200);
+  // our items should not contain flyout class or links
+  const flyoutCount = tab.$$('[data-dg-nav] a').length;
+  assert.equal(flyoutCount, 3, '3 links (one per nav item), none extra');
+  assert.equal(tab.$$('[data-dg-nav] .flyout, [data-dg-nav] .flyoutLink').length, 0, 'no flyout elements in our items');
+  const flyoutOpenCount = tab.$$('[data-dg-nav] a.flyoutOpen').length;
+  assert.equal(flyoutOpenCount, 0, 'none of our links have flyoutOpen class');
+  noErrors(w);
 });

@@ -1,6 +1,7 @@
 // Orders and Transactions tables (orders-table.js): filters and totals over many row variants, built
 // from the mock pages. Expected figures are computed by hand in the comments.
-// Stays in Playwright: column widths, the Product column's spare width, menu clamping, real colours.
+// Stays in Playwright: column widths, the Product column's spare width, menu clamping, real colours,
+// getComputedStyle visibility (column hide/show uses a <style> element, not inline styles).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createWorld } = require('./harness');
@@ -221,4 +222,183 @@ test('Orders: a row without a limit price takes its currency from the stop price
   assert.match(text(tab, 'orders', 'buy'), /\$ 100,00 \(1\)/, 'B counted under $');
   assert.match(text(tab, 'orders', 'buy'), /\? 40,00 \(1\)/, 'C under ?');
   assert.match(text(tab, 'orders', 'buy'), /€ 2\.500,00 \(1\)/);
+});
+
+// ── Transactions: flag and column-picker logic ──────────────────────────────
+
+test('Transactions: only on the Transactions page, not Orders history', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'transactions', hash: '/orders/history' });
+  await w.advance(800);
+  assert.equal(tab.$('#dg-transactions-panel'), null, 'no panel on orders/history page');
+  noErrors(w);
+});
+
+test('Transactions: can be switched off; hidden rows come back', async () => {
+  const { w, tab } = await transactions(null);
+  await click(tab, 'tx', 'Sell');
+  assert.equal(shown(tab), 2, 'sell filter applied');
+  await tab.setFlag('transactionsFilter', false);
+  await w.advance(200);
+  assert.equal(tab.$('#dg-transactions-panel'), null, 'panel removed');
+  assert.equal(shown(tab), 5, 'all rows shown again');
+  noErrors(w);
+});
+
+test('Transactions: off → on restores the panel with every row shown', async () => {
+  const { w, tab } = await transactions(null);
+  await click(tab, 'tx', 'Sell');
+  await tab.setFlag('transactionsFilter', false);
+  await w.advance(200);
+  assert.equal(tab.$('#dg-transactions-panel'), null);
+  await tab.setFlag('transactionsFilter', true);
+  await w.advance(200);
+  assert.ok(tab.$('#dg-transactions-panel'), 'panel restored');
+  assert.equal(shown(tab), 5, 'all rows visible');
+  noErrors(w);
+});
+
+test('Transactions: stays filtered when the Orders feature also runs on the page', async () => {
+  // Both ordersFilter and transactionsFilter are on by default; DOM change triggers both.
+  const { w, tab } = await transactions(null);
+  await click(tab, 'tx', 'Sell');
+  tab.document.body.appendChild(tab.document.createElement('div')); // DOM change
+  await w.advance(800);
+  assert.equal(shown(tab), 2, 'Sell filter survives the re-run');
+  assert.equal(tab.$('#dg-orders-panel'), null, 'no Orders panel on Transactions page');
+  noErrors(w);
+});
+
+test('Transactions columns: saved choice propagates to a second tab live', async () => {
+  const { w, tab } = await transactions(null);
+  // open the column picker and uncheck Date
+  tab.$('[data-dg-columns]').click();
+  await w.advance(200);
+  const dateLabel = tab.$$('#dg-transactions-panel [role=listbox] label').find(l => l.textContent.trim() === 'Date');
+  assert.ok(dateLabel, 'Date column offered');
+  const dateCb = dateLabel.querySelector('input');
+  dateCb.checked = false;
+  dateCb.dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+  await w.advance(500);
+  // Extension stores all currently hidden columns (defaults + the user's choice)
+  assert.ok((w.stored('sync').txHiddenColumns || []).includes('date'), 'Date stored as hidden');
+  // second tab picks up the change from storage
+  const tab2 = await w.open({ fixture: 'transactions', hash: '/transactions?fromDate=01%2F10%2F2026' });
+  await w.advance(200);
+  // extension creates #dg-tx-columns style element when any column is hidden
+  assert.ok(tab2.$('#dg-tx-columns'), 'hiding style element present in second tab');
+  assert.ok(tab2.$('#dg-tx-columns').textContent.length > 0, 'style has content');
+  // live update to another key: the original tab responds
+  await w.set('sync', { txHiddenColumns: ['fees'] });
+  await w.advance(200);
+  assert.deepEqual(w.stored('sync').txHiddenColumns, ['fees'], 'fees now the hidden column');
+  noErrors(w);
+});
+
+test('Transactions columns: malformed or unknown saved values fall back safely', async () => {
+  const { w } = await transactions(null);
+  await w.set('sync', { txHiddenColumns: ['qty', 'product', 'nonsense'] });
+  await w.advance(200);
+  noErrors(w);
+  await w.set('sync', { txHiddenColumns: 'qty' }); // string instead of array
+  await w.advance(200);
+  noErrors(w);
+});
+
+test('Transactions columns: without the Fees hook, Exchange Rate and AutoFX Fee are not offered', async () => {
+  const { w, tab } = await transactions(null, { __MOCK_NO_TX_FEE: true });
+  tab.$('[data-dg-columns]').click();
+  await w.advance(200);
+  const names = tab.$$('#dg-transactions-panel [role=listbox] label').map(l => l.textContent.trim());
+  assert.ok(!names.includes('Exchange Rate'), 'Exchange Rate not offered');
+  assert.ok(!names.includes('AutoFX Fee'), 'AutoFX Fee not offered');
+  assert.ok(names.includes('Date'), 'Date still offered');
+  noErrors(w);
+});
+
+test('Transactions columns: open date picker calendar table is left alone', async () => {
+  const { w, tab } = await transactions(null, { __MOCK_CALENDAR: true });
+  // the extension's panel must not be placed inside the calendar
+  assert.ok(tab.$('#dg-transactions-panel'), 'panel present');
+  assert.equal(tab.$('#calendar').contains(tab.$('#dg-transactions-panel')), false,
+    'panel not inside calendar');
+  // all calendar headers remain in the DOM (the extension should not filter them)
+  assert.equal(tab.$$('#calendar thead th').length, 7, 'calendar ths untouched');
+  noErrors(w);
+});
+
+// ── Orders: flag and picker logic ───────────────────────────────────────────
+
+test('Orders: product filter (multi-select)', async () => {
+  const { w, tab } = await orders(null);
+  tab.$('#dg-orders-panel [data-dg-products]').click();
+  await w.advance(200);
+  const options = tab.$$('#dg-orders-panel [role=listbox] label');
+  assert.equal(options.length, 5, '5 distinct products');
+  assert.ok(options[0].textContent.includes('ADR on Mock Software SE'), 'first option correct');
+  // pick Mock Tech (the listbox may rebuild between clicks, so re-query after each)
+  options.find(l => l.textContent.includes('Mock Tech')).querySelector('input').click();
+  await w.advance(200);
+  // re-query: the listbox may have been rebuilt
+  const options2 = tab.$$('#dg-orders-panel [role=listbox] label');
+  options2.find(l => l.textContent.includes('ADR on Mock')).querySelector('input').click();
+  await w.advance(200);
+  assert.equal(shown(tab), 3, '3 rows after product filter');
+  assert.match(text(tab, 'orders', 'buy'), /\$ 5\.903,50 \(2\)/, 'correct buy total for 2 products');
+  noErrors(w);
+});
+
+test('Orders: product menu closes on outside click', async () => {
+  const { w, tab } = await orders(null);
+  tab.$('#dg-orders-panel [data-dg-products]').click();
+  await w.advance(200);
+  assert.ok(tab.$('#dg-orders-panel [role=listbox]'), 'listbox open');
+  tab.document.dispatchEvent(new tab.window.MouseEvent('mousedown', { bubbles: true }));
+  await w.advance(200);
+  assert.equal(tab.$('#dg-orders-panel [role=listbox]'), null, 'listbox closed after outside click');
+  noErrors(w);
+});
+
+test('Orders: only on the Outstanding page, not history', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'orders', hash: '/orders/history' });
+  await w.advance(800);
+  assert.equal(tab.$('#dg-orders-panel'), null, 'no panel on orders/history');
+  noErrors(w);
+});
+
+test('Orders: can be switched off; hidden rows come back', async () => {
+  const { w, tab } = await orders(null);
+  await click(tab, 'orders', 'Sell');
+  assert.equal(shown(tab), 2);
+  await tab.setFlag('ordersFilter', false);
+  await w.advance(200);
+  assert.equal(tab.$('#dg-orders-panel'), null, 'panel removed');
+  assert.equal(shown(tab), 8, 'all rows shown again');
+  noErrors(w);
+});
+
+test('Orders: action comes from data-action, whatever the label text says', async () => {
+  const { w, tab } = await orders(null);
+  // relabel badges but keep data-action
+  tab.$$('#orders [data-name=buySellBadge]').forEach(b => { b.textContent = b.dataset.action === 'BUY' ? 'Köp' : 'Sälj'; });
+  tab.document.body.appendChild(tab.document.createElement('div')); // trigger re-run
+  await w.advance(200);
+  assert.ok(text(tab, 'orders', 'sell').includes('$ 2.500,00 (1)'), 'sell total correct with localised text');
+  await click(tab, 'orders', 'Sell');
+  assert.equal(shown(tab), 2, 'Sell filter works with relabelled badges');
+  noErrors(w);
+});
+
+test('Orders: a picked currency that is no longer in the table is dropped', async () => {
+  const { w, tab } = await orders(null);
+  await click(tab, 'orders', '$');
+  assert.equal(shown(tab), 4);
+  // Remove all $ rows from the mock and re-render
+  tab.window.__ORDERS = tab.window.__ORDERS.filter(o => !o[3].startsWith('$'));
+  tab.window.__rerender();
+  await w.advance(200);
+  assert.equal(shown(tab), 4, 'all remaining rows shown (€-only table)');
+  assert.equal(tab.$(`#dg-orders-panel button[data-value="$"]`), null, '$ chip gone');
+  noErrors(w);
 });

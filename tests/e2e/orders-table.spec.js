@@ -37,18 +37,7 @@ test('currency filter (multi-select)', async ({ degiro }) => {
   expect((await visibleRows(page)).length).toBe(8);
 });
 
-test('product filter (multi-select) without the category badge in names', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await panel(page).locator('[data-dg-products]').click();
-  const options = panel(page).locator('[role=listbox] label');
-  await expect(options).toHaveCount(5);
-  await expect(options.first()).toHaveText('ADR on Mock Software SE (1)');
-  await options.filter({ hasText: 'Mock Tech' }).locator('input').check();
-  await options.filter({ hasText: 'ADR on Mock' }).locator('input').check();
-  expect((await visibleRows(page)).length).toBe(3);
-  await expect(totals(page)).toContainText('Total buy $ 5.903,50 (2)');
-  await expect(totals(page)).toContainText('Total sell $ 2.500,00 (1)');
-});
+// → integration: product filter (multi-select)
 
 test('a very long product name wraps inside the product menu', async ({ degiro }) => {
   const long = 'AMUNDI MSCI EMERGING MARKETS SRI CLIMATE PARIS ALIGNED UCITS ETF DR ACC';
@@ -77,40 +66,7 @@ test('filters survive DEGIRO re-rendering the rows', async ({ degiro }) => {
   await expect.poll(async () => (await visibleRows(page)).length).toBe(2);
 });
 
-test('a picked currency that is no longer in the table is dropped', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await chip(page, '$').click();
-  expect((await visibleRows(page)).length).toBe(4);
-  await page.evaluate(() => { window.__ORDERS = window.__ORDERS.filter(o => !o[3].startsWith('$')); window.__rerender(); });
-  await expect.poll(async () => (await visibleRows(page)).length).toBe(4);
-  await expect(chip(page, '$')).toHaveCount(0);
-  await expect(totals(page)).toContainText('4 of 4 orders');
-});
-
-test('product menu closes on outside click', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await panel(page).locator('[data-dg-products]').click();
-  await expect(panel(page).locator('[role=listbox]')).toBeVisible();
-  await page.mouse.click(5, 5);
-  await expect(panel(page).locator('[role=listbox]')).toHaveCount(0);
-});
-
-test('only on the Outstanding page', async ({ degiro }) => {
-  const { page } = await degiro({ url: 'https://trader.degiro.nl/trader/?mock=orders#/orders/history' });
-  await page.waitForTimeout(800);
-  await expect(panel(page)).toHaveCount(0);
-});
-
-test('can be switched off; hidden rows come back', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_O });
-  const opt = await settings();
-  await page.bringToFront();
-  await chip(page, 'Sell').click();
-  expect((await visibleRows(page)).length).toBe(2);
-  await setFlag(opt, 'ordersFilter', false);
-  await expect(panel(page)).toHaveCount(0);
-  await expect.poll(async () => (await visibleRows(page)).length).toBe(8);
-});
+// → integration: a picked currency dropped, product menu closes, only on Outstanding page, can be switched off
 
 test('DEGIRO styling: Buy green, Sell red, taken from the Action column', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_O });
@@ -189,20 +145,4 @@ test('columns: outside DEGIRO\'s openOrders section nothing is hidden or resized
   await expect(totals(page)).toContainText('8 of 8 orders'); // filters and totals still work
 });
 
-test('columns: malformed or unknown saved values fall back safely', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_O });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ ordersHiddenColumns: ['qty', 'product', 'venue'] }));
-  await expect.poll(() => heads(page)).toEqual(without('Qty'));
-  await opt.evaluate(() => chrome.storage.sync.set({ ordersHiddenColumns: 'qty' }));
-  await expect.poll(() => heads(page)).toEqual(without('Exchange'));
-});
-
-test('action comes from DEGIRO\'s data-action, whatever the label says', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await page.evaluate(() => document.querySelectorAll('#rows [data-name=buySellBadge]').forEach(b => { b.textContent = b.dataset.action === 'BUY' ? 'Köp' : 'Sälj'; }));
-  await page.evaluate(() => document.body.appendChild(document.createElement('div'))); // DOM change: re-run
-  await expect(totals(page)).toContainText('Total sell $ 2.500,00 (1) · € 3.600,00 (1)');
-  await chip(page, 'Sell').click();
-  await expect.poll(async () => (await visibleRows(page)).length).toBe(2);
-});
+// → integration: columns: malformed values, action from data-action
