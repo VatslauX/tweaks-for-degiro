@@ -9,9 +9,6 @@ test('escapes every RegExp special character, so a string matches only itself', 
   assert.ok(re.test(s));
   assert.ok(!re.test(s.replace('.', 'x')), '. is literal');
   assert.ok(!re.test('a\\b (11+2) $ 3.5 * ? ^ | [x] {2} / -'), '+ is literal');
-  // the old partial escapes did not hold up: only "." or only "$" escaped
-  assert.throws(() => new RegExp(`^${'a\\b (1+2'.replace(/\./g, '\\.')}$`), SyntaxError);
-  assert.ok(!new RegExp(`^${'(1+2) $'.replace(/[$]/g, '\\$')}$`).test('(1+2) $'));
 });
 
 test('leaves ordinary text alone', () => {
