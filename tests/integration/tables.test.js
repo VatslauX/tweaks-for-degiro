@@ -502,6 +502,23 @@ test("Orders sort: the user's own choice on a fresh mount wins over the saved on
   noErrors(w);
 });
 
+test('Orders sort: switched off then back on resumes restoring', async () => {
+  const { w, tab } = await orders(null);
+  sortTh(tab, 'Product').querySelector('button').click();
+  await w.advance(200);
+  assert.deepEqual(w.stored('sync').dgOrdersSort, { col: 'product', dir: 'ascending' });
+
+  await tab.setFlag('ordersSort', false);
+  const tab2 = await w.open({ fixture: 'orders', hash: '/orders/open' });
+  await w.advance(400);
+  assert.equal(sortTh(tab2, 'Product').getAttribute('aria-sort'), 'none', 'not restored while off');
+
+  await tab.setFlag('ordersSort', true);
+  await w.advance(400);
+  assert.equal(sortTh(tab2, 'Product').getAttribute('aria-sort'), 'ascending', 'restores once switched back on, without a reload');
+  noErrors(w);
+});
+
 test('Orders sort: a malformed or unknown saved column is ignored', async () => {
   const w = createWorld({ storage: { sync: { dgOrdersSort: { col: 'nope', dir: 'ascending' } } } });
   const tab = await w.open({ fixture: 'orders', hash: '/orders/open' });

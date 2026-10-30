@@ -451,12 +451,18 @@
     try { chrome.storage.sync.set({ dgOrdersSort }).catch(() => {}); } catch (e) {}
   }
 
-  // per-mount memory: a new table element (navigated away and back, or reloaded) starts fresh
-  let sortMount = null, sortPendingKey = null, sortUserDone = false, sortAttempts = 0, sortRestoring = false;
+  // per-mount memory: reset once when we arrive at the Orders page (extension startup, or navigating
+  // back to it), not on the <table> element's identity — DEGIRO re-renders rows in place on every sort
+  // (confirmed against the real page: repeated clicks never replace the node), so keying resets off the
+  // element could, if DEGIRO ever did replace it for an unrelated reason, revert a just-made user click
+  // and retry forever. A brief "missing" table (DEGIRO still loading) is not treated as leaving the page.
+  let sortMounted = false, sortPendingKey = null, sortPendingFrom = null, sortUserDone = false,
+    sortAttempts = 0, sortPendingWait = 0, sortRestoring = false;
 
-  // a click saves the column once DEGIRO applies it (read back in sortRun). `btn.click()` below
-  // dispatches synchronously, so this listener can tell its own restore click (sortRestoring is still
-  // true while it runs) from one the user made, without relying on Event.isTrusted.
+  // a click saves the column once DEGIRO applies it (read back in sortRun, against the aria-sort value
+  // snapshotted here before DEGIRO's own handler runs: our listener is capture-phase, so it fires first).
+  // `btn.click()` below dispatches synchronously, so this listener can tell its own restore click
+  // (sortRestoring is still true while it runs) from one the user made, without relying on Event.isTrusted.
   document.addEventListener('click', e => {
     if (sortRestoring || !dgSettings.ordersSort || !page.isOrders()) return;
     const btn = /** @type {Element} */ (e.target).closest?.('thead button');
@@ -468,19 +474,28 @@
     if (!key) return;
     sortUserDone = true; // the user is choosing a sort here: stop auto-restoring on this mount
     sortPendingKey = key;
+    sortPendingFrom = found.heads[found.index[key]]?.getAttribute('aria-sort') ?? null;
+    sortPendingWait = 0;
   }, true);
 
   function sortRun() {
-    if (!page.isOrders()) return 'idle';
+    if (!page.isOrders()) { sortMounted = false; return 'idle'; }
+    if (!sortMounted) { sortMounted = true; sortPendingKey = null; sortUserDone = false; sortAttempts = 0; }
     const table = ordersTable();
     if (!table) return 'missing';
-    if (table !== sortMount) { sortMount = table; sortPendingKey = null; sortUserDone = false; sortAttempts = 0; }
     const found = columnHooks(table, ORDERS_SORT_SCOPE, ORDERS_HOOKS);
     if (!found) return 'ok';
 
     if (sortPendingKey) {
       const dir = found.heads[found.index[sortPendingKey]]?.getAttribute('aria-sort');
-      if (dir === 'ascending' || dir === 'descending') { saveSort(sortPendingKey, dir); sortPendingKey = null; }
+      // only once DEGIRO's own click handler has actually changed it from what it was at click time:
+      // a scheduler run squeezed in between the click and DEGIRO applying it would otherwise save the
+      // stale (pre-click) direction as if it were the result
+      if ((dir === 'ascending' || dir === 'descending') && dir !== sortPendingFrom) {
+        saveSort(sortPendingKey, dir); sortPendingKey = null;
+      } else if (++sortPendingWait >= 5) {
+        sortPendingKey = null; // gave up: DEGIRO never applied it (or applied an unreadable value); the
+      } // user's click already stopped auto-restore, so nothing fights them over it
       return 'ok';
     }
     if (sortUserDone || !sortLoaded || !dgOrdersSort || sortAttempts >= 3) return 'ok';
@@ -500,6 +515,6 @@
 
   feature({
     name: 'ordersSort', enabled: () => dgSettings.ordersSort, run: sortRun,
-    stop: () => { sortMount = null; sortPendingKey = null; sortUserDone = false; sortAttempts = 0; }
+    stop: () => { sortMounted = false; sortPendingKey = null; sortUserDone = false; sortAttempts = 0; sortPendingWait = 0; }
   });
 })();
