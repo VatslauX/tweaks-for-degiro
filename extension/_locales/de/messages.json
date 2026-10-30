@@ -300,6 +300,9 @@
   "alarmButton": {
     "message": "Alarm"
   },
+  "alarmButtonAria": {
+    "message": "Alarm, aktiv: $1"
+  },
   "alarmPanelTitle": {
     "message": "Kursalarm setzen"
   },

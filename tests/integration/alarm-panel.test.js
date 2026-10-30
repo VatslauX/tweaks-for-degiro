@@ -237,6 +237,54 @@ test('sets an alarm above the current price; the order form is never touched', a
   noErrors(w);
 });
 
+test('Alarm button has accessible name with count; badge is aria-hidden', async () => {
+  const { w, tab } = await setupProduct();
+  const btn = buttons(tab)[0];
+  // before any alarm: no aria-label
+  assert.equal(btn.getAttribute('aria-label'), null, 'no aria-label before alarm set');
+  // set an alarm
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  fill(tab, '[data-dg-alarm-price]', '18');
+  await w.advance(100);
+  tab.$('[data-dg-alarm-set]').click();
+  await w.advance(500);
+  // button now has aria-label with count
+  assert.equal(btn.getAttribute('aria-label'), 'Alarm, 1 switched on');
+  // badge is aria-hidden
+  const badge = btn.querySelector('[data-dg-alarm-count]');
+  assert.equal(badge?.getAttribute('aria-hidden'), 'true', 'badge is aria-hidden');
+  // set a second alarm
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  fill(tab, '[data-dg-alarm-price]', '15');
+  await w.advance(100);
+  tab.$('[data-dg-alarm-set]').click();
+  await w.advance(500);
+  // aria-label updated to count 2
+  assert.equal(btn.getAttribute('aria-label'), 'Alarm, 2 switched on');
+  // switch off first alarm
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  const toggles = tab.$$('[data-dg-alarm-row] input[type=checkbox]');
+  toggles[0].checked = false;
+  toggles[0].dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+  await w.advance(300);
+  // aria-label updated to count 1
+  assert.equal(btn.getAttribute('aria-label'), 'Alarm, 1 switched on');
+  // switch off the other one too: no count, no aria-label
+  const rest = tab.$$('[data-dg-alarm-row] input[type=checkbox]').find(i => i.checked);
+  assert.ok(rest, 'one alarm still on');
+  rest.checked = false;
+  rest.dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+  await w.advance(300);
+  assert.equal(btn.getAttribute('aria-label'), null);
+  assert.equal(btn.querySelector('[data-dg-alarm-count]'), null);
+  tab.$('[data-dg-alarm-x]').click();
+  await w.advance(100);
+  noErrors(w);
+});
+
 test('an alarm set while the price cell shows a dash keeps a clean currency', async () => {
   // market closed: every copy of the price cell reads "$ —" from the start, the title keeps the last price
   const { w, tab } = await setupProduct([], { __MOCK_PRICE_DASH: true });

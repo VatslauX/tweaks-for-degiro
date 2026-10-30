@@ -340,6 +340,10 @@
   "alarmButton": {
     "message": "Alarm"
   },
+  "alarmButtonAria": {
+    "message": "Alarm, $1 switched on",
+    "description": "$1 = number of switched-on alarms"
+  },
   "alarmPanelTitle": {
     "message": "Set price alarm"
   },

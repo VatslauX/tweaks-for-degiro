@@ -96,10 +96,13 @@ const dgAlarmPanel = (() => {
         const badge = document.createElement('span');
         badge.textContent = String(n);
         badge.setAttribute('data-dg-alarm-count', '');
+        badge.setAttribute('aria-hidden', 'true');
         badge.style.cssText = `background:${dgUi.BLUE};color:#fff;border-radius:9px;font-size:10px;padding:0 6px;line-height:16px;`;
         b.replaceChildren(dgUi.icon(dgUi.BELL, 16), text, badge);
+        b.setAttribute('aria-label', t('alarmButtonAria', String(n)));
       } else {
         b.replaceChildren(dgUi.icon(dgUi.BELL, 16), text);
+        b.removeAttribute('aria-label');
       }
     }
     if (c.sell.nextElementSibling !== b) c.sell.after(b);

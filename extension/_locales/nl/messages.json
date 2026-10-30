@@ -300,6 +300,9 @@
   "alarmButton": {
     "message": "Alarm"
   },
+  "alarmButtonAria": {
+    "message": "Alarm, ingeschakeld: $1"
+  },
   "alarmPanelTitle": {
     "message": "Koersalarm instellen"
   },

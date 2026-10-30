@@ -300,6 +300,9 @@
   "alarmButton": {
     "message": "Alarme"
   },
+  "alarmButtonAria": {
+    "message": "Alarme, actives : $1"
+  },
   "alarmPanelTitle": {
     "message": "Définir une alarme de cours"
   },
