@@ -52,6 +52,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Alarm button on the page of any product in your Favourites: set a price, above or below, once, once a day or every time
 > • A banner appears in every open DEGIRO tab when the price is reached
 > • An Alarms page and sidebar item to see, switch and delete all alarms
+> • Gold alarm badges at the alarm prices on the product chart
 > • Checked while DEGIRO's Favourites or a product page is open; stored in Chrome, nothing sent anywhere
 >
 > LESS CLUTTER

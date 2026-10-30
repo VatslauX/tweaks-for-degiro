@@ -1,6 +1,6 @@
 # Privacy Policy — Tweaks for DEGIRO (unofficial)
 
-_Last updated: 29 October 2026_
+_Last updated: 30 October 2026_
 
 Tweaks for DEGIRO is an unofficial browser extension that adds display features to the DEGIRO web trader at `trader.degiro.nl`. It is not affiliated with DEGIRO or flatexDEGIRO Bank.
 
@@ -18,7 +18,7 @@ The extension does not collect, sell or share your personal data. It stores only
 | **Your DEGIRO session identifier and internal account number** | Needed by DEGIRO's server to return your open orders and portfolio value history, the same way the DEGIRO website itself requests them. Normally read from the addresses of DEGIRO's own requests. Only if those don't contain them, the extension asks DEGIRO's own session and client endpoints, as the DEGIRO website does; DEGIRO's client answer also contains your profile (such as name and contact details); the extension receives it in that case but reads only the account number and discards the rest | Used only in requests to `trader.degiro.nl`. Kept in page memory only; never stored, logged or sent anywhere else. A session DEGIRO rejects is not used again |
 | **Your orders and transactions shown on DEGIRO's Orders and Transactions pages** (product, buy/sell, values, fees) | To filter those tables and show totals | Read from the page you are viewing; no extra requests. Kept in page memory only; never stored or sent anywhere else |
 | **Prices of your favourite products on the DEGIRO page** (Favourites list and product page) | To check your price alarms | Read from the page you are viewing; no extra requests. Used to compare with your alarms and stored as described in the next row |
-| **Your price alarms** (product id, name, symbol, currency, price, repeat, on/off), **last seen prices and times**, and **open alarm banners** | To check alarms and show a banner when a price is reached | Saved in Chrome's storage on your computer. The alarm list uses `storage.sync`, which Chrome may sync to your own Google account; the last seen prices and open banners use `storage.local` and stay in this browser. Never sent anywhere else |
+| **Your price alarms** (product id, name, symbol, currency, price, repeat, on/off), **last seen prices and times**, and **open alarm banners** | To check alarms and show a banner when a price is reached | Saved in Chrome's storage on your computer. The alarm list uses `storage.sync`, which Chrome may sync to your own Google account; the last seen prices and open banners use `storage.local` and stay in this browser. While a product's page is open with *Alarms on the chart* switched on, that product's id and the price and direction (above/below) of its switched-on alarms are written into the page, so the chart part of the extension can draw them; the DEGIRO page can read them there while it is open. Never sent anywhere else |
 | **Your extension settings** (feature on/off switches, list of section titles to hide, columns hidden on Orders and Transactions) | To remember your preferences | Saved with Chrome's `storage.sync`, which Chrome may sync to your own Google account. Contains no personal or financial data |
 
 ## What the extension does not do

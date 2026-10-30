@@ -56,6 +56,7 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - On the page of a product in your *Favourites* (filled star), an **Alarm** button (bell) sits after DEGIRO's *Sell*. It opens a *Set price alarm* panel: the price, the direction (above or below, chosen from the current price), how often it repeats (*Once*, *Once a day*, *Every time*), and this product's alarms with an on/off switch and delete. On the Alarms page, **Edit** on a row opens the same panel (*Edit price alarm*) to change the price and repeat; saving keeps the alarm in place, switches it on and lets it fire again.
 - When the price reaches an alarm, a banner appears at the top of the page in every open DEGIRO tab, with *Open product* and *Alarms* links and a close button. *Once* alarms switch themselves off. *Once a day* fires at most once per day. *Every time* fires each time the price crosses the level again.
 - **Alarms** in the sidebar (below Orders and Transactions, with a count of open banners) opens a page with all your alarms, sorted by product, then price (high to low): filter by status (*All*, *On*, *Off*, *Fired today*) or product, switch or delete them, and see live prices. The "?" next to *Status* explains each status.
+- **Alarms on the chart**: on a product's page, a gold badge with a bell and the price sits on the chart's right edge at each switched-on alarm; an alarm outside the visible range gets a ▲ or ▼ badge at the top or bottom edge.
 - Prices are read only from what DEGIRO shows on screen (the *Favourites* list and the product page); the extension makes no requests for them.
 - Up to 25 alarms. **Where are they stored?** In Chrome's own storage, not on a server. The alarm list syncs with your Chrome profile when Chrome sync is on; the last seen prices and open banners stay in this browser. Logging in or out of DEGIRO doesn't change them; removing the extension deletes them.
 
@@ -87,6 +88,7 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Filters and totals on Transactions (+ columns) | On (*Exchange*, *Venue*, *Exchange Rate*, *AutoFX Fee* hidden) |
 | Orders, Transactions and Alarms in the sidebar | On |
 | Price alarms (button, Alarms page, sidebar item, banner) | On |
+| ↳ Alarms on the chart | On |
 | Hide sections (+ editable list of titles) | On (*Cash compensation*, in any DEGIRO language) |
 
 Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles. The columns are chosen on the Orders and Transactions pages themselves.
