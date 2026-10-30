@@ -226,7 +226,7 @@ test('hovering Products does not highlight our links or put DEGIRO\'s flyout in 
   await page.mouse.move(600, 400);
   await poke(page);
   await page.waitForTimeout(400);
-  expect(await page.$$eval('[data-dg-nav]', els => els.length)).toBe(2);
+  expect(await page.$$eval('[data-dg-nav]', els => els.length)).toBe(3);
   for (const s of await state()) expect(s.links).toBe(1);
 });
 
@@ -237,7 +237,7 @@ test('a copy made while the flyout is open has no flyout links', async ({ degiro
   } });
   await expect.poll(() => labels(page)).toContain('Transactions');
   await expect(page.locator('[data-name=productsMenuItem]')).toHaveClass(/flyoutOpen/);
-  expect(await page.$$eval('[data-dg-nav] a', els => els.length)).toBe(2);
+  expect(await page.$$eval('[data-dg-nav] a', els => els.length)).toBe(3);
   expect(await page.$$eval('[data-dg-nav] .flyout, [data-dg-nav] .flyoutLink', els => els.length)).toBe(0);
   expect(await page.$$eval('[data-dg-nav] a', els => els.map(a => a.className))).not.toContain('navItem flyoutOpen');
 });

@@ -7,6 +7,7 @@ test('shows "Ex-div <date>" right after the spread', async ({ degiro }) => {
   const { page } = await degiro();
   await expect(link(page)).toHaveText('Ex-div12/11/2099');
   await expect(page.locator('#dg-header-spread')).toBeVisible();
+  await expect(page.locator('#dg-period-change')).toHaveCount(1); // the page-world item can come after the others
   const order = await page.$eval('[data-dg-header]', el => [...el.children].map(c => c.id));
   expect(order).toEqual(['dg-period-change', 'dg-header-spread', 'dg-exdiv']);
 });
