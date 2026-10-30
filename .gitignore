@@ -4,3 +4,4 @@ test-results/
 playwright-report/
 .idea/
 .claude/worktrees/
+docs/features-backlog.md
