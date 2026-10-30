@@ -418,7 +418,7 @@
     "message": "Déclenchée, désactivée"
   },
   "alarmTipWaiting": {
-    "message": "l’alarme est activée et le cours est en direct, mais n’a pas encore atteint le prix de l’alarme."
+    "message": "le cours est en direct, mais n’a pas encore atteint le prix de l’alarme."
   },
   "alarmTipFired": {
     "message": "le cours a atteint aujourd’hui le prix de l’alarme (l’heure est indiquée)."

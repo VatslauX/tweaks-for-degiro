@@ -418,7 +418,7 @@
     "message": "Scattato, disattivato"
   },
   "alarmTipWaiting": {
-    "message": "l’allarme è attivo e il prezzo è in tempo reale, ma non ha ancora raggiunto il prezzo dell’allarme."
+    "message": "il prezzo è in tempo reale, ma non ha ancora raggiunto il prezzo dell’allarme."
   },
   "alarmTipFired": {
     "message": "il prezzo ha raggiunto oggi il prezzo dell’allarme (viene mostrato l’orario)."

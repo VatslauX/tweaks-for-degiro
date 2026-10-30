@@ -412,13 +412,13 @@
     "message": "Acerca de los estados"
   },
   "alarmStatusFiredName": {
-    "message": "Activada"
+    "message": "Disparada"
   },
   "alarmStatusFiredOffName": {
-    "message": "Activada, desactivada"
+    "message": "Disparada, desactivada"
   },
   "alarmTipWaiting": {
-    "message": "la alarma está activada y el precio está en directo, pero aún no ha alcanzado el precio de la alarma."
+    "message": "el precio está en directo, pero aún no ha alcanzado el precio de la alarma."
   },
   "alarmTipFired": {
     "message": "el precio alcanzó hoy el precio de la alarma (se muestra la hora)."

@@ -11,11 +11,13 @@
   /** The "?" hint on the Status header: open by pointer hover, keyboard focus or a click (pinned). Kept here so a rebuild keeps it. */
   const tip = { hover: false, focus: false, pinned: false };
   const tipOpen = () => tip.hover || tip.focus || tip.pinned;
+  let restoring = false; // focus given back after a rebuild is not a new focus: it must not reopen a dismissed bubble
   let pressing = false; // a pointer press that started inside our page is in progress
 
   function remove() {
     document.getElementById(STYLE)?.remove();
     document.querySelector(`[${ROOT}]`)?.remove();
+    document.querySelectorAll('[data-dg-alarm-tip-bubble]').forEach(b => b.remove());
     sig = '';
     tip.hover = tip.focus = tip.pinned = false;
     view.menu = false;
@@ -60,7 +62,7 @@
   function syncTip() {
     const root = document.querySelector(`[${ROOT}]`);
     const btn = root?.querySelector('[data-dg-alarm-tip]');
-    root?.querySelectorAll('[data-dg-alarm-tip-bubble]').forEach(b => b.remove());
+    document.querySelectorAll('[data-dg-alarm-tip-bubble]').forEach(b => b.remove());
     if (!root || !btn) return;
     const open = tipOpen();
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -79,7 +81,11 @@
       line.append(el('span', 'font-weight:600;', t(name)), document.createTextNode(' \u2013 ' + t(text)));
       bubble.append(line);
     });
-    root.append(bubble);
+    document.body.append(bubble); // not in the page root: a transformed ancestor would break position:fixed
+    position(bubble, btn);
+  }
+  /** @param {HTMLElement} bubble @param {Element} btn */
+  function position(bubble, btn) {
     const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
     const w = bubble.offsetWidth, h = bubble.offsetHeight;
     bubble.style.left = `${Math.round(Math.max(16, Math.min(r.left, vw - w - 16)))}px`;
@@ -100,7 +106,7 @@
     b.append(dgUi.icon(dgUi.QUESTION, 20));
     b.addEventListener('mouseenter', () => setTip({ hover: true }));
     b.addEventListener('mouseleave', () => setTip({ hover: false }));
-    b.addEventListener('focus', () => setTip({ focus: true }));
+    b.addEventListener('focus', () => { if (!restoring) setTip({ focus: true }); });
     b.addEventListener('blur', () => { if (b.isConnected) setTip({ focus: false }); });
     b.addEventListener('click', () => setTip(tip.pinned ? { hover: false, focus: false, pinned: false } : { pinned: true }));
     return b;
@@ -243,7 +249,7 @@
     view.products.forEach(p => { if (!ids.has(p)) view.products.delete(p); });
     const th = dgUi.theme();
     // an open menu must not be rebuilt under the cursor by a price tick
-    const key = JSON.stringify([S.list(), view.menu ? [] : S.state(), view.menu ? [] : [...S.live()], view.status, [...view.products], view.menu, th.bg, th.text]);
+    const key = JSON.stringify([S.list(), view.menu ? [] : S.state(), view.menu ? [] : [...S.live()], view.status, [...view.products], view.menu, [...S.listed()].sort((x, y) => x - y), th.bg, th.text]);
     let root = document.querySelector(`[${ROOT}]`);
     const list = main.querySelector(`:scope > ${SEL.favourites}`);
     // where DEGIRO's Favourites list was, so its footer stays at the bottom
@@ -259,7 +265,10 @@
     if (!placed) { if (list) list.after(root); else main.append(root); }
     const wrap = root.querySelector('[data-dg-alarm-scroll]');
     if (wrap) wrap.scrollLeft = scroll;
-    if (focus) /** @type {HTMLElement | null} */ (root.querySelector(focus))?.focus();
+    if (focus) {
+      restoring = true;
+      try { /** @type {HTMLElement | null} */ (root.querySelector(focus))?.focus(); } finally { restoring = false; }
+    }
     syncTip();
     return 'ok';
   }
@@ -292,7 +301,11 @@
   document.addEventListener('click', e => {
     if (tip.pinned && !(/** @type {Element} */ (e.target)).closest?.('[data-dg-alarm-tip]')) setTip({ pinned: false });
   });
-  const place = () => { if (tipOpen()) syncTip(); };
+  const place = () => {
+    if (!tipOpen()) return;
+    const bubble = document.getElementById(TIP_ID), btn = document.querySelector(`[${ROOT}] [data-dg-alarm-tip]`);
+    if (bubble && btn) position(bubble, btn);
+  };
   window.addEventListener('resize', place);
   window.addEventListener('scroll', place, true);
 

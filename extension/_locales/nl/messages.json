@@ -418,7 +418,7 @@
     "message": "Afgegaan, uitgeschakeld"
   },
   "alarmTipWaiting": {
-    "message": "het alarm staat aan en de koers is actueel, maar heeft de alarmkoers nog niet bereikt."
+    "message": "de koers is actueel, maar heeft de alarmkoers nog niet bereikt."
   },
   "alarmTipFired": {
     "message": "de koers heeft vandaag de alarmkoers bereikt (de tijd wordt getoond)."

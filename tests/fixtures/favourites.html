@@ -57,7 +57,7 @@
   const prices = {};
   Object.values(LISTS).flat().forEach(r => { prices[r[0]] = r[5]; });
   Object.assign(prices, window.__MOCK_PRICES || {}); // tests: prices at load time
-  const nl = v => v.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  const nl = v => v == null ? '\u2014' : v.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   let shown = 'Favourites';
   function render() {
     const tb = document.getElementById('rows');
@@ -74,7 +74,7 @@
       const last = document.createElement('td');
       const v = document.createElement('span');
       v.setAttribute('data-id', id); v.setAttribute('data-field', 'LastPrice');
-      if (!window.__MOCK_NO_TITLE) v.title = nl(prices[id]);
+      if (!window.__MOCK_NO_TITLE) v.title = prices[id] == null ? '' : nl(prices[id]);
       v.textContent = `${cur} ${nl(prices[id])}`;
       last.append(v);
       tr.append(p, symbol, exch, last);

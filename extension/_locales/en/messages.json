@@ -458,7 +458,7 @@
     "message": "Fired, switched off"
   },
   "alarmTipWaiting": {
-    "message": "the alarm is on and the price is live, but has not reached the alarm price yet."
+    "message": "The price is live but hasn't reached the alarm price yet."
   },
   "alarmTipFired": {
     "message": "the price reached the alarm price today (the time is shown)."

@@ -796,6 +796,40 @@ test('Alarms page: an open Status bubble survives a price tick, stays single and
   expect(await page.evaluate(() => document.activeElement?.hasAttribute('data-dg-alarm-tip'))).toBe(true);
 });
 
+test('Alarms page: a bubble closed with Esc stays closed across a price tick while the button keeps the focus', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await tipBtn(page).focus();
+  await expect(tipBubble(page)).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(tipBubble(page)).toHaveCount(0);
+  const firstRow = page.locator('tr[data-dg-alarm-id]').first().locator('td').nth(1);
+  const before = await firstRow.innerText();
+  await setPrice(page, 123, 16.5);
+  await expect(firstRow).not.toHaveText(before); // rebuilt
+  await page.waitForTimeout(400);
+  await expect(tipBubble(page)).toHaveCount(0);
+  expect(await page.evaluate(() => document.activeElement?.hasAttribute('data-dg-alarm-tip'))).toBe(true);
+});
+
+test('Alarms page: a bubble closed by a second click stays closed across a price tick', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await tipBtn(page).click();
+  await expect(tipBubble(page)).toHaveCount(1);
+  await tipBtn(page).click();
+  await expect(tipBubble(page)).toHaveCount(0);
+  await page.mouse.move(5, 5);
+  const firstRow = page.locator('tr[data-dg-alarm-id]').first().locator('td').nth(1);
+  const before = await firstRow.innerText();
+  await setPrice(page, 123, 16.5);
+  await expect(firstRow).not.toHaveText(before);
+  await page.waitForTimeout(400);
+  await expect(tipBubble(page)).toHaveCount(0);
+});
+
 // ---------- Edit alarm (Alarms page) ----------
 const editBtn = (page, id) => page.locator(`tr[data-dg-alarm-id="${id}"] [data-dg-alarm-edit]`);
 const stateOf = (opt, id) => opt.evaluate(i => chrome.storage.local.get('dgAlarmState').then(r => (r.dgAlarmState || {})[i] || {}), id);

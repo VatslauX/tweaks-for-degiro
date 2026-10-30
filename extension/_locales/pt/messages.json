@@ -418,7 +418,7 @@
     "message": "Disparado, desativado"
   },
   "alarmTipWaiting": {
-    "message": "o alarme está ativo e o preço está em tempo real, mas ainda não atingiu o preço do alarme."
+    "message": "o preço está em tempo real, mas ainda não atingiu o preço do alarme."
   },
   "alarmTipFired": {
     "message": "o preço atingiu hoje o preço do alarme (a hora é mostrada)."

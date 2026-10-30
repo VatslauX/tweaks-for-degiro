@@ -418,7 +418,7 @@
     "message": "Ausgelöst, ausgeschaltet"
   },
   "alarmTipWaiting": {
-    "message": "der Alarm ist an und der Kurs ist aktuell, hat den Alarmkurs aber noch nicht erreicht."
+    "message": "der Kurs ist aktuell, hat den Alarmkurs aber noch nicht erreicht."
   },
   "alarmTipFired": {
     "message": "der Kurs hat heute den Alarmkurs erreicht (die Uhrzeit wird angezeigt)."
