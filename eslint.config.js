@@ -3,7 +3,7 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 // globals that flags.js and common.js define for the other scripts
-const shared = { __dgt: 'readonly' };
+const shared = { __dgt: 'readonly', dgAlarmRules: 'readonly', dgAlarmStore: 'readonly', dgAlarmPanel: 'readonly', dgUi: 'readonly' };
 const flags = Object.fromEntries(['DG_DEFAULTS', 'DG_TX_COLUMNS', 'DG_ORDER_COLUMNS', 'DG_MAX_TITLES', 'DG_MAX_TITLE_LEN', 'DG_PAGE_FLAGS',
   'dgListeners', 'dgOnSettings', 'dgSanitize', 'dgSettings'].map(k => [k, 'readonly']));
 

@@ -71,6 +71,7 @@
     sideBar: '[data-name=sideNavigation]',
     sideNav: '[data-name=sideNavigation] nav',
     productsMenuItem: 'a[data-name=productsMenuItem]',
+    favouritesMenuItem: 'a[data-name=favouriteProductsMenuItem]',
     menuItem: 'a[data-name$=MenuItem]',
     orderLimit: '[data-field="limitColumnValue"]',
     orderStop: '[data-field="stopPriceColumnValue"]',
@@ -96,6 +97,17 @@
     txFee: '[data-field="feeInBaseCurrency"]',
     txPrice: '[data-field="price"]',
     pageButtons: '[data-name=prevPageButton], [data-name=nextPageButton]',
+    // Favourites page and product header (price alarms); prices carry the product id in data-id,
+    // and their title is the plain number
+    mainContent: 'main#mainContent',
+    favourites: '[data-name=favourites]',
+    lastPrice: '[data-field="LastPrice"][data-id]',
+    currentPrice: '[data-field="CurrentPrice"][data-id]',
+    measurer: '[data-name=measurer]',
+    productName: '[data-name=productName]',
+    productBriefInfo: '[data-name=productBriefInfo]', // symbol, then exchange
+    productActionButton: '[data-name=productActionButton]',
+    favouriteStarOn: 'svg[data-name=icon-starFilled-20]',
     // portfolio chart
     perfChart: '[data-name="performance-chart"]',
     perfValue: '[data-name="performance-chart-value"]',
@@ -125,6 +137,9 @@
     isProduct: () => /#\/products\/\d+/.test(location.hash),
     isOrders: () => /#\/orders\/open/.test(location.hash),
     isTransactions: () => /#\/transactions/.test(location.hash),
+    isFavourites: () => /^#\/favourites(?=$|[/?])/.test(location.hash),
+    // our Alarms page: DEGIRO sends unknown routes to Portfolio, but keeps a query on Favourites
+    isAlarms: () => /^#\/favourites\?(?:.*&)?dg=alarms(?:&|$)/.test(location.hash),
     isPortfolio: () => !!document.querySelector(SEL.perfChart)
   });
 

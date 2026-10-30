@@ -40,7 +40,12 @@
         "compact.js",
         "hide.js",
         "adjust-close.js",
+        "ui.js",
         "orders-table.js",
+        "alarm-rules.js",
+        "alarms.js",
+        "alarm-panel.js",
+        "alarms-page.js",
         "nav.js",
         "status.js"
       ],

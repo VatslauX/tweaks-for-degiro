@@ -87,10 +87,16 @@
     "message": "Filtra por acción, divisa y producto; totales de compra, venta y neto por divisa, más comisiones; elige qué columnas mostrar. Cubre la página mostrada."
   },
   "optNavLinks": {
-    "message": "Órdenes y Transacciones en la barra lateral"
+    "message": "Órdenes, Transacciones y Alarmas en la barra lateral"
   },
   "optNavLinksHelp": {
-    "message": "Dos enlaces bajo Productos en el menú izquierdo de DEGIRO."
+    "message": "Enlaces bajo Productos en el menú izquierdo de DEGIRO. Alarmas solo aparece mientras Alarmas de precio esté activado."
+  },
+  "optPriceAlarms": {
+    "message": "Alarmas de precio"
+  },
+  "optPriceAlarmsHelp": {
+    "message": "Botón de alarma en los productos de tus Favoritos, una página Alarmas en el menú izquierdo y un aviso cuando se alcanza un precio. Solo se comprueba mientras hay abierta una página de Favoritos o de producto."
   },
   "navOrders": {
     "message": "Órdenes",
@@ -98,6 +104,9 @@
   },
   "navTransactions": {
     "message": "Transacciones"
+  },
+  "navAlarms": {
+    "message": "Alarmas"
   },
   "optHideSections": {
     "message": "Ocultar secciones"
@@ -251,5 +260,170 @@
   "badgeMerged": {
     "message": "$1 órdenes",
     "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  },
+  "bannerRose": {
+    "message": "$1 ha subido a $2"
+  },
+  "bannerFell": {
+    "message": "$1 ha bajado a $2"
+  },
+  "bannerAlarm": {
+    "message": "alarma $1"
+  },
+  "bannerOnceOff": {
+    "message": "esta alarma está ahora desactivada"
+  },
+  "bannerDaily": {
+    "message": "vuelve a saltar mañana como pronto"
+  },
+  "bannerEachAbove": {
+    "message": "vuelve a saltar cuando el precio baje de nuevo de $1"
+  },
+  "bannerEachBelow": {
+    "message": "vuelve a saltar cuando el precio suba de nuevo por encima de $1"
+  },
+  "bannerOpen": {
+    "message": "Abrir producto"
+  },
+  "bannerAlarms": {
+    "message": "Alarmas"
+  },
+  "bannerClose": {
+    "message": "Cerrar"
+  },
+  "alarmButton": {
+    "message": "Alarma"
+  },
+  "alarmPanelTitle": {
+    "message": "Crear alarma de precio"
+  },
+  "alarmLatest": {
+    "message": "Último $1"
+  },
+  "alarmPriceLabel": {
+    "message": "Precio de la alarma"
+  },
+  "alarmHintAbove": {
+    "message": "Alarma cuando el precio suba a $1 ($2)"
+  },
+  "alarmHintBelow": {
+    "message": "Alarma cuando el precio baje a $1 ($2)"
+  },
+  "alarmHintNoPrice": {
+    "message": "Aún no se ha visto un precio actual: la alarma mantiene su dirección ($1)."
+  },
+  "alarmErrorPrice": {
+    "message": "Introduce un precio superior a 0."
+  },
+  "alarmErrorEqual": {
+    "message": "Es el precio actual. Introduce un precio mayor o menor."
+  },
+  "alarmRepeat": {
+    "message": "Repetir"
+  },
+  "alarmOnce": {
+    "message": "Una vez"
+  },
+  "alarmDaily": {
+    "message": "Una vez al día"
+  },
+  "alarmEach": {
+    "message": "Cada vez"
+  },
+  "alarmSet": {
+    "message": "Crear alarma"
+  },
+  "alarmFull": {
+    "message": "Tienes $1 alarmas, el máximo permitido. Elimina una primero."
+  },
+  "alarmSaveError": {
+    "message": "No se pudo guardar la alarma."
+  },
+  "alarmForProduct": {
+    "message": "Alarmas de $1"
+  },
+  "alarmAll": {
+    "message": "Todas las alarmas ›"
+  },
+  "alarmCheckedNote": {
+    "message": "Se comprueba mientras Favoritos o la página de este producto esté abierta en una pestaña de DEGIRO."
+  },
+  "alarmOnAria": {
+    "message": "Alarma $1 activada"
+  },
+  "alarmDelete": {
+    "message": "Eliminar alarma"
+  },
+  "alarmPageTitle": {
+    "message": "Alarmas de precio"
+  },
+  "alarmCount": {
+    "message": "$1 alarmas · $2 activas"
+  },
+  "alarmFilterAll": {
+    "message": "Todas"
+  },
+  "alarmFilterOn": {
+    "message": "Activas"
+  },
+  "alarmFilterOff": {
+    "message": "Inactivas"
+  },
+  "alarmFilterFired": {
+    "message": "Disparadas hoy"
+  },
+  "alarmColProduct": {
+    "message": "Producto"
+  },
+  "alarmColAlarm": {
+    "message": "Alarma"
+  },
+  "alarmColRepeat": {
+    "message": "Repetición"
+  },
+  "alarmColLatest": {
+    "message": "Último"
+  },
+  "alarmColDistance": {
+    "message": "Distancia"
+  },
+  "alarmColStatus": {
+    "message": "Estado"
+  },
+  "alarmColOn": {
+    "message": "Activa"
+  },
+  "alarmStatusWaiting": {
+    "message": "En espera"
+  },
+  "alarmStatusFired": {
+    "message": "Disparada $1"
+  },
+  "alarmStatusFiredOff": {
+    "message": "Disparada $1 · desactivada"
+  },
+  "alarmStatusNotInList": {
+    "message": "No está en la lista actual"
+  },
+  "alarmSeen": {
+    "message": "visto $1"
+  },
+  "alarmEmpty": {
+    "message": "Aún no hay alarmas. Abre un producto de tus Favoritos y pulsa Alarma."
+  },
+  "alarmEdit": {
+    "message": "Editar"
+  },
+  "alarmEditAria": {
+    "message": "Editar alarma $1"
+  },
+  "alarmEditTitle": {
+    "message": "Editar alarma de precio"
+  },
+  "alarmSave": {
+    "message": "Guardar"
+  },
+  "alarmCancel": {
+    "message": "Cancelar"
   }
 }

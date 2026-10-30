@@ -243,33 +243,11 @@
     // ---------- UI ----------
     const money = (n, cur) => `${cur} ${fmt(n)}`;
 
-    function theme() {
-      const c = getComputedStyle(document.body).backgroundColor;
-      const bg = /rgba\(0, 0, 0, 0\)|transparent/.test(c) ? 'rgb(255, 255, 255)' : c;
-      const [r, g, b] = (bg.match(/\d+/g) || ['255', '255', '255']).map(Number);
-      const dark = 0.299 * r + 0.587 * g + 0.114 * b < 128;
-      const text = getComputedStyle(document.body).color;
-      return {
-        dark, bg, text,
-        muted: dark ? '#8FA0A6' : '#65757B',            // DEGIRO's unselected tab text
-        buy: pageBuy || (dark ? '#4CB82E' : '#1E8302'),  // DEGIRO green
-        sell: pageSell || (dark ? '#FF5A5F' : '#E40101'), // DEGIRO red
-        line: dark ? 'rgba(255,255,255,.18)' : '#D6DFE3'
-      };
-    }
+    // DEGIRO's own Buy/Sell colours when the table shows them, else DEGIRO's palette
+    const theme = () => ({ ...dgUi.theme(), ...(pageBuy ? { buy: pageBuy } : {}), ...(pageSell ? { sell: pageSell } : {}) });
 
     // DEGIRO-style pill: selected = filled (dark, or green/red for Buy/Sell), unselected = plain text
-    function chip(label, on, onClick, th, accent) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = label;
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      const fill = accent || th.text;
-      b.style.cssText = `font:inherit;font-size:12px;line-height:16px;height:28px;padding:0 12px;border-radius:300px;cursor:pointer;border:0;` +
-        `background:${on ? fill : 'transparent'};color:${on ? (accent ? '#fff' : th.bg) : (accent || th.muted)};font-weight:${accent ? 500 : 400};`;
-      b.addEventListener('click', onClick);
-      return b;
-    }
+    const chip = dgUi.chip;
 
     function group(title, th, ...children) {
       const g = document.createElement('div');
@@ -282,38 +260,8 @@
     }
 
     // DEGIRO-style dropdown of checkboxes (products, columns)
-    function picker(kind, label, active, items, th, footer) {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:relative;';
-      const btn = chip(label + ' ▾', active, () => { openMenu = openMenu === kind ? null : kind; render(); }, th);
-      if (!active) { btn.style.border = `1px solid ${th.line}`; btn.style.color = th.text; }
-      btn.setAttribute('aria-haspopup', 'listbox');
-      btn.setAttribute('aria-expanded', openMenu === kind ? 'true' : 'false');
-      btn.setAttribute(`data-dg-${kind}`, '');
-      wrap.append(btn);
-      if (openMenu === kind) {
-        const menu = document.createElement('div');
-        menu.setAttribute('role', 'listbox');
-        menu.setAttribute('aria-multiselectable', 'true');
-        menu.style.cssText = `position:absolute;z-index:50;top:calc(100% + 4px);left:0;min-width:280px;max-height:300px;overflow:auto;` +
-          `background:${th.bg};color:${th.text};border:1px solid ${th.line};border-radius:6px;padding:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);`;
-        items.forEach(({ text, checked, change }) => {
-          const lab = document.createElement('label');
-          lab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:12px;cursor:pointer;white-space:nowrap;';
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.checked = checked;
-          cb.addEventListener('change', () => { change(cb.checked); render(); });
-          const span = document.createElement('span');
-          span.textContent = text;
-          lab.append(cb, span);
-          menu.append(lab);
-        });
-        if (footer) menu.append(footer);
-        wrap.append(menu);
-      }
-      return wrap;
-    }
+    const picker = (kind, label, active, items, th, footer) => dgUi.picker({ kind, label, active, items, th, footer,
+      open: openMenu === kind, onToggle: () => { openMenu = openMenu === kind ? null : kind; render(); }, onChange: render });
 
     function productPicker(rows, th) {
       const n = state.products.size;
