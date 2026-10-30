@@ -140,9 +140,7 @@ test('Transactions: more pages are announced next to the totals', async () => {
   assert.match(count(tab, 'tx'), /this page only/);
 });
 
-const HAS_UPPER_PANEL_FIX = false; // remove once main (25823d4, Transactions upper-panel fix) is merged into this branch
-test('Transactions: DEGIRO\'s upper panel (a Latest Transactions mini list that comes first) does not hide the filters',
-  { skip: !HAS_UPPER_PANEL_FIX && 'needs main 25823d4 (Transactions upper-panel fix)' }, async () => {
+test('Transactions: DEGIRO\'s upper panel (a Latest Transactions mini list that comes first) does not hide the filters', async () => {
     const { w, tab } = await transactions(null);
     const mini = tab.document.createElement('div');
     mini.setAttribute('data-name', 'accountSummary');
