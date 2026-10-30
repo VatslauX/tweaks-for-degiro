@@ -126,3 +126,34 @@ test('day is the local calendar day', () => {
   assert.strictEqual(R.day(new Date(2026, 9, 29, 23, 59).getTime()), 20261029);
   assert.strictEqual(R.day(new Date(2026, 9, 30, 0, 1).getTime()), 20261030);
 });
+
+test('sorted: product name A-Z, then price high to low; ties keep stored order; input untouched', () => {
+  const mk = (id, name, price, o = {}) => ({ ...A, id, name, price, ...o });
+  const list = [mk('s2', 'Samsung', 200), mk('m1', 'Meta', 190), mk('s3', 'Samsung', 300), mk('m2', 'Meta', 200)];
+  const copy = JSON.parse(JSON.stringify(list));
+  assert.deepStrictEqual(R.sorted(list).map(a => a.id), ['m2', 'm1', 's3', 's2']);
+  assert.deepStrictEqual(list, copy);
+  // case-insensitive names
+  assert.deepStrictEqual(R.sorted([mk('b', 'beta', 1), mk('a', 'Alpha', 1), mk('c', 'Charlie', 1)]).map(a => a.id), ['a', 'b', 'c']);
+  assert.deepStrictEqual(R.sorted([mk('x', 'meta', 5), mk('y', 'Meta', 5), mk('z', 'META', 9)]).map(a => a.id), ['z', 'x', 'y']);
+  // stable ties
+  assert.deepStrictEqual(R.sorted([mk('t1', 'Meta', 5), mk('t2', 'Meta', 5), mk('t3', 'Meta', 5)]).map(a => a.id), ['t1', 't2', 't3']);
+  // same name, different products: grouped per product (productId ascending), then price
+  assert.deepStrictEqual(R.sorted([mk('p1', 'Meta', 1, { productId: 1 }), mk('q', 'Apple', 1), mk('p2', 'Meta', 2, { productId: 2 })]).map(a => a.id), ['q', 'p1', 'p2']);
+});
+
+test('sorted: two products with the same name keep each product\'s alarms together, price high to low', () => {
+  const mk = (id, productId, price) => ({ ...A, id, name: 'Apple Inc', productId, price });
+  const list = [mk('a1', 1, 1), mk('a3', 1, 3), mk('b2', 2, 2)];
+  assert.deepStrictEqual(R.sorted(list).map(a => a.id), ['a3', 'a1', 'b2']);
+  assert.deepStrictEqual(R.sorted([mk('b2', 10, 2), mk('a1', 9, 1)]).map(a => a.id), ['a1', 'b2']);
+});
+
+test('sorted: symbol and #id stand in for a missing name; byProduct false sorts by price only', () => {
+  const mk = (id, name, symbol, productId, price) => ({ ...A, id, name, symbol, productId, price });
+  const list = [mk('n', '', '', 5, 1), mk('s', '', 'ZED', 6, 1), mk('a', 'Mid', 'X', 7, 1)];
+  assert.deepStrictEqual(R.sorted(list).map(a => a.id), ['n', 'a', 's']);
+  assert.strictEqual(R.label(list[0]), '#5');
+  const p = [mk('1', 'B', '', 1, 10), mk('2', 'A', '', 1, 30), mk('3', 'C', '', 1, 10)];
+  assert.deepStrictEqual(R.sorted(p, false).map(a => a.id), ['2', '1', '3']);
+});

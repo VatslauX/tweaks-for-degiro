@@ -400,6 +400,25 @@ test('switches and delete persist after a reload', async ({ degiro, settings }) 
   await expect(page.locator(`tr[data-dg-alarm-id="${a.id}"] input[type=checkbox]`)).not.toBeChecked();
 });
 
+test('Alarms page: sorted by product A-Z, then price high to low; storage order untouched', async ({ degiro, settings }) => {
+  const list = [alarm({ id: 'o1', productId: 11, name: 'Samsung', price: 200 }), alarm({ id: 'o2', productId: 12, name: 'meta', price: 190 }),
+    alarm({ id: 'o3', productId: 11, name: 'Samsung', price: 300 }), alarm({ id: 'o4', productId: 12, name: 'meta', price: 200 })];
+  const opt = await seed(settings, list);
+  const { page } = await degiro({ url: ALARMS });
+  await expect(rows(page)).toHaveCount(4);
+  expect(await rows(page).evaluateAll(r => r.map(x => x.getAttribute('data-dg-alarm-id')))).toEqual(['o4', 'o2', 'o3', 'o1']);
+  expect((await stored(opt)).map(a => a.id)).toEqual(['o1', 'o2', 'o3', 'o4']);
+});
+
+test('product panel: this product\'s alarms read price high to low', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ id: 'k1', price: 18 }), alarm({ id: 'k2', price: 30 }), alarm({ id: 'k3', price: 22 })]);
+  const { page } = await degiro({ url: PRODUCT });
+  await page.bringToFront();
+  await alarmBtn(page).click();
+  await expect(page.locator('[data-dg-alarm-row]')).toHaveCount(3);
+  expect(await page.locator('[data-dg-alarm-row]').evaluateAll(r => r.map(x => x.getAttribute('data-dg-alarm-row')))).toEqual(['k2', 'k3', 'k1']);
+});
+
 test('filters: status chips and the product picker', async ({ degiro, settings }) => {
   await seed(settings, [alarm(), alarm({ on: false, price: 19 }), alarm({ productId: 789, name: 'Mock Chips ETF', price: 16 })]);
   const { page } = await degiro({ url: ALARMS });
@@ -744,9 +763,10 @@ test('Alarms page: Save updates the alarm in place (same id and position), switc
   await expect(panelEl(page)).toHaveCount(0);
   await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, productId: 123, name: 'Mock ETF', symbol: 'MOCK', currency: '€', price: 15.5, dir: 'below', repeat: 'each', on: true }, { id: b.id, price: 19 }]);
   await expect(rows(page)).toHaveCount(2);
-  await expect(rows(page).first()).toHaveAttribute('data-dg-alarm-id', a.id);
-  await expect(rows(page).first()).toContainText('↓ € 15,50');
-  await expect(rows(page).first()).toContainText('Every time');
+  await expect(rows(page).first()).toHaveAttribute('data-dg-alarm-id', b.id); // displayed price high to low; storage keeps a first
+  await expect(rows(page).last()).toHaveAttribute('data-dg-alarm-id', a.id);
+  await expect(rows(page).last()).toContainText('↓ € 15,50');
+  await expect(rows(page).last()).toContainText('Every time');
   await expect(page.locator(`tr[data-dg-alarm-id="${a.id}"] input[type=checkbox]`)).toBeChecked();
   await expect.poll(async () => (await stateOf(opt, a.id)).firedAt).toBeUndefined();
   expect((await stateOf(opt, a.id)).last).toBe(16.9);

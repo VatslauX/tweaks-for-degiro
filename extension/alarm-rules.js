@@ -117,7 +117,22 @@ const dgAlarmRules = (() => {
     return { fire: armed, on: true, armed: false };
   }
 
-  const api = Object.freeze({ MAX, MAX_EVENTS, LIMITS, BYTES, sanitize, sanitizeState, sanitizeEvents, direction, reached, day, decide });
+  /** Name shown for an alarm's product. @param {{ name?: string, symbol?: string, productId: number }} a */
+  const label = a => a.name || a.symbol || `#${a.productId}`;
+
+  /**
+   * Display order: product name A-Z (case-insensitive), then price high to low. Copy, never in place; the sort is stable,
+   * so equal alarms keep their stored order. `byProduct` false: price only (one product's list).
+   * @template {{ name?: string, symbol?: string, productId: number, price: number }} T
+   * @param {T[]} list @param {boolean} [byProduct]
+   */
+  function sorted(list, byProduct = true) {
+    return [...list].sort((a, b) => (byProduct
+      ? label(a).localeCompare(label(b), undefined, { sensitivity: 'base' }) || String(a.productId).localeCompare(String(b.productId), undefined, { numeric: true })
+      : 0) || b.price - a.price);
+  }
+
+  const api = Object.freeze({ MAX, MAX_EVENTS, LIMITS, BYTES, sanitize, sanitizeState, sanitizeEvents, direction, reached, day, decide, label, sorted });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   return api;
 })();

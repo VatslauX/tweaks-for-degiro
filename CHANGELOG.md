@@ -2,7 +2,7 @@
 
 ## Unreleased
 - **Price alarms.** An *Alarm* button (bell) after *Sell* on the page of a product in your Favourites opens a *Set price alarm* panel: price, direction, and repeat (*Once*, *Once a day*, *Every time*), with this product's alarms. When the price is reached, a banner appears in every open DEGIRO tab.
-- **Alarms page and sidebar item**: all alarms with status filters, a product picker, switches, **Edit** (change the price and repeat of an alarm), delete and live prices; the sidebar item shows how many banners are open. Own switch in Settings.
+- **Alarms page and sidebar item**: all alarms sorted by product, then price (high to low), with status filters, a product picker, switches, **Edit** (change the price and repeat of an alarm), delete and live prices; the sidebar item shows how many banners are open. Own switch in Settings.
 - Alarms are checked only while DEGIRO's Favourites or a product page is open; up to 25 alarms. The list syncs with your Chrome profile.
 
 ## 1.20.1 — 2026-10-28

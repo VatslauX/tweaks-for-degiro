@@ -252,7 +252,7 @@ const dgAlarmPanel = (() => {
   /** @param {ReturnType<typeof dgUi.theme>} th */
   function renderList(th) {
     if (!ui) return;
-    const mine = S.list().filter(a => a.productId === ui?.id);
+    const mine = R.sorted(S.list().filter(a => a.productId === ui?.id), false);
     const sig = JSON.stringify([mine, th.bg]);
     if (sig === ui.listSig) return;
     ui.listSig = sig;

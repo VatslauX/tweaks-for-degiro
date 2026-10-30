@@ -66,8 +66,8 @@
       return c;
     }));
     /** @type {Map<number, string>} */
-    const names = new Map(alarms.map(a => [a.productId, a.name || a.symbol || `#${a.productId}`]));
-    const items = [...names].sort((x, y) => x[1].localeCompare(y[1])).map(([id, name]) => ({
+    const names = new Map(alarms.map(a => [a.productId, R.label(a)]));
+    const items = [...names].sort((x, y) => x[1].localeCompare(y[1], undefined, { sensitivity: 'base' })).map(([id, name]) => ({
       text: `${name} (${alarms.filter(a => a.productId === id).length})`,
       checked: view.products.has(id),
       change: (/** @type {boolean} */ on) => { on ? view.products.add(id) : view.products.delete(id); }
@@ -96,7 +96,7 @@
     thead.append(hr);
     const tbody = document.createElement('tbody');
     const td = (/** @type {string} */ css = '') => el('td', `padding:9px 12px;border-bottom:1px solid ${th.line};white-space:nowrap;${css}`);
-    for (const a of alarms.filter(shown)) {
+    for (const a of R.sorted(alarms).filter(shown)) {
       const st = state[a.id] || {}, price = live.get(a.productId), ref = price ?? st.last;
       const tr = document.createElement('tr');
       tr.setAttribute('data-dg-alarm-id', a.id);
@@ -104,7 +104,7 @@
       const prod = td();
       const link = document.createElement('a');
       link.href = `#/products/${a.productId}/overview`;
-      link.textContent = a.name || a.symbol || `#${a.productId}`;
+      link.textContent = R.label(a);
       link.style.cssText = `color:${th.text};font-weight:600;text-decoration:none;`;
       prod.append(link, el('span', `display:block;color:${th.muted};font-size:11.5px;`, a.symbol));
       const al = td(`text-align:right;color:${a.dir === 'above' ? th.buy : th.sell};`);
