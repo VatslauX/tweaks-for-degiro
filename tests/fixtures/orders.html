@@ -56,7 +56,21 @@
     <input placeholder="Search for a product">
     <div id="tableWrap">
       <table id="orders">
-        <thead><tr><th>Product</th><th>Date</th><th>Symbol | ISIN</th><th>Exchange</th><th>Action</th><th>Qty</th><th>Limit</th><th>Stop Price</th><th>Value</th><th>Outstanding</th><th>Executed</th><th></th></tr></thead>
+        <!-- like DEGIRO's thead: each sortable column wraps its label in a <button>, aria-sort on the <th> -->
+        <thead><tr>
+          <th aria-sort="none"><button type="button">Product</button></th>
+          <th aria-sort="none"><button type="button">Date</button></th>
+          <th aria-sort="none"><button type="button">Symbol | ISIN</button></th>
+          <th aria-sort="none"><button type="button">Exchange</button></th>
+          <th aria-sort="none"><button type="button">Action</button></th>
+          <th aria-sort="none"><button type="button">Qty</button></th>
+          <th aria-sort="none"><button type="button">Limit</button></th>
+          <th aria-sort="none"><button type="button">Stop Price</button></th>
+          <th aria-sort="none"><button type="button">Value</button></th>
+          <th aria-sort="none"><button type="button">Outstanding</button></th>
+          <th aria-sort="none"><button type="button">Executed</button></th>
+          <th></th>
+        </tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
@@ -97,6 +111,21 @@
   }
   render();
   window.__rerender = render; // DEGIRO re-renders rows on updates
+
+  // like DEGIRO: clicking a header's button sorts by that column. Switching to a different column
+  // always lands on ascending; clicking the already-sorted column toggles ascending <-> descending
+  // (confirmed against the real Orders -> Outstanding table). Only Product actually reorders rows
+  // (by name); the other columns just flip aria-sort, which is all the extension reads.
+  document.querySelectorAll('#orders thead button').forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      const ths = [...document.querySelectorAll('#orders thead th')];
+      const th = ths[i];
+      const dir = th.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
+      ths.forEach(t => t.setAttribute('aria-sort', t === th ? dir : 'none'));
+      if (i === 0) window.__ORDERS.sort((a, b) => dir === 'ascending' ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0]));
+      render(); // DEGIRO re-renders the rows on every sort
+    });
+  });
 </script>
 </body>
 </html>

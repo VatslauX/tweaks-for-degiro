@@ -86,6 +86,12 @@
   "optOrdersFilterHelp": {
     "message": "Offene Orders nach Aktion, Währung und Produkt filtern; Kauf-/Verkaufssummen je Währung; sichtbare Spalten wählen."
   },
+  "optOrdersSort": {
+    "message": "Sortierung bei Orders merken"
+  },
+  "optOrdersSortHelp": {
+    "message": "Behält die Sortierung der Tabelle „Offen“ bei, auch nach Neuladen und Navigation."
+  },
   "optTransactionsFilter": {
     "message": "Filter und Summen bei Transaktionen"
   },

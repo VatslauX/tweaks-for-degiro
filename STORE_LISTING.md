@@ -46,6 +46,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Total buy and sell value per currency for the orders shown. Know how much cash your open orders need
 > • Transactions: the same filters, with buy, sell and net totals per currency and the fees
 > • Choose which columns to show on Orders and Transactions; long product names shown in full
+> • Orders keeps the sort order you last chose, even after a reload
 > • Orders and Transactions links right in DEGIRO's left menu
 > • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved)
 >

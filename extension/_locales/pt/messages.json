@@ -86,6 +86,12 @@
   "optOrdersFilterHelp": {
     "message": "Filtre as ordens em aberto por ação, moeda e produto; totais de compra/venda por moeda; escolha que colunas mostrar."
   },
+  "optOrdersSort": {
+    "message": "Lembrar a ordenação de Ordens"
+  },
+  "optOrdersSortHelp": {
+    "message": "Mantém a tabela de ordens em aberto ordenada como você a deixou, após recarregar e navegar."
+  },
   "optTransactionsFilter": {
     "message": "Filtros e totais em Transações"
   },

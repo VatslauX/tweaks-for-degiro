@@ -44,6 +44,7 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - On *Orders → Outstanding*: filter by action (Buy/Sell), currency and product (multi-select). Total buy and total sell value per currency for the shown orders.
 - **Columns**: choose which columns to show (every column but Product). *Exchange* is hidden by default; *Reset to default* brings that back. Your choice is remembered and synced.
 - The other columns fit their content, so long product names are shown in full.
+- **Remembers the sort order**: DEGIRO resets Orders → Outstanding to its default sort (newest first) every time you reload or come back to the page. This extension keeps the column and direction you last sorted by, clicking the same header DEGIRO would. It never overrides a sort you make yourself while the page is open.
 
 **Transactions page: filters, totals and columns**
 - On *Transactions*: the same filters by action, currency and product, with total buy, total sell and net (buy − sell) per currency, and the fees in your account currency for the shown transactions.
@@ -87,6 +88,7 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | ↳ Click badge to adjust | On |
 | Click outside or Esc closes Adjust order | On |
 | Filters and totals on Orders (+ columns) | On (*Exchange* hidden) |
+| Remember Orders sort order | On |
 | Filters and totals on Transactions (+ columns) | On (*Exchange*, *Venue*, *Exchange Rate*, *AutoFX Fee* hidden) |
 | Orders, Transactions and Alarms in the sidebar | On |
 | Price alarms (button, Alarms page, sidebar item, banner) | On |

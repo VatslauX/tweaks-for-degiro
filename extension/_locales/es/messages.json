@@ -86,6 +86,12 @@
   "optOrdersFilterHelp": {
     "message": "Filtra las órdenes pendientes por operación, divisa y producto; totales de compra/venta por divisa; elige qué columnas mostrar."
   },
+  "optOrdersSort": {
+    "message": "Recordar el orden de clasificación en Órdenes"
+  },
+  "optOrdersSortHelp": {
+    "message": "Mantiene la tabla de órdenes pendientes ordenada como la dejaste, tras recargar y navegar."
+  },
   "optTransactionsFilter": {
     "message": "Filtros y totales en Transacciones"
   },

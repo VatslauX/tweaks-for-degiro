@@ -437,3 +437,75 @@ test('Orders: a picked currency that is no longer in the table is dropped', asyn
   assert.equal(tab.$(`#dg-orders-panel button[data-value="$"]`), null, '$ chip gone');
   noErrors(w);
 });
+
+// ---------- Orders: sort memory (F4) ----------
+// DEGIRO forgets the Outstanding table's sort column/direction on every remount (the mock models this:
+// a fresh tab opens with every <th aria-sort="none">, same as a reload or navigating away and back).
+
+const sortTh = (tab, label) => tab.$$('#orders thead th').find(th => th.textContent.trim() === label);
+
+test('Orders sort: a click is remembered after the page remounts', async () => {
+  const { w, tab } = await orders(null);
+  sortTh(tab, 'Product').querySelector('button').click();
+  await w.advance(200);
+  assert.equal(sortTh(tab, 'Product').getAttribute('aria-sort'), 'ascending');
+  assert.deepEqual(w.stored('sync').dgOrdersSort, { col: 'product', dir: 'ascending' });
+
+  // a second tab stands in for "the user navigated away and came back" / a reload: a fresh mount
+  const tab2 = await w.open({ fixture: 'orders', hash: '/orders/open' });
+  await w.advance(400);
+  assert.equal(sortTh(tab2, 'Product').getAttribute('aria-sort'), 'ascending', 'restored without a user click');
+  noErrors(w);
+});
+
+test('Orders sort: descending is restored with a second click on the saved column', async () => {
+  const { w, tab } = await orders(null);
+  const btn = sortTh(tab, 'Qty').querySelector('button');
+  btn.click();
+  await w.advance(50);
+  btn.click(); // ascending, then descending (switching column always lands on ascending first)
+  await w.advance(200);
+  assert.equal(sortTh(tab, 'Qty').getAttribute('aria-sort'), 'descending');
+  assert.deepEqual(w.stored('sync').dgOrdersSort, { col: 'qty', dir: 'descending' });
+
+  const tab2 = await w.open({ fixture: 'orders', hash: '/orders/open' });
+  await w.advance(400);
+  assert.equal(sortTh(tab2, 'Qty').getAttribute('aria-sort'), 'descending', 'two restore clicks: ascending then descending');
+  noErrors(w);
+});
+
+test('Orders sort: switched off neither saves nor restores', async () => {
+  const { w, tab } = await orders(null);
+  await tab.setFlag('ordersSort', false);
+  sortTh(tab, 'Product').querySelector('button').click();
+  await w.advance(200);
+  assert.equal(w.stored('sync').dgOrdersSort, undefined, 'not saved while off');
+
+  await w.set('sync', { dgOrdersSort: { col: 'product', dir: 'ascending' } });
+  const tab2 = await w.open({ fixture: 'orders', hash: '/orders/open' });
+  await w.advance(400);
+  assert.equal(sortTh(tab2, 'Product').getAttribute('aria-sort'), 'none', 'not restored while off');
+  noErrors(w);
+});
+
+test("Orders sort: the user's own choice on a fresh mount wins over the saved one", async () => {
+  const { w, tab } = await orders(null);
+  sortTh(tab, 'Product').querySelector('button').click();
+  await w.advance(200);
+
+  const tab2 = await w.open({ fixture: 'orders', hash: '/orders/open' });
+  // click Value immediately: before the auto-restore (an async scheduler tick) can touch anything
+  sortTh(tab2, 'Value').querySelector('button').click();
+  await w.advance(400);
+  assert.equal(sortTh(tab2, 'Value').getAttribute('aria-sort'), 'ascending', "the user's own choice stands");
+  assert.deepEqual(w.stored('sync').dgOrdersSort, { col: 'value', dir: 'ascending' }, "the user's choice is saved");
+  noErrors(w);
+});
+
+test('Orders sort: a malformed or unknown saved column is ignored', async () => {
+  const w = createWorld({ storage: { sync: { dgOrdersSort: { col: 'nope', dir: 'ascending' } } } });
+  const tab = await w.open({ fixture: 'orders', hash: '/orders/open' });
+  await w.advance(400);
+  assert.equal(sortTh(tab, 'Product').getAttribute('aria-sort'), 'none', 'ignored: default order stays');
+  noErrors(w);
+});

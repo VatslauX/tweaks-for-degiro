@@ -17,6 +17,7 @@ const DG_DEFAULTS = {
   alarmLinesClick: true, // click an alarm badge to open the alarm editor for that price
   ordersFilter: true,  // Orders page: filters and buy/sell totals
   ordersHiddenColumns: ['exchange'], // Orders columns to hide (DG_ORDER_COLUMNS)
+  ordersSort: true,    // Orders → Outstanding: remember the sort column/direction across visits (orders-table.js)
   transactionsFilter: true, // Transactions page: filters, buy/sell/net totals and fees
   txHiddenColumns: ['exchange', 'venue', 'exchangeRate', 'autoFxFee'], // Transactions columns to hide (DG_TX_COLUMNS)
   hideSections: true,  // hide sections listed below

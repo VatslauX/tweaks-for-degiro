@@ -86,6 +86,12 @@
   "optOrdersFilterHelp": {
     "message": "Filtrer les ordres en cours par action, devise et produit ; totaux achat/vente par devise ; choix des colonnes affichées."
   },
+  "optOrdersSort": {
+    "message": "Mémoriser le tri des Ordres"
+  },
+  "optOrdersSortHelp": {
+    "message": "Garde le tableau des ordres en cours trié comme vous l'avez laissé, après rechargement et navigation."
+  },
   "optTransactionsFilter": {
     "message": "Filtres et totaux sur Transactions"
   },

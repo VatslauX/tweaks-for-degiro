@@ -190,12 +190,15 @@
     }
   });
   // Orders → Outstanding: every column has a hook
+  // body-cell hooks for every Orders → Outstanding column, Product included (ordersColumns below never
+  // offers Product for hiding, but the sort memory further down needs it too)
+  const ORDERS_HOOKS = { product: SEL.orderProduct, date: SEL.rowDate, symbolIsin: SEL.symbolIsin,
+    exchange: SEL.exchangeAbbr, action: SEL.buySellBadge, qty: SEL.orderQtyColumn, limit: SEL.orderLimit,
+    stopPrice: SEL.orderStop, value: SEL.orderValue, outstanding: SEL.orderOutstanding, executed: SEL.orderExecuted };
   const ordersColumns = columnsSetting({
     key: 'ordersHiddenColumns', keys: DG_ORDER_COLUMNS, styleId: 'dg-orders-columns',
     scope: `${SEL.openOrders} table:has(${SEL.orderValue})`,
-    hooks: { date: SEL.rowDate, symbolIsin: SEL.symbolIsin, exchange: SEL.exchangeAbbr, action: SEL.buySellBadge,
-      qty: SEL.orderQtyColumn, limit: SEL.orderLimit, stopPrice: SEL.orderStop, value: SEL.orderValue,
-      outstanding: SEL.orderOutstanding, executed: SEL.orderExecuted }
+    hooks: ORDERS_HOOKS
   });
   // the scheduler hears only flags bridged to the page: a column choice from another tab needs a nudge
   dgOnSettings(() => schedule(true));
@@ -418,5 +421,85 @@
     panelId: 'dg-transactions-panel', hidden: 'data-dg-tx-filtered',
     isPage: page.isTransactions, table: transactionsTable, rows: transactionsRows, place: transactionsPlace,
     countKey: 'txCount', extras: true, columns: txColumns
+  });
+
+  // ---------- Orders → Outstanding: remember the sort column/direction ----------
+  // DEGIRO forgets which column is sorted (and which way) every time the page remounts (navigate away
+  // and back, or reload); Product starts unsorted and Date starts newest-first. We read the column
+  // DEGIRO is currently sorted by from its own `aria-sort` on <thead th>, save it on a trusted click,
+  // and on a later mount click the matching header (DEGIRO's own sort, not ours) until it matches again.
+  const ORDERS_SORT_SCOPE = `${SEL.openOrders} table:has(${SEL.orderValue})`;
+
+  // the clickable header: DEGIRO wraps the label (and sort icon) in one <button> per <th>
+  const sortButtonAt = (heads, idx) => (idx >= 0 ? heads[idx]?.querySelector('button') || null : null);
+
+  function sanitizeSort(v) {
+    if (!v || typeof v !== 'object' || !Object.prototype.hasOwnProperty.call(ORDERS_HOOKS, v.col)) return null;
+    return v.dir === 'ascending' || v.dir === 'descending' ? { col: v.col, dir: v.dir } : null;
+  }
+
+  let dgOrdersSort = null, sortLoaded = false;
+  try {
+    chrome.storage.sync.get({ dgOrdersSort: null }, r => { dgOrdersSort = sanitizeSort(r?.dgOrdersSort); sortLoaded = true; schedule(); });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'sync' && changes.dgOrdersSort) { dgOrdersSort = sanitizeSort(changes.dgOrdersSort.newValue); schedule(); }
+    });
+  } catch (e) {}
+
+  function saveSort(col, dir) {
+    dgOrdersSort = { col, dir };
+    try { chrome.storage.sync.set({ dgOrdersSort }).catch(() => {}); } catch (e) {}
+  }
+
+  // per-mount memory: a new table element (navigated away and back, or reloaded) starts fresh
+  let sortMount = null, sortPendingKey = null, sortUserDone = false, sortAttempts = 0, sortRestoring = false;
+
+  // a click saves the column once DEGIRO applies it (read back in sortRun). `btn.click()` below
+  // dispatches synchronously, so this listener can tell its own restore click (sortRestoring is still
+  // true while it runs) from one the user made, without relying on Event.isTrusted.
+  document.addEventListener('click', e => {
+    if (sortRestoring || !dgSettings.ordersSort || !page.isOrders()) return;
+    const btn = /** @type {Element} */ (e.target).closest?.('thead button');
+    if (!btn) return;
+    const table = ordersTable();
+    const found = table && columnHooks(table, ORDERS_SORT_SCOPE, ORDERS_HOOKS);
+    if (!found) return;
+    const key = Object.keys(ORDERS_HOOKS).find(k => sortButtonAt(found.heads, found.index[k]) === btn);
+    if (!key) return;
+    sortUserDone = true; // the user is choosing a sort here: stop auto-restoring on this mount
+    sortPendingKey = key;
+  }, true);
+
+  function sortRun() {
+    if (!page.isOrders()) return 'idle';
+    const table = ordersTable();
+    if (!table) return 'missing';
+    if (table !== sortMount) { sortMount = table; sortPendingKey = null; sortUserDone = false; sortAttempts = 0; }
+    const found = columnHooks(table, ORDERS_SORT_SCOPE, ORDERS_HOOKS);
+    if (!found) return 'ok';
+
+    if (sortPendingKey) {
+      const dir = found.heads[found.index[sortPendingKey]]?.getAttribute('aria-sort');
+      if (dir === 'ascending' || dir === 'descending') { saveSort(sortPendingKey, dir); sortPendingKey = null; }
+      return 'ok';
+    }
+    if (sortUserDone || !sortLoaded || !dgOrdersSort || sortAttempts >= 3) return 'ok';
+
+    const idx = found.index[dgOrdersSort.col];
+    const th = idx >= 0 ? found.heads[idx] : null;
+    if (!th) { sortAttempts = 3; return 'ok'; } // this table has no such column
+    if (th.getAttribute('aria-sort') === dgOrdersSort.dir) { sortAttempts = 3; return 'ok'; }
+    const btn = sortButtonAt(found.heads, idx);
+    if (!btn) { sortAttempts = 3; return 'ok'; }
+    sortAttempts++;
+    sortRestoring = true;
+    try { btn.click(); } finally { sortRestoring = false; } // DEGIRO's own sort; switching column
+    // always lands on ascending, a second click descends
+    return 'ok';
+  }
+
+  feature({
+    name: 'ordersSort', enabled: () => dgSettings.ordersSort, run: sortRun,
+    stop: () => { sortMount = null; sortPendingKey = null; sortUserDone = false; sortAttempts = 0; }
   });
 })();

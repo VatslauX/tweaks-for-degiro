@@ -86,6 +86,12 @@
   "optOrdersFilterHelp": {
     "message": "Filtra gli ordini in sospeso per azione, valuta e prodotto; totali di acquisto/vendita per valuta; scegli quali colonne mostrare."
   },
+  "optOrdersSort": {
+    "message": "Ricorda l'ordinamento di Ordini"
+  },
+  "optOrdersSortHelp": {
+    "message": "Mantiene la tabella degli ordini in sospeso ordinata come l'hai lasciata, dopo ricaricamenti e navigazione."
+  },
   "optTransactionsFilter": {
     "message": "Filtri e totali in Transazioni"
   },

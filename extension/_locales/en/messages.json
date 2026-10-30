@@ -105,6 +105,12 @@
   "optOrdersFilterHelp": {
     "message": "Filter Outstanding orders by action, currency and product; buy/sell totals per currency; choose which columns to show."
   },
+  "optOrdersSort": {
+    "message": "Remember Orders sort order"
+  },
+  "optOrdersSortHelp": {
+    "message": "Keeps the Outstanding table sorted the way you last left it, across reloads and navigation."
+  },
   "optTransactionsFilter": {
     "message": "Filters and totals on Transactions"
   },
