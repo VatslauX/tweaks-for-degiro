@@ -76,6 +76,18 @@ test('in a short window the links step aside so DEGIRO\'s bottom items stay on s
 
 // → integration: Alarms page current; Favourites re-added class; switching flags gives Favourites back
 
+test('a copy made while the flyout is open has no flyout links', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_O, initScript: () => {
+    // the pointer is already on Products when the sidebar first renders
+    document.addEventListener('DOMContentLoaded', () => document.querySelector('[data-name=productsMenuItem]').parentElement.dispatchEvent(new MouseEvent('mouseenter')));
+  } });
+  await expect.poll(() => labels(page)).toContain('Transactions');
+  await expect(page.locator('[data-name=productsMenuItem]')).toHaveClass(/flyoutOpen/);
+  expect(await page.$$eval('[data-dg-nav] a', els => els.length)).toBe(3);
+  expect(await page.$$eval('[data-dg-nav] .flyout, [data-dg-nav] .flyoutLink', els => els.length)).toBe(0);
+  expect(await page.$$eval('[data-dg-nav] a', els => els.map(a => a.className))).not.toContain('navItem flyoutOpen');
+});
+
 test('hovering Products does not highlight our links or put DEGIRO\'s flyout in them', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_O });
   await expect.poll(() => labels(page)).toContain('Transactions');

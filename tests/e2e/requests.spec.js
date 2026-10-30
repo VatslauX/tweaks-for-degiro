@@ -14,14 +14,20 @@ test('expired session: no request loop, and orders come back with the new sessio
   // from DEGIRO's own URLs) fires in real browser time, not via the fake clock. Without this, the
   // fake 5 s fallback timer fires before the observer callback, making the extension fall back to the
   // client endpoint (intAccount 4242 instead of 42).
-  await page.waitForTimeout(500);
-  // advance past the 20 s backoff (extension got 401, waits 20 s, then falls back to config endpoint)
-  await page.clock.fastForward(25000);
+  await page.waitForTimeout(500); // let PerformanceObserver fire (real time, not fake-clock)
+  // Fire the first rAF so the extension makes its initial poll request
+  await page.clock.fastForward(100);
+  // Wait in real time for the 401 to be received and processed; only THEN schedule
+  // the backoff timer (async: if we fastForward past T=20 s before the response
+  // arrives, the backoff timer is never registered in the fake-clock queue).
+  await expect.poll(() => calls.update, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
   // one rejected request, not one per second
   expect(calls.update).toBeLessThanOrEqual(2);
-  // the config fetch is async (real browser time); wait for it to land
-  await expect.poll(() => calls.config, { timeout: 3000 }).toBe(1);
-  // extension now has the new session; trigger its scheduler (rAF-based) to make the next poll
+  // Now the backoff is scheduled at T_fake + 20 s; advance past it
+  await page.clock.fastForward(21000);
+  // Config fetch is async; wait for it to land
+  await expect.poll(() => calls.config, { timeout: 5000 }).toBe(1);
+  // Extension has the new session; trigger the scheduler to make the next poll
   await page.clock.fastForward(500);
   await expect(badge(page)).toBeVisible({ timeout: 5000 });
   expect(calls.lastUpdateUrl).toContain('/42;jsessionid=APISID');

@@ -504,9 +504,11 @@ test("switching Price alarms off shows DEGIRO's Favourites list again", async ()
   await tab.setFlag('priceAlarms', false);
   await w.advance(300);
   assert.equal(tab.$('[data-dg-alarms-page]'), null, 'Alarms page gone');
-  // Favourites section should be visible again (not hidden)
-  const fav = tab.$('[data-name=favourites]');
-  assert.ok(!fav || fav.style.display !== 'none', 'Favourites visible again');
+  // The extension hides Favourites via an owned <style> element; when off, that element must be gone.
+  // (jsdom has no CSS engine, so element.style.display would be empty regardless — always check the
+  // <style> element, not the computed visibility.)
+  const hideStyle = tab.$$('style[data-dg-own]').find(s => s.textContent.includes('favourites'));
+  assert.equal(hideStyle, undefined, 'Favourites hiding stylesheet removed when priceAlarms off');
   await tab.setFlag('priceAlarms', true);
   await w.advance(300);
   assert.ok(tab.$('[data-dg-alarms-page]'), 'Alarms page back');

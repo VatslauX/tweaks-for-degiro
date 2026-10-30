@@ -262,20 +262,28 @@ test('switching Price alarms or navLinks off gives Favourites its class back', a
   noErrors(w);
 });
 
-test('a copy made while the flyout is open has no flyout links in our items', async () => {
-  const w = createWorld();
-  const tab = await w.open({ fixture: 'orders', hash: '/orders/open', globals: {
-    __BEFORE_EXT: () => {
-      // simulate: pointer already on Products when sidebar first renders
-      document.querySelector('[data-name=productsMenuItem]').parentElement.dispatchEvent(new MouseEvent('mouseenter'));
-    }
-  } });
-  await w.advance(200);
-  // our items should not contain flyout class or links
-  const flyoutCount = tab.$$('[data-dg-nav] a').length;
-  assert.equal(flyoutCount, 3, '3 links (one per nav item), none extra');
-  assert.equal(tab.$$('[data-dg-nav] .flyout, [data-dg-nav] .flyoutLink').length, 0, 'no flyout elements in our items');
-  const flyoutOpenCount = tab.$$('[data-dg-nav] a.flyoutOpen').length;
-  assert.equal(flyoutOpenCount, 0, 'none of our links have flyoutOpen class');
-  noErrors(w);
-});
+// DEGIRO's router handles its own links: a click on Favourites while the Alarms page (same route,
+// #/favourites?dg=alarms) is open fires no hashchange and re-renders nothing. The Alarms page must
+// still give way to the Favourites list.
+for (const [mode, how] of [['push', 'the router pushes #/favourites without a hashchange'], ['ignore', 'the router swallows the click on its open route']]) {
+  test(`a click on Favourites leaves the Alarms page (${how})`, async () => {
+    const w = createWorld();
+    const tab = await w.open({ fixture: 'favourites', hash: ALARMS_HASH, globals: { __MOCK_FAV_LINK: mode } });
+    await w.advance(200);
+    assert.ok(tab.$('[data-dg-alarms-page]'), 'Alarms page open');
+    assert.ok(tab.$('#dg-alarms-page-style'), 'Favourites list hidden');
+    const favLink = tab.$('a[data-name=favouriteProductsMenuItem]');
+    favLink.dispatchEvent(new tab.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+    await w.advance(200);
+    assert.equal(tab.window.location.hash, '#/favourites');
+    assert.equal(tab.$('[data-dg-alarms-page]'), null, 'Alarms page gone');
+    assert.equal(tab.$('#dg-alarms-page-style'), null, 'Favourites list shown again');
+    assert.ok(favLink.classList.contains('current'), 'Favourites looks current again');
+    assert.ok(!tab.$('[data-dg-nav=alarms] a').classList.contains('current'), 'Alarms no longer current');
+    noErrors(w);
+  });
+}
+
+// 'a copy made while the flyout is open has no flyout links' — stayed in Playwright (e2e/nav.spec.js).
+// The harness globals are static values; there is no hook to dispatch a MouseEvent before the
+// extension scripts run, so the flyout state cannot be set up in jsdom. That test requires initScript.
