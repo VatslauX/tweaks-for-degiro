@@ -587,6 +587,10 @@ test('Buy/Sell pills sit before the product name and navigate to its overview pa
     return [...cell.querySelectorAll('[data-dg-alarm-buy], [data-dg-alarm-sell], a')].map(e => e.getAttribute('data-dg-alarm-buy') != null ? 'buy' : e.getAttribute('data-dg-alarm-sell') != null ? 'sell' : 'link');
   });
   expect(order).toEqual(['buy', 'sell', 'link']);
+  // one line like Transactions: the name only, the symbol only as the link's tooltip
+  const cell = buy.locator('xpath=ancestor::td[1]');
+  await expect(cell).not.toContainText('MOCK');
+  await expect(row.locator('a', { hasText: 'Mock ETF' })).toHaveAttribute('title', 'MOCK');
 
   await sell.click();
   await expect(page).toHaveURL(/#\/products\/123\/overview/);

@@ -197,9 +197,9 @@
       link.href = `#/products/${a.productId}/overview`;
       link.textContent = R.label(a);
       link.style.cssText = `color:${th.text};font-weight:600;text-decoration:none;`;
-      const nameBlock = el('div', '');
-      nameBlock.append(link, el('span', `display:block;color:${th.muted};font-size:11.5px;`, a.symbol));
-      prodRow.append(sideButton('buy', 'alarmBuyAria'), sideButton('sell', 'alarmSellAria'), nameBlock);
+      // one line, like Transactions: the name only; the symbol is in the tooltip
+      if (a.symbol && a.symbol !== link.textContent) link.title = a.symbol;
+      prodRow.append(sideButton('buy', 'alarmBuyAria'), sideButton('sell', 'alarmSellAria'), link);
       prod.append(prodRow);
       const al = td(`text-align:right;color:${a.dir === 'above' ? th.buy : th.sell};`);
       al.textContent = `${a.dir === 'above' ? '↑' : '↓'} ${money(a, a.price)}`;
