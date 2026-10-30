@@ -6,6 +6,7 @@
 - The **Status** column of the Alarms page has a "?" (hover, keyboard focus or click) that explains each status.
 - Alarms are checked only while DEGIRO's Favourites or a product page is open; up to 25 alarms. The list syncs with your Chrome profile.
 - **Fix**: on the Alarms page, a product in your Favourites without a price (market closed) shows *No trading now* instead of *Not in current list*.
+- **Fix**: price alarms set while the market was closed showed a dash in the currency ("$— 240,00").
 - **Fix**: hovering *Products* in the sidebar no longer highlights the Orders and Transactions links.
 - **Fix**: the Transactions filters and totals were missing while DEGIRO's upper panel was open.
 - **Fix**: in the product header, the extension's values (period change, spread, ex-dividend date) no longer touch DEGIRO's daily change.

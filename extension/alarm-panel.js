@@ -42,7 +42,7 @@ const dgAlarmPanel = (() => {
   /** @param {number} id */
   function currencyOf(id) {
     for (const el of document.querySelectorAll(`${SEL.currentPrice}[data-id="${id}"]`)) {
-      const c = text(el).replace(/[\d.,\s+\-−%()]/g, '');
+      const c = text(el).replace(/[^\p{L}\p{Sc}]/gu, '');
       if (c) return c.slice(0, R.LIMITS.currency);
     }
     return '';

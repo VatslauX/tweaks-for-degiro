@@ -157,3 +157,10 @@ test('sorted: symbol and #id stand in for a missing name; byProduct false sorts 
   const p = [mk('1', 'B', '', 1, 10), mk('2', 'A', '', 1, 30), mk('3', 'C', '', 1, 10)];
   assert.deepStrictEqual(R.sorted(p, false).map(a => a.id), ['2', '1', '3']);
 });
+
+test('sanitize drops dashes from the currency ("$ —" read while the market was closed)', () => {
+  const cur = c => R.sanitize([{ ...A, currency: c }])[0].currency;
+  assert.strictEqual(cur('$—'), '$');
+  assert.strictEqual(cur('€–'), '€');
+  assert.strictEqual(cur('—'), '');
+});

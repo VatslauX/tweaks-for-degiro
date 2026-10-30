@@ -246,6 +246,18 @@ test('sets an alarm above the current price; the order form is never touched', a
   expect(await page.evaluate(() => window.__log.filter(x => /BUY|SELL|CONFIRM/.test(x)))).toEqual([]);
 });
 
+test('an alarm set while the price cell shows a dash keeps a clean currency', async ({ degiro, settings }) => {
+  const opt = await settings();
+  const initScript = `setInterval(() => { const e = document.querySelector('[data-field=CurrentPrice][data-id="123"]'); if (e) { e.title = '16,92'; e.textContent = '$ \\u2014'; } }, 20);`;
+  const { page } = await degiro({ url: PRODUCT, initScript });
+  await page.bringToFront();
+  await alarmBtn(page).click();
+  await expect(panelEl(page)).toBeVisible();
+  await page.fill('[data-dg-alarm-price]', '18');
+  await page.click('[data-dg-alarm-set]');
+  await expect.poll(async () => (await stored(opt))[0]?.currency).toBe('$');
+});
+
 test('refuses an equal or invalid price', async ({ degiro }) => {
   const { page } = await degiro({ url: PRODUCT });
   await alarmBtn(page).click();
