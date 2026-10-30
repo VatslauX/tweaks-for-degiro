@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased
+## 1.21.1 — 2026-10-30
 - **Earnings date in the product header**: the next earnings date from DEGIRO's Earnings section sits after the ex-dividend date. Click it to jump to Earnings. It has its own switch in Settings.
 - **Click alarm badge to edit**: clicking a gold alarm badge on the product chart opens the alarm editor for that price, matching the order-badge click-to-edit behaviour. The sub-setting *Click badge to edit* (under *Alarms on the chart*) can switch it off.
 - **Buy and Sell buttons on the Alarms page**: each alarm row now has DEGIRO's own "B"/"S" pill buttons before the product name, matching Transactions and Orders. Navigates to that product's overview page.

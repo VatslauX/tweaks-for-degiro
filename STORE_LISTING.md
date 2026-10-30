@@ -54,7 +54,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Alarm button on the page of any product in your Favourites: set a price, above or below, once, once a day or every time
 > • A banner appears in every open DEGIRO tab when the price is reached
 > • An Alarms page and sidebar item to see, switch and delete all alarms
-> • Gold alarm badges at the alarm prices on the product chart
+> • Gold alarm badges at the alarm prices on the product chart. Click one to edit that alarm
 > • Checked while DEGIRO's Favourites or a product page is open; stored in Chrome, nothing sent anywhere
 >
 > LESS CLUTTER
@@ -92,7 +92,7 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders and Transactions pages, and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders and Transactions pages, the Orders sort column and direction, and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.
 
 **Remote code:** No, I am not using remote code. All JavaScript is included in the package.
