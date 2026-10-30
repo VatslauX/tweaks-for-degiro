@@ -195,6 +195,22 @@
       onc.append(dgUi.toggle({ on: a.on, label: t('alarmOnAria', money(a, a.price)), th, onChange: on => S.setOn(a.id, on) }));
       const delc = td();
       const acts = el('div', 'display:flex;align-items:center;gap:8px;justify-content:flex-end;');
+      const buy = /** @type {HTMLButtonElement} */ (el('button',
+        `width:26px;height:26px;border-radius:50%;border:1.5px solid ${th.buy};background:transparent;` +
+        `color:${th.buy};font:inherit;font-size:11px;font-weight:700;cursor:pointer;` +
+        `display:inline-flex;align-items:center;justify-content:center;padding:0;`, t('ordersBuy')));
+      buy.type = 'button';
+      buy.setAttribute('data-dg-alarm-buy', '');
+      buy.setAttribute('aria-label', t('alarmBuyAria', R.label(a)));
+      buy.addEventListener('click', () => { location.hash = `#/products/${a.productId}/overview`; });
+      const sell = /** @type {HTMLButtonElement} */ (el('button',
+        `width:26px;height:26px;border-radius:50%;border:1.5px solid ${th.sell};background:transparent;` +
+        `color:${th.sell};font:inherit;font-size:11px;font-weight:700;cursor:pointer;` +
+        `display:inline-flex;align-items:center;justify-content:center;padding:0;`, t('ordersSell')));
+      sell.type = 'button';
+      sell.setAttribute('data-dg-alarm-sell', '');
+      sell.setAttribute('aria-label', t('alarmSellAria', R.label(a)));
+      sell.addEventListener('click', () => { location.hash = `#/products/${a.productId}/overview`; });
       const edit = /** @type {HTMLButtonElement} */ (el('button', `display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:300px;` +
         `border:1px solid ${dgUi.BLUE};background:transparent;color:${dgUi.BLUE};font:inherit;font-size:12px;font-weight:600;cursor:pointer;`));
       edit.type = 'button';
@@ -208,7 +224,7 @@
       del.setAttribute('aria-label', t('alarmDelete'));
       del.append(dgUi.icon(dgUi.TRASH, 16));
       del.addEventListener('click', () => S.remove(a.id));
-      acts.append(edit, del);
+      acts.append(buy, sell, edit, del);
       delc.append(acts);
       tr.append(prod, last, al, dist, rep, stc, onc, delc);
       tbody.append(tr);
@@ -227,6 +243,8 @@
     const row = a.closest('tr[data-dg-alarm-id]')?.getAttribute('data-dg-alarm-id');
     if (row) {
       if (a.matches('input[type=checkbox]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] input[type=checkbox]`;
+      if (a.matches('[data-dg-alarm-buy]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] [data-dg-alarm-buy]`;
+      if (a.matches('[data-dg-alarm-sell]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] [data-dg-alarm-sell]`;
       if (a.matches('[data-dg-alarm-delete]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] [data-dg-alarm-delete]`;
       if (a.matches('[data-dg-alarm-edit]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] [data-dg-alarm-edit]`;
       return '';

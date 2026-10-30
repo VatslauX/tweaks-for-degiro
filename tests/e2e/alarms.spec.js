@@ -482,7 +482,9 @@ test('Alarms page: keyboard focus shows a ring on the track (also when on) and i
   await expect(sw).toBeChecked();
   await expect(trackOf(sw)).toHaveCSS('box-shadow', 'none');
   await page.locator('[data-dg-alarm-edit]').first().focus();
-  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Shift+Tab'); // Sell
+  await page.keyboard.press('Shift+Tab'); // Buy
+  await page.keyboard.press('Shift+Tab'); // Switch
   await expect(sw).toBeFocused();
   const ring = await trackOf(sw).evaluate(e => getComputedStyle(e).boxShadow);
   expect(ring).not.toBe('none');

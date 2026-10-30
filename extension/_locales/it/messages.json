@@ -467,5 +467,11 @@
   },
   "alarmCancel": {
     "message": "Annulla"
+  },
+  "alarmBuyAria": {
+    "message": "Buy $1"
+  },
+  "alarmSellAria": {
+    "message": "Sell $1"
   }
 }
