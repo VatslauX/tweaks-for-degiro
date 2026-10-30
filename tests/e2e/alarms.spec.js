@@ -1089,4 +1089,40 @@ test('panel: the alarm list uses the same switches; clicking the track toggles t
   await sw.focus();
   await page.keyboard.press('Space');
   await expect.poll(() => stored(opt)).toMatchObject([{ id: 'p1', on: true }]);
+  // the list is rebuilt after the save: keyboard focus stays on the same switch
+  await expect(sw).toBeChecked();
+  await expect(page.locator('[data-dg-alarm-row=p1]').getByRole('switch')).toBeFocused();
+});
+
+test('Alarms page: keyboard focus shows a ring on the track (also when on) and it survives a rebuild', async ({ degiro, settings }) => {
+  await seed(settings, [alarm()]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  const sw = page.getByRole('switch');
+  await expect(sw).toBeChecked();
+  await expect(trackOf(sw)).toHaveCSS('box-shadow', 'none');
+  await page.locator('[data-dg-alarm-edit]').first().focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(sw).toBeFocused();
+  const ring = await trackOf(sw).evaluate(e => getComputedStyle(e).boxShadow);
+  expect(ring).not.toBe('none');
+  expect(ring).toContain('rgb(0, 149, 210)');
+  expect(ring).toContain('rgb(255, 255, 255)'); // an offset gap in the page colour, visible on the blue track
+  await setPrice(page, 123, 16.5);
+  await page.waitForTimeout(300);
+  await expect(sw).toBeFocused();
+  expect(await trackOf(sw).evaluate(e => getComputedStyle(e).boxShadow)).toBe(ring);
+});
+
+test('Alarms page: switch colours follow the dark theme when off', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ on: false })]);
+  const { page } = await degiro({
+    url: ALARMS,
+    initScript: () => document.addEventListener('DOMContentLoaded', () => { document.body.style.background = '#0f171a'; document.body.style.color = '#f3f7f9'; })
+  });
+  await page.bringToFront();
+  const sw = page.getByRole('switch');
+  await expect(sw).not.toBeChecked();
+  await expect(trackOf(sw)).toHaveCSS('background-color', 'rgb(15, 23, 26)');
+  await expect(knobOf(sw)).toHaveCSS('background-color', 'rgb(143, 160, 166)');
 });

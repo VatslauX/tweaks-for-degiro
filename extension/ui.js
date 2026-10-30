@@ -94,8 +94,18 @@ const dgUi = (() => {
    */
   function toggle(o) {
     const { th } = o;
+    if (!document.getElementById('dg-toggle-style')) {
+      // one owned style: the focus ring (keyboard focus only) and forced-colors, which must keep on/off apart
+      const st = __dgt.own(document.createElement('style'));
+      st.id = 'dg-toggle-style';
+      st.textContent = '[data-dg-toggle] input:focus-visible + span { box-shadow: 0 0 0 2px var(--dg-tg-bg), 0 0 0 4px ' + BLUE + '; }\n' +
+        '[data-dg-toggle] span { forced-color-adjust: none; }';
+      document.head.append(st);
+    }
     const lab = document.createElement('label');
+    lab.setAttribute('data-dg-toggle', '');
     lab.style.cssText = 'position:relative;display:inline-block;flex:none;width:40px;height:24px;cursor:pointer;vertical-align:middle;';
+    lab.style.setProperty('--dg-tg-bg', th.bg);
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = o.on;
@@ -116,8 +126,6 @@ const dgUi = (() => {
     };
     paint();
     cb.addEventListener('change', () => { paint(); o.onChange(cb.checked); });
-    cb.addEventListener('focus', () => { if (cb.matches(':focus-visible')) track.style.boxShadow = `0 0 0 1px ${BLUE}`; });
-    cb.addEventListener('blur', () => { track.style.boxShadow = 'none'; });
     lab.append(cb, track, knob);
     return lab;
   }

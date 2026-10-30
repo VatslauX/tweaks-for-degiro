@@ -256,6 +256,10 @@ const dgAlarmPanel = (() => {
     const sig = JSON.stringify([mine, th.bg]);
     if (sig === ui.listSig) return;
     ui.listSig = sig;
+    // keep keyboard focus on the same control of the same row across the rebuild
+    const a = document.activeElement;
+    const frow = a && ui.list.contains(a) ? a.closest('[data-dg-alarm-row]')?.getAttribute('data-dg-alarm-row') : null;
+    const fkind = !a ? '' : a.matches('[role=switch]') ? '[role=switch]' : a.matches('[data-dg-alarm-delete]') ? '[data-dg-alarm-delete]' : '';
     ui.list.replaceChildren(...mine.map(a => {
       const row = el('div', `display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid ${th.line};border-radius:8px;padding:7px 10px;font-size:13px;font-variant-numeric:tabular-nums;`);
       row.setAttribute('data-dg-alarm-row', a.id);
@@ -270,6 +274,10 @@ const dgAlarmPanel = (() => {
       row.append(what, rep, sw, del);
       return row;
     }));
+    if (frow && fkind) {
+      const row = [...ui.list.children].find(r => r.getAttribute('data-dg-alarm-row') === frow);
+      /** @type {HTMLElement | null | undefined} */ (row?.querySelector(fkind))?.focus();
+    }
   }
 
   async function save() {
