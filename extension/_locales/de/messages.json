@@ -408,6 +408,30 @@
   "alarmStatusNoTrading": {
     "message": "Derzeit kein Handel"
   },
+  "alarmTipAria": {
+    "message": "Zu den Status"
+  },
+  "alarmStatusFiredName": {
+    "message": "Ausgelöst"
+  },
+  "alarmStatusFiredOffName": {
+    "message": "Ausgelöst, ausgeschaltet"
+  },
+  "alarmTipWaiting": {
+    "message": "der Alarm ist an und der Kurs ist aktuell, hat den Alarmkurs aber noch nicht erreicht."
+  },
+  "alarmTipFired": {
+    "message": "der Kurs hat heute den Alarmkurs erreicht (die Uhrzeit wird angezeigt)."
+  },
+  "alarmTipFiredOff": {
+    "message": "der Kurs hat den Alarmkurs erreicht; ein Einmal-Alarm schaltet sich nach dem Auslösen selbst aus."
+  },
+  "alarmTipNotInList": {
+    "message": "das Produkt steht nicht in der Favoritenliste, die DEGIRO geöffnet hat, daher kann sein Kurs nicht geprüft werden."
+  },
+  "alarmTipNoTrading": {
+    "message": "das Produkt steht in der Liste, hat aber gerade keinen Kurs, zum Beispiel vor Börsenöffnung."
+  },
   "alarmSeen": {
     "message": "gesehen $1"
   },

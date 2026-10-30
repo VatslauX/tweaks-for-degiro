@@ -714,6 +714,88 @@ test('Alarms page columns: Latest comes before Alarm, numbers right-aligned', as
   for (const i of [0, 4, 5]) expect(aligns[i]).not.toBe('right');
 });
 
+// ---------- Status "?" hint (Alarms page) ----------
+const tipBtn = page => page.locator('[data-dg-alarms-page] thead [data-dg-alarm-tip]');
+const tipBubble = page => page.locator('[data-dg-alarm-tip-bubble]');
+const insideViewport = (page, loc) => loc.evaluate(e => {
+  const r = e.getBoundingClientRect(), w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
+  return r.left >= 0 && r.top >= 0 && r.right <= w && r.bottom <= h;
+});
+
+test('Alarms page: the Status "?" opens on hover with all five statuses and closes on leave', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await expect(tipBtn(page)).toHaveAttribute('aria-label', 'About the statuses');
+  await expect(tipBubble(page)).toHaveCount(0);
+  await tipBtn(page).hover();
+  await expect(tipBubble(page)).toHaveCount(1);
+  await expect(tipBubble(page)).toHaveAttribute('role', 'tooltip');
+  await expect(tipBtn(page)).toHaveAttribute('aria-expanded', 'true');
+  await expect(tipBubble(page).locator('[data-dg-alarm-tip-line]')).toHaveCount(5);
+  const text = await tipBubble(page).innerText();
+  for (const s of ['Status', 'Waiting', 'Fired', 'Fired, switched off', 'Not in current list', 'No trading now']) expect(text).toContain(s);
+  const css = await tipBubble(page).evaluate(e => { const c = getComputedStyle(e); return [c.backgroundColor, c.color, c.borderRadius]; });
+  expect(css).toEqual(['rgb(15, 23, 26)', 'rgb(255, 255, 255)', '4px']);
+  expect(await insideViewport(page, tipBubble(page))).toBe(true);
+  await page.mouse.move(5, 5);
+  await expect(tipBubble(page)).toHaveCount(0);
+  await expect(tipBtn(page)).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('Alarms page: the Status "?" opens on keyboard focus, Esc closes, a click toggles', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await tipBtn(page).focus();
+  await expect(tipBubble(page)).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(tipBubble(page)).toHaveCount(0);
+  await tipBtn(page).click();
+  await expect(tipBubble(page)).toHaveCount(1);
+  await page.mouse.move(5, 5);
+  await expect(tipBubble(page)).toHaveCount(1); // pinned by the click
+  await tipBtn(page).click();
+  await expect(tipBubble(page)).toHaveCount(0);
+});
+
+test('Alarms page: the Status bubble stays inside the screen on a phone and on a desktop', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  for (const [w, h] of [[390, 800], [1280, 800]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await tipBtn(page).scrollIntoViewIfNeeded();
+    await page.evaluate(() => document.activeElement?.blur()); // Esc leaves the focus on the button
+    await tipBtn(page).focus();
+    await expect(tipBubble(page)).toHaveCount(1);
+    expect(await insideViewport(page, tipBubble(page))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(tipBubble(page)).toHaveCount(0);
+  }
+});
+
+test('Alarms page: an open Status bubble survives a price tick, stays single and keeps the focus', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await tipBtn(page).hover();
+  await tipBtn(page).click();
+  await expect(tipBubble(page)).toHaveCount(1);
+  await page.mouse.move(5, 5);
+  const firstRow = page.locator('tr[data-dg-alarm-id]').first().locator('td').nth(1);
+  const before = await firstRow.innerText();
+  await setPrice(page, 123, 16.5);
+  await expect(firstRow).not.toHaveText(before); // the page was rebuilt
+  await expect(tipBubble(page)).toHaveCount(1);
+  await expect(tipBtn(page)).toHaveAttribute('aria-expanded', 'true');
+  await tipBtn(page).focus();
+  await setPrice(page, 123, 16.4);
+  await page.waitForTimeout(400);
+  await expect(tipBubble(page)).toHaveCount(1);
+  expect(await page.evaluate(() => document.activeElement?.hasAttribute('data-dg-alarm-tip'))).toBe(true);
+});
+
 // ---------- Edit alarm (Alarms page) ----------
 const editBtn = (page, id) => page.locator(`tr[data-dg-alarm-id="${id}"] [data-dg-alarm-edit]`);
 const stateOf = (opt, id) => opt.evaluate(i => chrome.storage.local.get('dgAlarmState').then(r => (r.dgAlarmState || {})[i] || {}), id);

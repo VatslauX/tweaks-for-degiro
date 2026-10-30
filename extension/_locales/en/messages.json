@@ -448,6 +448,30 @@
   "alarmStatusNoTrading": {
     "message": "No trading now"
   },
+  "alarmTipAria": {
+    "message": "About the statuses"
+  },
+  "alarmStatusFiredName": {
+    "message": "Fired"
+  },
+  "alarmStatusFiredOffName": {
+    "message": "Fired, switched off"
+  },
+  "alarmTipWaiting": {
+    "message": "the alarm is on and the price is live, but has not reached the alarm price yet."
+  },
+  "alarmTipFired": {
+    "message": "the price reached the alarm price today (the time is shown)."
+  },
+  "alarmTipFiredOff": {
+    "message": "the price reached the alarm price; a Once alarm switches itself off after firing."
+  },
+  "alarmTipNotInList": {
+    "message": "the product is not in the Favourites list DEGIRO has open, so its price cannot be checked."
+  },
+  "alarmTipNoTrading": {
+    "message": "the product is in the list but has no price right now, for example before the market opens."
+  },
   "alarmSeen": {
     "message": "seen $1"
   },

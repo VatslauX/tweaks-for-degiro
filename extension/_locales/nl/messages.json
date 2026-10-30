@@ -408,6 +408,30 @@
   "alarmStatusNoTrading": {
     "message": "Nu geen handel"
   },
+  "alarmTipAria": {
+    "message": "Over de statussen"
+  },
+  "alarmStatusFiredName": {
+    "message": "Afgegaan"
+  },
+  "alarmStatusFiredOffName": {
+    "message": "Afgegaan, uitgeschakeld"
+  },
+  "alarmTipWaiting": {
+    "message": "het alarm staat aan en de koers is actueel, maar heeft de alarmkoers nog niet bereikt."
+  },
+  "alarmTipFired": {
+    "message": "de koers heeft vandaag de alarmkoers bereikt (de tijd wordt getoond)."
+  },
+  "alarmTipFiredOff": {
+    "message": "de koers heeft de alarmkoers bereikt; een alarm met Eenmalig schakelt zichzelf na afgaan uit."
+  },
+  "alarmTipNotInList": {
+    "message": "het product staat niet in de Favorieten-lijst die DEGIRO open heeft, dus de koers kan niet worden gecontroleerd."
+  },
+  "alarmTipNoTrading": {
+    "message": "het product staat in de lijst maar heeft nu geen koers, bijvoorbeeld voordat de markt opent."
+  },
   "alarmSeen": {
     "message": "gezien $1"
   },

@@ -408,6 +408,30 @@
   "alarmStatusNoTrading": {
     "message": "Sin negociación ahora"
   },
+  "alarmTipAria": {
+    "message": "Acerca de los estados"
+  },
+  "alarmStatusFiredName": {
+    "message": "Activada"
+  },
+  "alarmStatusFiredOffName": {
+    "message": "Activada, desactivada"
+  },
+  "alarmTipWaiting": {
+    "message": "la alarma está activada y el precio está en directo, pero aún no ha alcanzado el precio de la alarma."
+  },
+  "alarmTipFired": {
+    "message": "el precio alcanzó hoy el precio de la alarma (se muestra la hora)."
+  },
+  "alarmTipFiredOff": {
+    "message": "el precio alcanzó el precio de la alarma; una alarma de Una vez se desactiva sola tras saltar."
+  },
+  "alarmTipNotInList": {
+    "message": "el producto no está en la lista de Favoritos que DEGIRO tiene abierta, así que no se puede comprobar su precio."
+  },
+  "alarmTipNoTrading": {
+    "message": "el producto está en la lista pero ahora no tiene precio, por ejemplo antes de que abra el mercado."
+  },
   "alarmSeen": {
     "message": "visto $1"
   },

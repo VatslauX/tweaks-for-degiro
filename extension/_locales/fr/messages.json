@@ -408,6 +408,30 @@
   "alarmStatusNoTrading": {
     "message": "Pas de cotation en ce moment"
   },
+  "alarmTipAria": {
+    "message": "À propos des statuts"
+  },
+  "alarmStatusFiredName": {
+    "message": "Déclenchée"
+  },
+  "alarmStatusFiredOffName": {
+    "message": "Déclenchée, désactivée"
+  },
+  "alarmTipWaiting": {
+    "message": "l’alarme est activée et le cours est en direct, mais n’a pas encore atteint le prix de l’alarme."
+  },
+  "alarmTipFired": {
+    "message": "le cours a atteint aujourd’hui le prix de l’alarme (l’heure est indiquée)."
+  },
+  "alarmTipFiredOff": {
+    "message": "le cours a atteint le prix de l’alarme ; une alarme Une fois se désactive d’elle-même après son déclenchement."
+  },
+  "alarmTipNotInList": {
+    "message": "le produit ne figure pas dans la liste de Favoris ouverte dans DEGIRO, son cours ne peut donc pas être vérifié."
+  },
+  "alarmTipNoTrading": {
+    "message": "le produit est dans la liste mais n’a pas de cours pour le moment, par exemple avant l’ouverture du marché."
+  },
   "alarmSeen": {
     "message": "vu $1"
   },
