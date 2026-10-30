@@ -87,6 +87,41 @@ const dgUi = (() => {
     return wrap;
   }
 
+  /**
+   * DEGIRO-style toggle switch: a real checkbox (role switch, keyboard Space) over a 40x24 track with a knob.
+   * @param {{ on: boolean, label: string, onChange: (on: boolean) => void, th: ReturnType<typeof theme> }} o
+   * @returns {HTMLLabelElement}
+   */
+  function toggle(o) {
+    const { th } = o;
+    const lab = document.createElement('label');
+    lab.style.cssText = 'position:relative;display:inline-block;flex:none;width:40px;height:24px;cursor:pointer;vertical-align:middle;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = o.on;
+    cb.setAttribute('role', 'switch');
+    cb.setAttribute('aria-label', o.label);
+    cb.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1;';
+    const track = document.createElement('span');
+    track.style.cssText = 'position:absolute;inset:0;box-sizing:border-box;border-radius:300px;pointer-events:none;';
+    const knob = document.createElement('span');
+    knob.style.cssText = 'position:absolute;top:3px;width:16px;height:16px;border-radius:50%;pointer-events:none;' +
+      'transition:left .3s cubic-bezier(0,0,.2,1);';
+    const paint = () => {
+      const on = cb.checked;
+      track.style.background = on ? BLUE : th.bg;
+      track.style.border = `1px solid ${on ? BLUE : th.line}`;
+      knob.style.background = on ? '#fff' : th.muted;
+      knob.style.left = on ? '20px' : '4px';
+    };
+    paint();
+    cb.addEventListener('change', () => { paint(); o.onChange(cb.checked); });
+    cb.addEventListener('focus', () => { if (cb.matches(':focus-visible')) track.style.boxShadow = `0 0 0 1px ${BLUE}`; });
+    cb.addEventListener('blur', () => { track.style.boxShadow = 'none'; });
+    lab.append(cb, track, knob);
+    return lab;
+  }
+
   // an outline icon; the <svg> is made in the namespace of one already on the page, so no
   // namespace URL appears in our source (tests/unit/static.test.js)
   /** @param {string} d @param {number} size @param {string} [color] */
@@ -110,5 +145,5 @@ const dgUi = (() => {
     return svg;
   }
 
-  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, theme, chip, picker, icon });
+  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, theme, chip, picker, toggle, icon });
 })();

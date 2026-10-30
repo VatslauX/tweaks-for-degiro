@@ -1043,3 +1043,50 @@ test('Alarms page: keyboard focus on Edit survives a price tick; a press on Edit
   await page.mouse.up();
   await expect(panelEl(page)).toBeVisible();
 });
+
+// toggle switches (DEGIRO style) instead of plain checkboxes
+const knobOf = sw => sw.locator('xpath=..').locator('span').nth(1);
+const trackOf = sw => sw.locator('xpath=..').locator('span').first();
+
+test('Alarms page: the On control is a switch; clicking the track toggles it, Space too; knob and track change', async ({ degiro, settings }) => {
+  const a = alarm();
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  const sw = page.getByRole('switch');
+  await expect(sw).toHaveCount(1);
+  await expect(sw).toBeChecked();
+  expect(await trackOf(sw).evaluate(e => getComputedStyle(e).width)).toBe('40px');
+  await expect(knobOf(sw)).toHaveCSS('left', '20px');
+  await expect(trackOf(sw)).toHaveCSS('background-color', 'rgb(0, 149, 210)');
+  await sw.locator('xpath=..').click(); // the label: the visible track and knob
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, on: false }]);
+  await expect(sw).not.toBeChecked();
+  await expect(knobOf(sw)).toHaveCSS('left', '4px');
+  await expect(trackOf(sw)).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await sw.focus();
+  await page.keyboard.press('Space');
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, on: true }]);
+  // focus survives a price tick
+  await setPrice(page, 123, 16.5);
+  await page.waitForTimeout(300);
+  await expect(page.getByRole('switch')).toBeFocused();
+});
+
+test('panel: the alarm list uses the same switches; clicking the track toggles the alarm', async ({ degiro, settings }) => {
+  const a = alarm({ id: 'p1' });
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: PRODUCT });
+  await page.bringToFront();
+  await alarmBtn(page).click();
+  const sw = page.locator('[data-dg-alarm-row=p1]').getByRole('switch');
+  await expect(sw).toBeChecked();
+  await expect(knobOf(sw)).toHaveCSS('left', '20px');
+  await sw.locator('xpath=..').click(); // the label: the visible track and knob
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: 'p1', on: false }]);
+  await expect(sw).not.toBeChecked();
+  await expect(knobOf(sw)).toHaveCSS('left', '4px');
+  await sw.focus();
+  await page.keyboard.press('Space');
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: 'p1', on: true }]);
+});

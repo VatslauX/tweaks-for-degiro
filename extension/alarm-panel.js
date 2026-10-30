@@ -261,12 +261,7 @@ const dgAlarmPanel = (() => {
       row.setAttribute('data-dg-alarm-row', a.id);
       const what = el('span', `color:${a.dir === 'above' ? th.buy : th.sell};`, `${a.dir === 'above' ? '↑' : '↓'} ${fmt(a.price, 2, 4)}`);
       const rep = el('span', `color:${th.muted};font-size:11.5px;flex:1;`, '· ' + t(a.repeat === 'once' ? 'alarmOnce' : a.repeat === 'daily' ? 'alarmDaily' : 'alarmEach'));
-      const sw = /** @type {HTMLInputElement} */ (document.createElement('input'));
-      sw.type = 'checkbox';
-      sw.checked = a.on;
-      sw.setAttribute('role', 'switch');
-      sw.setAttribute('aria-label', t('alarmOnAria', fmt(a.price, 2, 4)));
-      sw.addEventListener('change', () => S.setOn(a.id, sw.checked));
+      const sw = dgUi.toggle({ on: a.on, label: t('alarmOnAria', fmt(a.price, 2, 4)), th, onChange: on => S.setOn(a.id, on) });
       const del = /** @type {HTMLButtonElement} */ (el('button', `border:0;background:transparent;color:${th.muted};cursor:pointer;font-size:15px;`, '×'));
       del.type = 'button';
       del.setAttribute('data-dg-alarm-delete', '');

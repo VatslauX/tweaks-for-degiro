@@ -184,13 +184,7 @@
       stc.setAttribute('data-dg-alarm-status', '');
       stc.textContent = status(a, st, price);
       const onc = td();
-      const sw = /** @type {HTMLInputElement} */ (document.createElement('input'));
-      sw.type = 'checkbox';
-      sw.checked = a.on;
-      sw.setAttribute('role', 'switch');
-      sw.setAttribute('aria-label', t('alarmOnAria', money(a, a.price)));
-      sw.addEventListener('change', () => S.setOn(a.id, sw.checked));
-      onc.append(sw);
+      onc.append(dgUi.toggle({ on: a.on, label: t('alarmOnAria', money(a, a.price)), th, onChange: on => S.setOn(a.id, on) }));
       const delc = td();
       const acts = el('div', 'display:flex;align-items:center;gap:8px;justify-content:flex-end;');
       const edit = /** @type {HTMLButtonElement} */ (el('button', `display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:300px;` +
