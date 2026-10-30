@@ -8,6 +8,7 @@
   // request waits (20 s, doubling up to 5 min), so an expired session can't cause a request loop.
   const rejected = new Set(), mine = new Set(), RETRY_MIN_MS = 20000, RETRY_MAX_MS = 300000;
   let retryAt = 0, retryMs = 0;
+  let lastMain = null; // cheap cache for the redraw hook; updated in run() so the handler avoids mainChart()
   const EXTRA_MIN_MS = 5000; let rowCount = null, rowsChanged = false; // see run()
   const useSid = s => { if (s && !rejected.has(s)) sid = s; };
   // feature flags, bridged from the extension by flags.js (null = not loaded yet)
@@ -379,13 +380,21 @@
 
     const H = window.Highcharts;
     const main = mainChart();
+    lastMain = main; // cheap cache for the redraw hook below
     (H?.charts || []).forEach(chart => {
       if (!chart) return;
       const st = stateOf(chart);
       if (!st.hooked && H.addEvent) {
         st.hooked = true;
-        // right after a redraw and once more after the axis rescale animation, if anything moved
-        H.addEvent(chart, 'redraw', () => { setTimeout(() => refresh(chart), 0); setTimeout(() => refresh(chart), 700); });
+        // right after a redraw and once more after the axis rescale animation, if anything moved.
+        // Skip entirely when the flag is off, or for a non-main chart with nothing of ours to clear,
+        // so a live price tick on a chart we don't draw on doesn't start timers or measure anything.
+        H.addEvent(chart, 'redraw', () => {
+          if (!F?.orders) return;
+          if (chart !== lastMain && !st.layer?.firstChild) return;
+          setTimeout(() => refresh(chart), 0);
+          setTimeout(() => refresh(chart), 700);
+        });
       }
       refresh(chart, pid, chart === main);
     });

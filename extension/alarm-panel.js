@@ -335,6 +335,7 @@ const dgAlarmPanel = (() => {
     lastScan = 0;
     lastKey = '';
     document.querySelectorAll(`[${BTN}]`).forEach(b => b.remove());
+    if (!document.querySelector('[data-dg-toggle]')) document.getElementById('dg-toggle-style')?.remove();
   }
 
   feature({

@@ -970,3 +970,32 @@ test('Alarms page: a bubble closed by a second click stays closed across a price
   assert.equal(tipBubbles(tab).length, 0);
   noErrors(w);
 });
+
+// ============================================================
+// TOGGLE STYLE CLEANUP (F9 regression: dg-toggle-style leak)
+// ============================================================
+
+test('switching Price alarms off removes the toggle style (Alarms page path)', async () => {
+  // The Alarms page renders a toggle switch for each alarm; dgUi.toggle() injects
+  // <style id="dg-toggle-style"> on first use and must remove it on feature stop.
+  const { w, tab } = await setupAlarmsPage([alarm()]);
+  assert.ok(tab.$('#dg-toggle-style'), 'toggle style injected while Alarms page is visible');
+  await tab.setFlag('priceAlarms', false);
+  await w.advance(300);
+  assert.equal(tab.$('#dg-toggle-style'), null, 'toggle style removed after priceAlarms switched off');
+  noErrors(w);
+});
+
+test('switching Price alarms off removes the toggle style (alarm-panel path)', async () => {
+  // The alarm panel's list renders a toggle switch for each alarm; the same style must be
+  // cleaned up when the feature stops while the panel was open with alarms listed.
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupProduct([a]);
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  assert.ok(tab.$('#dg-toggle-style'), 'toggle style injected while panel shows alarm list with toggles');
+  await tab.setFlag('priceAlarms', false);
+  await w.advance(300);
+  assert.equal(tab.$('#dg-toggle-style'), null, 'toggle style removed after priceAlarms switched off');
+  noErrors(w);
+});

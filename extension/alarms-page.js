@@ -23,6 +23,7 @@
     view.menu = false;
     view.status = 'all'; // the filters live only while the page is open
     view.products.clear();
+    if (!document.querySelector('[data-dg-toggle]')) document.getElementById('dg-toggle-style')?.remove();
   }
 
   /** @param {any} a @param {number} n */
