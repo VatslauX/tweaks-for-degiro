@@ -55,3 +55,19 @@ test('header values follow the dark theme', async ({ degiro }) => {
   await expect(page.locator('#dg-period-change')).toBeVisible();
   await expect.poll(() => col('#dg-period-change')).toBe('rgb(76, 184, 46)');
 });
+
+test('our container is spaced from DEGIRO\'s price line (the real parent has no gap)', async ({ degiro }) => {
+  const { page } = await degiro();
+  await expect.poll(() => items(page)).toEqual(['dg-period-change', 'dg-header-spread', 'dg-exdiv']);
+  const gap = await page.evaluate(() => {
+    const box = document.querySelector('[data-dg-header]');
+    const line = box.previousElementSibling;
+    // the end of the line's last text, not its box, so a stretched line cannot hide the problem
+    const range = document.createRange();
+    range.selectNodeContents(line);
+    const lineEnd = range.getBoundingClientRect().right;
+    return { gap: box.firstElementChild.getBoundingClientRect().left - lineEnd, parentGap: getComputedStyle(box.parentElement).columnGap };
+  });
+  expect(gap.parentGap).toBe('normal');
+  expect(gap.gap).toBeGreaterThanOrEqual(8);
+});

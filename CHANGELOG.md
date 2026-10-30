@@ -2,6 +2,7 @@
 
 ## Unreleased
 - **Fix**: the Transactions filters and totals were missing while DEGIRO's upper panel was open.
+- **Fix**: in the product header, the extension's values (period change, spread, ex-dividend date) no longer touch DEGIRO's daily change.
 
 ## 1.20.1 — 2026-10-28
 - **Feedback link** in Settings: opens a new issue on the project's GitHub page, with the extension version, Chrome version and language filled in.

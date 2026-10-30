@@ -16,7 +16,7 @@
     if (!box) {
       box = own(document.createElement('div'));
       box.setAttribute(HEADER_BOX, '');
-      box.style.cssText = 'display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;row-gap:2px;min-width:0;max-width:100%;';
+      box.style.cssText = 'display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;row-gap:2px;margin-left:12px;min-width:0;max-width:100%;';
     }
     if (box.previousElementSibling !== line) line.after(box);
     el.setAttribute('data-dg-rank', String(rank));
