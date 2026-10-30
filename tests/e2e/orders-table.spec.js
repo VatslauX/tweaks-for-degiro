@@ -1,9 +1,10 @@
 // Orders → Outstanding: filters (action, currency, product multi-select) and buy/sell totals per currency.
 const { test, expect } = require('./fixtures');
+const { escapeRegExp } = require('./regexp');
 
 const URL_O = 'https://trader.degiro.nl/trader/?mock=orders#/orders/open';
 const panel = page => page.locator('#dg-orders-panel');
-const chip = (page, text) => panel(page).locator('button', { hasText: new RegExp(`^${text.replace(/[$]/g, '\\$')}$`) });
+const chip = (page, text) => panel(page).locator('button', { hasText: new RegExp(`^${escapeRegExp(text)}$`) });
 const totals = page => panel(page).locator('[data-dg-totals]');
 
 test('shows totals per currency for buy and sell', async ({ degiro }) => {

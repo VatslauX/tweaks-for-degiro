@@ -174,11 +174,33 @@
       tr.setAttribute('data-dg-alarm-id', a.id);
       if (!a.on) tr.style.color = th.muted;
       const prod = td();
+      const prodRow = el('div', 'display:flex;align-items:center;gap:8px;');
+      // DEGIRO's own Buy/Sell pills (Transactions, Orders, Portfolio): one letter, 20px tall, pill-shaped,
+      // outlined in the side's colour, sitting before the product name — not grouped with Edit/delete.
+      // The letter is DEGIRO's own first-letter abbreviation of the translated word (B/S in English,
+      // K/V in Dutch and German, A/V in French and Italian, C/V in Spanish and Portuguese) — never
+      // hardcode "B"/"S", which is wrong in every locale but English.
+      const sideButton = (side, ariaKey) => {
+        const full = t(side === 'buy' ? 'ordersBuy' : 'ordersSell');
+        const b = /** @type {HTMLButtonElement} */ (el('button',
+          `height:20px;padding:0 9px;border-radius:99px;border:1px solid ${side === 'buy' ? th.buy : th.sell};` +
+          `background:transparent;color:${side === 'buy' ? th.buy : th.sell};font:inherit;font-size:12px;` +
+          `font-weight:500;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;`, full.charAt(0).toUpperCase()));
+        b.type = 'button';
+        b.setAttribute('data-dg-alarm-' + side, '');
+        b.title = full;
+        b.setAttribute('aria-label', t(ariaKey, R.label(a)));
+        b.addEventListener('click', () => { location.hash = `#/products/${a.productId}/overview`; });
+        return b;
+      };
       const link = document.createElement('a');
       link.href = `#/products/${a.productId}/overview`;
       link.textContent = R.label(a);
       link.style.cssText = `color:${th.text};font-weight:600;text-decoration:none;`;
-      prod.append(link, el('span', `display:block;color:${th.muted};font-size:11.5px;`, a.symbol));
+      const nameBlock = el('div', '');
+      nameBlock.append(link, el('span', `display:block;color:${th.muted};font-size:11.5px;`, a.symbol));
+      prodRow.append(sideButton('buy', 'alarmBuyAria'), sideButton('sell', 'alarmSellAria'), nameBlock);
+      prod.append(prodRow);
       const al = td(`text-align:right;color:${a.dir === 'above' ? th.buy : th.sell};`);
       al.textContent = `${a.dir === 'above' ? '↑' : '↓'} ${money(a, a.price)}`;
       const rep = td();
@@ -195,22 +217,6 @@
       onc.append(dgUi.toggle({ on: a.on, label: t('alarmOnAria', money(a, a.price)), th, onChange: on => S.setOn(a.id, on) }));
       const delc = td();
       const acts = el('div', 'display:flex;align-items:center;gap:8px;justify-content:flex-end;');
-      const buy = /** @type {HTMLButtonElement} */ (el('button',
-        `width:26px;height:26px;border-radius:50%;border:1.5px solid ${th.buy};background:transparent;` +
-        `color:${th.buy};font:inherit;font-size:11px;font-weight:700;cursor:pointer;` +
-        `display:inline-flex;align-items:center;justify-content:center;padding:0;`, t('ordersBuy')));
-      buy.type = 'button';
-      buy.setAttribute('data-dg-alarm-buy', '');
-      buy.setAttribute('aria-label', t('alarmBuyAria', R.label(a)));
-      buy.addEventListener('click', () => { location.hash = `#/products/${a.productId}/overview`; });
-      const sell = /** @type {HTMLButtonElement} */ (el('button',
-        `width:26px;height:26px;border-radius:50%;border:1.5px solid ${th.sell};background:transparent;` +
-        `color:${th.sell};font:inherit;font-size:11px;font-weight:700;cursor:pointer;` +
-        `display:inline-flex;align-items:center;justify-content:center;padding:0;`, t('ordersSell')));
-      sell.type = 'button';
-      sell.setAttribute('data-dg-alarm-sell', '');
-      sell.setAttribute('aria-label', t('alarmSellAria', R.label(a)));
-      sell.addEventListener('click', () => { location.hash = `#/products/${a.productId}/overview`; });
       const edit = /** @type {HTMLButtonElement} */ (el('button', `display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:300px;` +
         `border:1px solid ${dgUi.BLUE};background:transparent;color:${dgUi.BLUE};font:inherit;font-size:12px;font-weight:600;cursor:pointer;`));
       edit.type = 'button';
@@ -224,7 +230,7 @@
       del.setAttribute('aria-label', t('alarmDelete'));
       del.append(dgUi.icon(dgUi.TRASH, 16));
       del.addEventListener('click', () => S.remove(a.id));
-      acts.append(buy, sell, edit, del);
+      acts.append(edit, del);
       delc.append(acts);
       tr.append(prod, last, al, dist, rep, stc, onc, delc);
       tbody.append(tr);

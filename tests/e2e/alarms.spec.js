@@ -482,9 +482,7 @@ test('Alarms page: keyboard focus shows a ring on the track (also when on) and i
   await expect(sw).toBeChecked();
   await expect(trackOf(sw)).toHaveCSS('box-shadow', 'none');
   await page.locator('[data-dg-alarm-edit]').first().focus();
-  await page.keyboard.press('Shift+Tab'); // Sell
-  await page.keyboard.press('Shift+Tab'); // Buy
-  await page.keyboard.press('Shift+Tab'); // Switch
+  await page.keyboard.press('Shift+Tab'); // Switch (Buy/Sell now sit before the product name, earlier in the row)
   await expect(sw).toBeFocused();
   const ring = await trackOf(sw).evaluate(e => getComputedStyle(e).boxShadow);
   expect(ring).not.toBe('none');
@@ -569,4 +567,27 @@ test('the delete control is an svg icon with the delete label kept', async ({ de
   await expect(del).toHaveAttribute('aria-label', 'Delete alarm');
   await expect(del.locator('svg')).toHaveCount(1);
   await expect(del).not.toHaveText('×');
+});
+
+test('Buy/Sell pills sit before the product name and navigate to its overview page', async ({ degiro, settings }) => {
+  const a = alarm({ name: 'Mock ETF', symbol: 'MOCK' });
+  await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  const row = page.locator(`tr[data-dg-alarm-id="${a.id}"]`);
+  const buy = row.locator('[data-dg-alarm-buy]'), sell = row.locator('[data-dg-alarm-sell]');
+  await expect(buy).toHaveText('B');
+  await expect(sell).toHaveText('S');
+  await expect(buy).toHaveAttribute('title', 'Buy');
+  await expect(sell).toHaveAttribute('title', 'Sell');
+  await expect(buy).toHaveAttribute('aria-label', 'Buy Mock ETF');
+  await expect(sell).toHaveAttribute('aria-label', 'Sell Mock ETF');
+  // both pills sit in the product cell, before the product link — not in the actions column
+  const order = await row.evaluate(tr => {
+    const cell = tr.querySelector('[data-dg-alarm-buy]').closest('td');
+    return [...cell.querySelectorAll('[data-dg-alarm-buy], [data-dg-alarm-sell], a')].map(e => e.getAttribute('data-dg-alarm-buy') != null ? 'buy' : e.getAttribute('data-dg-alarm-sell') != null ? 'sell' : 'link');
+  });
+  expect(order).toEqual(['buy', 'sell', 'link']);
+
+  await sell.click();
+  await expect(page).toHaveURL(/#\/products\/123\/overview/);
 });

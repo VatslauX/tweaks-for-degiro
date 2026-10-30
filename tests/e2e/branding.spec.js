@@ -1,4 +1,5 @@
 const { test, expect } = require('./fixtures');
+const { escapeRegExp } = require('./regexp');
 
 test('settings page states the extension is unofficial', async ({ settings }) => {
   const opt = await settings();
@@ -18,6 +19,6 @@ test('feedback link opens a new GitHub issue with the version, and nothing about
   expect(href.startsWith(home + '/issues/new?body=')).toBe(true);
   const body = decodeURIComponent(href.split('body=')[1]);
   const version = await opt.evaluate(() => chrome.runtime.getManifest().version);
-  expect(body).toMatch(new RegExp(`Extension ${version.replace(/\./g, '\\.')} · Chrome \\d+ · en`));
+  expect(body).toMatch(new RegExp(`Extension ${escapeRegExp(version)} · Chrome \\d+ · en`));
   expect(new URL(href).searchParams.size).toBe(1); // only the body: no page, account or settings data
 });
