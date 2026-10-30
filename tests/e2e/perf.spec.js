@@ -16,13 +16,11 @@ test('hovering the chart does not run the spread feature on every frame', async 
   await expect.poll(() => page.evaluate(() => document.getElementById('dg-header-spread').getAttribute('title'))).not.toBeNull();
   await page.evaluate(COUNT_RUNS);
   const box = await page.locator('#chart').boundingBox();
-  const end = Date.now() + 2000;
-  let i = 0;
-  while (Date.now() < end) {
-    await page.mouse.move(box.x + 50 + (i++ * 7) % (box.width - 100), box.y + 100);
-    await page.waitForTimeout(8);
+  // a fixed number of moves, not a time budget: a busy machine must not make the sample smaller
+  for (let i = 0; i < 120; i++) {
+    await page.mouse.move(box.x + 50 + (i * 7) % (box.width - 100), box.y + 100);
+    await page.waitForTimeout(8); // real time on purpose: a hover cadence of about one move per frame
   }
-  expect(i).toBeGreaterThan(50);
   const runs = await page.evaluate(() => window.__runs);
   if (process.env.PERF_LOG) process.stdout.write(`spread runs while hovering: ${runs}\n`);
   expect(runs).toBeLessThanOrEqual(5);

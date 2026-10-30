@@ -150,10 +150,10 @@ test('selection stays on the chart after in-app navigation rebuilds it', async (
 test('a chart rebuilt under the pointer still selects up to its right edge', async ({ degiro }) => {
   // DEGIRO greys the line right of the cursor while hovered; measuring the rebuilt chart then
   // would end the line (and the selection) at the cursor
-  const { page } = await degiro({ url: URL_P });
+  const { page } = await degiro({ url: URL_P, clock: true });
   await expect(change(page)).toBeVisible();
   await page.mouse.move(5, 5);
-  await page.waitForTimeout(3500); // geometry of the first chart is cached
+  await page.clock.fastForward(3500); // geometry of the first chart is cached
   const box = await page.locator('#c1').boundingBox();
   const y = box.y + box.height / 2, at = f => box.x + box.width * f;
   await page.evaluate(() => { location.hash = '#/favourites'; });

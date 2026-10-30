@@ -22,15 +22,9 @@ test('popup lists which features work on the open DEGIRO page', async ({ degiro,
   await expect(opt.locator('#pageStatus')).toBeVisible();
 });
 
-test('popup reports a missing page element as "Not found"', async ({ degiro, settings }) => {
-  // DEGIRO "changed its page": no Bid/Ask hooks and unknown labels
-  const { page } = await degiro({ initScript: () => document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-field=BidPrice],[data-field=AskPrice]').forEach(e => e.removeAttribute('data-field'));
-    for (const dt of document.querySelectorAll('#pricing dt')) if (/^(Bid|Ask)$/.test(dt.textContent.trim())) dt.firstElementChild.textContent = 'Xyz';
-  }) });
-  const opt = await settings();
-  await expect.poll(async () => (await popupStatus(page, opt))['Bid/ask spread'], { timeout: 10000 }).toMatch(/^Not found/);
-});
+// A missing page element ("Not found"): the isolated-world 8 s loading window runs on real time
+// here, so it is checked in tests/integration/content.test.js, and the popup's "Not found" text
+// with page-world features on the fake clock in session.spec.js.
 
 test('popup hides the list when the active tab is not DEGIRO', async ({ settings }) => {
   const opt = await settings();

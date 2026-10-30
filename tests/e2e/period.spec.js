@@ -72,12 +72,14 @@ test('never shows the new period with the old data while the chart reloads', asy
   await page.evaluate(() => {
     window.__seen = [];
     const rec = () => { const el = document.getElementById('dg-period-change'); window.__seen.push(el ? el.textContent : null); };
+    window.__recOnce = rec;
     window.__rec = setInterval(rec, 20);
   });
   await pick(page, '1 W');
   await page.clock.fastForward(2500);
   await expect.poll(() => box(page).textContent(), { timeout: 5000 }).toContain('1W');
-  const seen = await page.evaluate(() => { clearInterval(window.__rec); return window.__seen; });
+  // the recorder runs on the fake clock, so take one last sample of what is shown now
+  const seen = await page.evaluate(() => { clearInterval(window.__rec); window.__recOnce(); return window.__seen; });
   const want = (await expected(page, 'week')).toFixed(2).replace('.', ',');
   for (const t of seen.filter(Boolean)) {
     if (t.startsWith('1W')) expect(t).toContain(want); // 1W is only ever shown with 1W numbers

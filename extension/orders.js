@@ -13,7 +13,7 @@
   const useSid = s => { if (s && !rejected.has(s)) sid = s; };
   // feature flags, bridged from the extension by flags.js (null = not loaded yet)
   let F = null;
-  const { flags: readFlags, pageTheme, mainChart, parseNum: num, fmt, SEL, LABELS, page, own, feature, t } = __dgt; // common.js
+  const { flags: readFlags, pageTheme, mainChart, parseNum: num, fmt, SEL, LABELS, page, own, feature, schedule, t } = __dgt; // common.js
   // per chart: our plot line ids, badge layer, render signature (charts are DEGIRO's objects)
   /** @type {WeakMap<object, { ids: string[], layer: HTMLElement | null, sig: string, hooked: boolean }>} */
   const state = new WeakMap();
@@ -27,8 +27,10 @@
     try {
       const u = new URL(name, location.href);
       if (u.origin !== location.origin || mine.has(u.href)) return; // not our own requests
+      const had = !!(sid && acc);
       useSid(u.searchParams.get('sessionId') || (u.pathname.match(/;jsessionid=([^/?;]+)/i) || [])[1]);
       acc = u.searchParams.get('intAccount') || (u.pathname.match(/account\/info\/(\d+)/) || [])[1] || acc;
+      if (!had && sid && acc) schedule(); // load the orders now, not on the next timer run
     } catch (e) {}
   }
   performance.getEntriesByType('resource').forEach(e => grab(e.name));
@@ -81,6 +83,7 @@
       }
     } catch (e) {}
     loading = false;
+    schedule(); // draw the new orders now, not on the next timer run
   }
 
 

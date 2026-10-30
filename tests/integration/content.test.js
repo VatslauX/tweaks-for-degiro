@@ -58,6 +58,21 @@ test('falls back to labels when the data-field hooks are missing', async () => {
   noErrors(w);
 });
 
+// ── Status for the popup (scheduler in the isolated world) ─────────────────────
+
+test('a page DEGIRO changed: the spread reports "loading" for 8 s, then "missing"', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'degiro', hash: '/products/123/overview', globals: PRODUCT_GLOBALS });
+  // no Bid/Ask hooks and unknown labels
+  tab.document.querySelectorAll('[data-field=BidPrice],[data-field=AskPrice]').forEach(e => e.removeAttribute('data-field'));
+  for (const dt of tab.$$('#pricing dt')) if (/^(Bid|Ask)$/.test(dt.textContent.trim())) dt.firstElementChild.textContent = 'Xyz';
+  await w.advance(300);
+  assert.equal(tab.json('__dgt.status().spread'), 'loading');
+  await w.advance(8000);
+  assert.equal(tab.json('__dgt.status().spread'), 'missing');
+  noErrors(w);
+});
+
 // header-spread and exdiv: both use visible() via getBoundingClientRect to find the price-line
 // header in degiro.html — jsdom always returns 0, so these elements never render in integration.
 // Those features stay in tests/e2e/header-spread.spec.js and tests/e2e/exdiv.spec.js.

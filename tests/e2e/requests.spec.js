@@ -21,6 +21,9 @@ test('expired session: no request loop, and orders come back with the new sessio
   // the backoff timer (async: if we fastForward past T=20 s before the response
   // arrives, the backoff timer is never registered in the fake-clock queue).
   await expect.poll(() => calls.update, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
+  // the request reached the mock; the extension has handled the 401 (session dropped, backoff set)
+  // once its status turns from 'ok' to 'loading'
+  await expect.poll(() => page.evaluate(() => JSON.parse(document.documentElement.getAttribute('data-dg-status') || '{}').orders)).toBe('loading');
   // one rejected request, not one per second
   expect(calls.update).toBeLessThanOrEqual(2);
   // Now the backoff is scheduled at T_fake + 20 s; advance past it

@@ -16,7 +16,7 @@
   const CHANGE_ID = 'dg-portfolio-change';
 
 
-  const { flags, pageTheme, fmt, SEL, page, own, feature } = __dgt; // common.js
+  const { flags, pageTheme, fmt, SEL, page, own, feature, schedule } = __dgt; // common.js
   /** @type {(sel: string) => HTMLElement | null} */
   const $ = sel => document.querySelector(sel);
 
@@ -26,7 +26,7 @@
   function seen(name) {
     try {
       const u = new URL(name, location.href);
-      if (u.origin === location.origin && u.pathname === ENDPOINT) url = u;
+      if (u.origin === location.origin && u.pathname === ENDPOINT && u.href !== url?.href) { url = u; schedule(); } // load it now
     } catch (e) {}
   }
   performance.getEntriesByType('resource').forEach(e => seen(e.name));
@@ -61,6 +61,7 @@
       failedHref = target.href; retryAt = Date.now() + retryMs;
     }
     loading = false;
+    schedule(); // draw the new data now, not on the next timer run
   }
 
   // ---------- formatting ----------

@@ -8,7 +8,9 @@ test('no canvas readback warning on the portfolio page', async ({ degiro }) => {
   page.on('console', m => { if (/willReadFrequently|readback/i.test(m.text())) warnings.push(m.text()); });
   await expect(page.locator('#dg-portfolio-change')).toBeVisible();
   await page.mouse.move(5, 5);
-  await page.waitForTimeout(8000); // several refresh cycles
+  // real time on purpose: the feature reads the chart every 500 ms, and Chrome warns from the
+  // second read of a canvas, so three cycles are enough
+  await page.waitForTimeout(1500);
   // drag a few times as well
   const box = await page.locator('#c1').boundingBox();
   for (let i = 0; i < 3; i++) {
