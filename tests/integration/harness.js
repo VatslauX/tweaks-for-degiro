@@ -234,8 +234,11 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
       const ctx = dom.getInternalVMContext();
       const exec = (code, filename) => new vm.Script(code, { filename }).runInContext(ctx);
       // the mock page's own scripts (they build the page, like DEGIRO's would); wrapped so their
-      // consts can't clash with the extension's top-level names
-      for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) exec(`(function () {\n${m[1]}\n})();`, `${fixture}.html`);
+      // consts can't clash with the extension's top-level names. Taken from the parsed document
+      // (runScripts: 'outside-only' keeps JSDOM from running them itself), in document order;
+      // the list is collected before any of them runs.
+      const inline = [...win.document.querySelectorAll('script:not([src])')].map(s => s.textContent);
+      for (const code of inline) exec(`(function () {\n${code}\n})();`, `${fixture}.html`);
       for (const s of isolatedScripts()) exec(s.code, `extension/${s.file}`);
 
       // ---- helpers for tests ----

@@ -1,9 +1,10 @@
 // Transactions: filters (action, currency, product) and buy / sell / net totals per currency, plus fees.
 const { test, expect, setFlag } = require('./fixtures');
+const { escapeRegExp } = require('./regexp');
 
 const URL_T = 'https://trader.degiro.nl/trader/?mock=transactions#/transactions?fromDate=2026-09-29&toDate=2026-10-28';
 const panel = page => page.locator('#dg-transactions-panel');
-const chip = (page, text) => panel(page).locator('button', { hasText: new RegExp(`^${text.replace(/[$]/g, '\\$')}$`) });
+const chip = (page, text) => panel(page).locator('button', { hasText: new RegExp(`^${escapeRegExp(text)}$`) });
 const visibleRows = page => page.$$eval('#rows tr', rs => rs.filter(r => getComputedStyle(r).display !== 'none')
   .map(r => r.querySelector('[data-name=productName]').textContent + '|' + r.querySelector('[data-name=buySellBadge]').dataset.action));
 const totals = page => panel(page).locator('[data-dg-totals]');
