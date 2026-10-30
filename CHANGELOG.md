@@ -1,19 +1,14 @@
 # Release notes
 
 ## Unreleased
-- **Price alarms.** An *Alarm* button (bell) after *Sell* on the page of a product in your Favourites opens a *Set price alarm* panel: price, direction, and repeat (*Once*, *Once a day*, *Every time*), with this product's alarms. When the price is reached, a banner appears in every open DEGIRO tab.
-- **Alarms page and sidebar item**: all alarms sorted by product, then price (high to low), with status filters, a product picker, on/off toggle switches, **Edit** (change the price and repeat of an alarm), delete and live prices; the sidebar item shows how many banners are open. Own switch in Settings.
-- **Alarms on the chart**: a gold badge at the price of each switched-on alarm on the product chart (▲/▼ at the edge when out of range). Own switch in Settings, under Price alarms.
-- Alarm status shown as coloured pills (*Waiting*, *Fired*, off), a bin icon for delete, and the number of alarms as a badge on the *Alarm* button.
-- The **Status** column of the Alarms page has a "?" (hover, keyboard focus or click) that explains each status.
-- Alarms are checked only while DEGIRO's Favourites or a product page is open; up to 25 alarms. The list syncs with your Chrome profile.
-- **Fix**: on the Alarms page, a product in your Favourites without a price (market closed) shows *No trading now* instead of *Not in current list*.
-- **Fix**: price alarms set while the market was closed showed a dash in the currency ("$— 240,00").
-- **Fix**: clicking *Favourites* (or a Favourites list) in the sidebar from the Alarms page now leaves the Alarms page.
+- **Price alarms.** An *Alarm* button (bell) after *Sell* on the page of a product in your Favourites opens a *Set price alarm* panel: price, direction (above or below, from the current price) and repeat (*Once*, *Once a day*, *Every time*), with this product's alarms. The button shows how many of the product's alarms are switched on. When the price is reached, a banner appears in every open DEGIRO tab.
+- **Alarms page and sidebar item**: all alarms sorted by product, then price (high to low), with status filters, a product picker, on/off switches, **Edit** (change the price and repeat of an alarm), delete and live prices. The status (*Waiting*, *Fired*, *No trading now*, *Not in current list*, off) is shown as a coloured label, and a "?" next to *Status* explains each one. The sidebar item shows how many banners are open.
+- **Alarms on the chart**: a gold badge at the price of each switched-on alarm on the product chart (▲/▼ at the edge when out of range).
+- Alarms are checked only while DEGIRO's Favourites or a product page is open; up to 25 alarms. The list syncs with your Chrome profile. *Price alarms* and *Alarms on the chart* each have their own switch in Settings.
 - **Fix**: when Chrome couldn't read the settings, features you had switched off came back on until the next good read; the last good settings now stay.
 - **Fix**: on Transactions, a fee shown as "–" now counts as 0 in the Fees total, and a "–" value is no longer read as a currency.
-- **Fix**: hovering *Products* in the sidebar no longer highlights the Orders and Transactions links.
 - **Fix**: the Transactions filters and totals were missing while DEGIRO's upper panel was open.
+- **Fix**: hovering *Products* in the sidebar no longer highlights the Orders and Transactions links.
 - **Fix**: in the product header, the extension's values (period change, spread, ex-dividend date) no longer touch DEGIRO's daily change.
 
 ## 1.20.1 — 2026-10-28
