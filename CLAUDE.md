@@ -11,16 +11,18 @@ This is a deliberate choice: what ships is exactly the source. Don't add a build
 ```
 npm install                 # test tools only
 npx playwright install chromium  # once; e2e tests fail without it
-npm test                    # typecheck + lint + unit + e2e
+npm test                    # typecheck + lint + unit + integration + e2e
 npm run typecheck           # tsc per world: tsconfig.isolated.json, tsconfig.page.json, tsconfig.options.json
 npm run lint                # eslint . (mistakes only: undefined names, unused code; no style rules)
 npm run test:unit           # node --test tests/unit/*.test.js
+npm run test:integration    # node --test tests/integration/*.test.js (content scripts in JSDOM, no browser, ~3 s)
 npm run test:e2e            # playwright test
-npm run test:report         # agents: same stages, one structured JSON summary (scope: -- unit | -- tests/e2e/x.spec.js | -- -g "name")
+npm run test:report         # agents: same stages, one structured JSON summary (scope: -- unit | -- integration | -- tests/e2e/x.spec.js | -- -g "name")
 npm run build               # dist/tweaks-for-degiro-<manifest version>.zip (zips extension/ only)
 npm run store-images        # dist/store/: store screenshots and promo tiles (needs the real shots, see scripts/store-images.spec.js)
 
 node --test tests/unit/static.test.js        # one unit file
+node --test tests/integration/alarms.test.js # one integration file
 npx playwright test tests/e2e/bridge.spec.js # one e2e file
 npx playwright test -g "adds a Spread row"   # one e2e test by name
 ```
@@ -38,6 +40,7 @@ ESLint globals for the shared scripts (`__dgt`, the `flags.js` names) are listed
 ```
 extension/          the shipped extension (only this folder is zipped)
 tests/unit/         static checks: manifest, permissions, no eval/remote code/innerHTML, i18n, cws-publish
+tests/integration/  the real isolated-world content scripts in JSDOM on the mock pages (harness.js: fake browser profile, virtual clock)
 tests/e2e/          Playwright: real Chromium with the extension loaded
 tests/fixtures/     mock of trader.degiro.nl (Highcharts 4 chart, orders panel, Adjust order form, product header with star and Buy/Sell, Favourites list)
 scripts/            build.js (zip), cws-publish.js (store upload), store-images (store screenshots), test-report.js (structured test summary)
@@ -93,7 +96,7 @@ Bump `version` in `extension/manifest.json`, add the CHANGELOG entry, commit and
 
 **Orders** (`orders.js`): gets `sessionId`/`intAccount` by watching DEGIRO's own resource requests (PerformanceObserver). Fallback, only if none is seen after 5 s and at most once a minute: `/login/secure/config` (`data.sessionId`) and `/pa/secure/client?sessionId=` (only `data.intAccount` is read; the rest is personal data, see PRIVACY.md). A 401/403 marks that session as rejected (never accepted again, from DEGIRO's URLs or the fallback) and delays the next request (20 s, doubling to 5 min); the extension's own request URLs are ignored by the session watcher. `portfolio.js` retries a failed value request after 30 s, doubling. It then polls the same-origin `/trading/secure/v5/update/{acc};jsessionid={sid}?orders=0` every 20 s. The response holds lists of `{name, value}` pairs. Clicking a badge finds the matching row in DEGIRO's Outstanding orders panel (`tr[data-name=openOrder]`): by the order id in the cells' `data-id`, else side (`buySellBadge[data-action]`), size, price and full product name (a shortened name only if exactly one row fits), and opens DEGIRO's own Adjust order form. The panel is minimised when `panelToggleButton` has a `data-value` other than `opened`.
 
-**Price alarms** (`priceAlarms` flag, isolated world only, so not in `DG_PAGE_FLAGS`): prices are read from the DOM only, with no requests: the Favourites list (`LastPrice`) and the product page (`CurrentPrice`); alarms are checked only while one of them is open. Storage: `chrome.storage.sync` `dgAlarms` (the alarm list, max 25, follows the Chrome profile); `chrome.storage.local` `dgAlarmState` (last seen price and time, last fired) and `dgAlarmEvents` (open banners), this browser only. "Armed" (for *Every time*) is each tab's own memory and never stored. Cross-tab rule: when another tab fired the alarm within 60 s (the same local day for *Once a day*), this tab doesn't fire it again. Banners show in every DEGIRO tab; `nav.js` counts them on the Alarms item, which shows only while `navLinks` and `priceAlarms` are both on.
+**Price alarms** (`priceAlarms` flag, isolated world only, so not in `DG_PAGE_FLAGS`): prices are read from the DOM only, with no requests: the Favourites list (`LastPrice`) and the product page (`CurrentPrice`); alarms are checked only while one of them is open. Storage: `chrome.storage.sync` `dgAlarms` (the alarm list, max 25, follows the Chrome profile); `chrome.storage.local` `dgAlarmState` (last seen price and time, last fired) and `dgAlarmEvents` (open banners), this browser only. "Armed" (for *Every time*) is each tab's own memory and never stored. Cross-tab rule: when another tab fired the alarm within 60 s (the same local day for *Once a day*), this tab doesn't fire it again. Two tabs crossing within the same few ms may both write (a read-then-write race `chrome.storage` can't prevent); one event is kept. Banners show in every DEGIRO tab; `nav.js` counts them on the Alarms item, which shows only while `navLinks` and `priceAlarms` are both on.
 
 **Product header**: the period change, header spread and ex-div date go into one shared, wrapping `[data-dg-header]` container right after DEGIRO's price line, ordered by `data-dg-rank`; each script removes only its own item and the container when empty.
 
@@ -109,6 +112,14 @@ These are store-review and safety requirements. Do not loosen them:
 - The extension never presses Confirm/Delete/submit. It only opens forms or presses Cancel/×. It never places, changes or cancels orders.
 - Source in `extension/` is English only (no Cyrillic) and the manifest keeps `minimum_chrome_version` ≥ 111.
 - Name must stay `Tweaks for DEGIRO (unofficial)`, and the description must say "Not affiliated with DEGIRO" in every language (≤132 chars).
+
+## Integration tests
+
+`tests/integration/*.test.js` (`node --test`, about 3 s for the lot) run the real isolated-world scripts, in manifest order, against the mock pages in JSDOM, with no browser. `harness.js` fakes the browser around them:
+- `createWorld({ storage })` is one browser profile: `chrome.storage.sync/local` shared by all its tabs (JSON-copied values, `onChanged` delivered asynchronously to every tab with `{oldValue,newValue}`; `world.latency.set/get` in virtual ms and `world.faults.set/get` to test races and refusals; `world.log` lists every write that changed something), `chrome.i18n` from the real `_locales`, `chrome.runtime.id` (`tab.disableExtension()` removes it). `world.open({ fixture, hash, settings, lang, globals })` returns a tab; `globals` are the mocks' switches and data (`__TX`, `__ORDERS`, `__MOCK_*`). The mock page's own inline scripts run first, then the extension's. Helpers: `tab.setPrice`, `tab.go(hash)`, `tab.setFlag(key, on)`, `tab.run(code)` / `tab.json(expr)` (evaluate in the tab's script scope, where `dgAlarmStore`, `dgSettings`, `__dgt` live), `tab.owned()`, `world.set(area, items)` (a write from another context).
+- **Virtual clock**: `Date`, `setTimeout`/`setInterval` and `requestAnimationFrame` of all tabs of a world run on one clock; nothing waits for real time. `await world.advance(ms)` runs timers, frames, promises and storage events in order; `world.skip(ms)` jumps (overdue timers run once: a night, a sleeping laptop); `world.flush()` / `tab.flush()` settles what is due now without moving time (throttled runs need `advance`). `world.errors` collects uncaught errors from scripts and timers; assert it is empty.
+- Proving a test: `DGT_EXTENSION_DIR` points the harness at a scratch copy of `extension/` so a test can be run against deliberately broken code (never edit `extension/` for that).
+- jsdom has no layout, so sizes, visibility, sticky header choice, sidebar fit, menu clamping, computed colours and the options page stay in the Playwright tests. Use integration tests for logic over many inputs, several tabs sharing storage, races and time (days, throttles); extend a mock page when a feature depends on new DEGIRO DOM, as for e2e.
 
 ## E2E tests
 

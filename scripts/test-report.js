@@ -1,11 +1,11 @@
-// Runs the test stages (typecheck, lint, unit, e2e) and prints ONE JSON summary on stdout,
+// Runs the test stages (typecheck, lint, unit, integration, e2e) and prints ONE JSON summary on stdout,
 // for agents (the run-tests skill). `npm test` stays the command for CI and humans.
 //
 //   node scripts/test-report.js                       all stages (like npm test, but every stage runs)
 //   node scripts/test-report.js unit lint             only these stages
 //   node scripts/test-report.js tests/e2e/x.spec.js   e2e, one spec (file:line works too)
 //   node scripts/test-report.js -g "adds a Spread row"   e2e tests by name
-//   node scripts/test-report.js path/to/x.test.js     unit, one file
+//   node scripts/test-report.js path/to/x.test.js     unit, one file (under tests/integration/: integration)
 //
 // Exit code: 0 when everything run passed, 1 on any failure (or no tests run), 2 on a bad argument.
 // Progress goes to stderr; stdout holds only the JSON.
@@ -15,7 +15,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const STAGES = ['typecheck', 'lint', 'unit', 'e2e'];
+const STAGES = ['typecheck', 'lint', 'unit', 'integration', 'e2e'];
 const TS_PROJECTS = ['tsconfig.isolated.json', 'tsconfig.page.json', 'tsconfig.options.json'];
 const MAX_FAILURES = 25, MAX_LINES = 8, MAX_LINE = 200;
 
@@ -60,7 +60,7 @@ function exec(args, env) {
 // ---------- scope ----------
 
 function parseArgs(argv) {
-  const scope = { stages: new Set(), unitFiles: [], e2eArgs: [] };
+  const scope = { stages: new Set(), unitFiles: [], integrationFiles: [], e2eArgs: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === 'all') STAGES.forEach(s => scope.stages.add(s));
@@ -70,11 +70,12 @@ function parseArgs(argv) {
       scope.e2eArgs.push('-g', argv[++i]);
     } else if (/^(-g|--grep)=/.test(a)) scope.e2eArgs.push('-g', a.replace(/^(-g|--grep)=/, ''));
     else if (/\.spec\.js(:\d+)*$/.test(a)) scope.e2eArgs.push(a);
-    else if (/\.test\.js$/.test(a)) scope.unitFiles.push(a);
-    else throw new Error(`unknown argument: ${a} (use typecheck, lint, unit, e2e, all, a *.spec.js / *.test.js path, or -g "<name>")`);
+    else if (/\.test\.js$/.test(a)) (/(^|[\\/])tests[\\/]integration[\\/]/.test(a) ? scope.integrationFiles : scope.unitFiles).push(a);
+    else throw new Error(`unknown argument: ${a} (use typecheck, lint, unit, integration, e2e, all, a *.spec.js / *.test.js path, or -g "<name>")`);
   }
   if (scope.e2eArgs.length) scope.stages.add('e2e');
   if (scope.unitFiles.length) scope.stages.add('unit');
+  if (scope.integrationFiles.length) scope.stages.add('integration');
   if (!scope.stages.size) STAGES.forEach(s => scope.stages.add(s));
   return scope;
 }
@@ -141,10 +142,10 @@ function runLint() {
   return { res, failures: parsed.failures };
 }
 
-// ---------- unit (node:test) ----------
+// ---------- unit and integration (node:test) ----------
 
 // summarise node:test events ({ type, data }) as emitted by run() from node:test
-function summarizeNodeTest(events) {
+function summarizeNodeTest(events, stageName = 'unit') {
   let passed = 0, failed = 0, skipped = 0;
   const failures = [];
   for (const { type, data } of events) {
@@ -167,28 +168,29 @@ function summarizeNodeTest(events) {
     let error = trimError(named + (cause?.message ?? String(cause ?? err ?? 'test failed')));
     if (cause && 'expected' in cause && 'actual' in cause && !error.some(l => /expected|actual|!==|===/i.test(l)))
       error = [...error, `expected: ${JSON.stringify(cause.expected)}`.slice(0, MAX_LINE), `actual: ${JSON.stringify(cause.actual)}`.slice(0, MAX_LINE)];
-    failures.push({ stage: 'unit', location: loc(file, line), title: data.name, error });
+    failures.push({ stage: stageName, location: loc(file, line), title: data.name, error });
   }
   return { passed, failed, skipped, failures };
 }
 
-async function runUnit(files) {
-  const list = files.length ? files : fs.readdirSync(path.join(ROOT, 'tests/unit')).filter(f => f.endsWith('.test.js')).sort().map(f => `tests/unit/${f}`);
-  const res = stage('passed', { command: `node --test ${files.length ? files.map(quote).join(' ') : 'tests/unit/*.test.js'}` });
+// the same runner for both: tests/<kind>/*.test.js, or the given files
+async function runNodeTests(kind, files) {
+  const list = files.length ? files : fs.readdirSync(path.join(ROOT, 'tests', kind)).filter(f => f.endsWith('.test.js')).sort().map(f => `tests/${kind}/${f}`);
+  const res = stage('passed', { command: `node --test ${files.length ? files.map(quote).join(' ') : `tests/${kind}/*.test.js`}` });
   const missing = list.filter(f => !fs.existsSync(path.resolve(ROOT, f)));
   if (missing.length) {
     Object.assign(res, { status: 'failed', failed: 1 });
-    return { res, failures: [{ stage: 'unit', location: missing[0], title: 'test file not found', error: [`no such file: ${missing.join(', ')}`] }] };
+    return { res, failures: [{ stage: kind, location: missing[0], title: 'test file not found', error: [`no such file: ${missing.join(', ')}`] }] };
   }
   const { run } = require('node:test');
   const t = Date.now(), events = [];
   for await (const ev of run({ files: list.map(f => path.resolve(ROOT, f)), cwd: ROOT })) events.push(ev);
-  const s = summarizeNodeTest(events);
+  const s = summarizeNodeTest(events, kind);
   Object.assign(res, { passed: s.passed, failed: s.failed, skipped: s.skipped, durationS: seconds(Date.now() - t) });
   if (s.failed) res.status = 'failed';
   else if (!s.passed) {
     res.status = 'failed';
-    s.failures.push({ stage: 'unit', location: null, title: 'no tests ran', error: [`no unit tests passed in: ${list.join(', ')}`] });
+    s.failures.push({ stage: kind, location: null, title: 'no tests ran', error: [`no ${kind} tests passed in: ${list.join(', ')}`] });
   }
   return { res, failures: s.failures };
 }
@@ -280,7 +282,7 @@ async function main(argv) {
     return { code: 2, result: finish({ ok: false, command, durationS: 0, stages, failures: [{ stage: 'args', location: null, title: 'bad argument', error: [e.message] }] }) };
   }
   const failures = [];
-  const runners = { typecheck: runTypecheck, lint: runLint, unit: () => runUnit(scope.unitFiles), e2e: () => runE2e(scope.e2eArgs) };
+  const runners = { typecheck: runTypecheck, lint: runLint, unit: () => runNodeTests('unit', scope.unitFiles), integration: () => runNodeTests('integration', scope.integrationFiles), e2e: () => runE2e(scope.e2eArgs) };
   for (const name of STAGES) {
     if (!scope.stages.has(name)) continue;
     process.stderr.write(`[test-report] ${name}…\n`);

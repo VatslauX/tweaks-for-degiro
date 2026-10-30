@@ -10,7 +10,7 @@ const E2E = path.join(ROOT, 'tests/e2e');
 const ESC = String.fromCharCode(27);
 
 test('scope: no argument runs every stage; a spec, -g or a .test.js file picks its stage', () => {
-  assert.deepStrictEqual([...parseArgs([]).stages], ['typecheck', 'lint', 'unit', 'e2e']);
+  assert.deepStrictEqual([...parseArgs([]).stages], ['typecheck', 'lint', 'unit', 'integration', 'e2e']);
   const g = parseArgs(['-g', 'adds a Spread row']);
   assert.deepStrictEqual([...g.stages], ['e2e']);
   assert.deepStrictEqual(g.e2eArgs, ['-g', 'adds a Spread row']);
@@ -19,6 +19,11 @@ test('scope: no argument runs every stage; a spec, -g or a .test.js file picks i
   const u = parseArgs(['tests/unit/static.test.js', 'lint']);
   assert.deepStrictEqual([...u.stages].sort(), ['lint', 'unit']);
   assert.deepStrictEqual(u.unitFiles, ['tests/unit/static.test.js']);
+  // the stage name alone, or an integration test file, picks only the integration stage
+  assert.deepStrictEqual([...parseArgs(['integration']).stages], ['integration']);
+  const i = parseArgs(['tests/integration/alarms.test.js']);
+  assert.deepStrictEqual([...i.stages], ['integration']);
+  assert.deepStrictEqual([i.integrationFiles, i.unitFiles], [['tests/integration/alarms.test.js'], []]);
 });
 
 test('scope: unknown arguments and a bare -g are rejected, not run as the full suite', () => {

@@ -2,9 +2,10 @@
   "name": "tweaks-for-degiro",
   "description": "Unofficial Chrome extension that adds quality-of-life features to the DEGIRO web trader.",
   "scripts": {
-    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run test:e2e",
+    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run test:integration && npm run test:e2e",
     "typecheck": "tsc -p tsconfig.isolated.json && tsc -p tsconfig.page.json && tsc -p tsconfig.options.json",
     "test:unit": "node --test tests/unit/*.test.js",
+    "test:integration": "node --test tests/integration/*.test.js",
     "test:e2e": "playwright test",
     "test:report": "node scripts/test-report.js",
     "build": "node scripts/build.js",
@@ -29,6 +30,7 @@
     "eslint": "^9.39.5",
     "globals": "^17.13.0",
     "highcharts": "^4.2.1",
+    "jsdom": "25.0.1",
     "typescript": "^5.9.3"
   },
   "private": true
