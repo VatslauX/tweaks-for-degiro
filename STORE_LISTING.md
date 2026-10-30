@@ -26,6 +26,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Bid/ask spread in Pricing data, absolute and %, colour-coded green / amber / red, updating live
 > • Spread % in the product header too, so you notice an expensive spread before you place an order
 > • Ex-dividend date in the header. Click it to jump to Dividends
+> • Next earnings date in the header. Click it to jump to Earnings
 > • Compact Pricing data: tighter rows, more on screen
 >
 > UNDERSTAND THE CHART IN ONE GLANCE

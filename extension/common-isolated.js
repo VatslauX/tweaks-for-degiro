@@ -56,6 +56,8 @@
     relativeDifference: '[data-field="RelativeDifference"]',
     exDividendDate: 'time[data-field="exDividendDate"]',
     dividendsTitle: '#dividends-widget-title',
+    earningsTitle: '#earnings-widget-title',
+    earningsDate: 'time[data-field="dateTime"]', // generic name: look inside the Earnings widget only
     // the one section holding every product widget, chart included (never hide it)
     mainPageSection: '[data-name=mainPageSection]',
     // orders: bottom panel / mobile drawer, Adjust order form, Orders page table
@@ -130,6 +132,7 @@
     adjustOrder: /adjust order|order aanpassen|order wijzigen|order anpassen|order ändern|modifier un ordre|modifier l'ordre|ajustar orden|modifica ordine|adaptar a ordem/i,
     panelCollapsed: /expand|uitklap|vergroten|mehr anzeigen|etendre|étendre|espandi|maxim/i,
     dividends: /^(dividends|dividenden)$/i,
+    earnings: /^(earnings|resultaten|ergebnisse|résultats|resultados|risultati)$/i,
     period: /^(YTD|1 ?D|1 ?W|1 ?M|3 ?M|6 ?M|1 ?Y|3 ?Y|5 ?Y|ALL)$/
   });
   // Which DEGIRO page is open (hash routes).

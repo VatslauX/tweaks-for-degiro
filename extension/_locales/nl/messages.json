@@ -38,6 +38,12 @@
   "optExDividendHelp": {
     "message": "Na de spread als die bekend is; klik om naar Dividenden te gaan."
   },
+  "optEarnings": {
+    "message": "Datum kwartaalcijfers in de kop"
+  },
+  "optEarningsHelp": {
+    "message": "Na de ex-dividenddatum als die bekend is; klik om naar Cijfers te gaan."
+  },
   "optCompact": {
     "message": "Compacte Prijsdata"
   },
@@ -186,6 +192,15 @@
   },
   "exDivTitlePast": {
     "message": "Ex-dividenddatum (verstreken) — naar Dividenden"
+  },
+  "earningsLabel": {
+    "message": "Cijfers"
+  },
+  "earningsTitle": {
+    "message": "Volgende datum kwartaalcijfers — naar Cijfers"
+  },
+  "earningsTitlePast": {
+    "message": "Datum kwartaalcijfers (verstreken) — naar Cijfers"
   },
   "ordersAction": {
     "message": "Actie"

@@ -4,6 +4,7 @@ const DG_DEFAULTS = {
   spread: true,        // Spread row in Pricing data
   headerSpread: true,  // current spread % in the product header
   exDividend: true,    // ex-dividend date in the product header (links to Dividends)
+  earningsDate: true,  // next earnings date in the product header (links to Earnings)
   compactPricing: true, // tighter row spacing in Pricing data
   periodChange: true,  // change over the selected chart period next to the daily change
   chartSelect: true,   // drag-to-select range on the chart

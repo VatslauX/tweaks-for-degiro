@@ -38,6 +38,12 @@
   "optExDividendHelp": {
     "message": "Après le spread si elle est connue ; cliquez pour aller aux Dividendes."
   },
+  "optEarnings": {
+    "message": "Date des résultats dans l’en-tête"
+  },
+  "optEarningsHelp": {
+    "message": "Après la date ex-dividende si elle est connue ; cliquez pour aller aux Résultats."
+  },
   "optCompact": {
     "message": "Données de marché compactes"
   },
@@ -186,6 +192,15 @@
   },
   "exDivTitlePast": {
     "message": "Date ex-dividende (passée) — aller aux Dividendes"
+  },
+  "earningsLabel": {
+    "message": "Résultats"
+  },
+  "earningsTitle": {
+    "message": "Prochaine date de résultats — aller aux Résultats"
+  },
+  "earningsTitlePast": {
+    "message": "Date de résultats (passée) — aller aux Résultats"
   },
   "ordersAction": {
     "message": "Action"

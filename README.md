@@ -13,6 +13,7 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 
 **Ex-dividend date**
 - On share pages, the ex-dividend date from DEGIRO's *Dividends* section is shown after the spread (`Ex-div 12/11/2026`). Click it to jump to Dividends. Hidden when DEGIRO has no date.
+- The next earnings date from DEGIRO's *Earnings* section is shown after it (`Earnings 02/02/2027`). Click it to jump to Earnings. Hidden when DEGIRO has no date.
 
 **Compact Pricing data**
 - Reduces the spacing between all rows in *Pricing data*: Latest/Bid/Ask…, Volume…, Symbol/Exchange… (12 px → 4 px gap).
@@ -78,6 +79,7 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Bid/ask spread | On |
 | Spread in header | On |
 | Ex-dividend date in header | On |
+| Earnings date in header | On |
 | Compact Pricing data | On |
 | Change for selected period (products and portfolio) | On |
 | Range selection (products and portfolio) | On |

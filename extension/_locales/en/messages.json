@@ -49,6 +49,12 @@
   "optExDividendHelp": {
     "message": "Shown after the spread when known; click to jump to Dividends."
   },
+  "optEarnings": {
+    "message": "Earnings date in header"
+  },
+  "optEarningsHelp": {
+    "message": "Shown after the ex-dividend date when known; click to jump to Earnings."
+  },
   "optCompact": {
     "message": "Compact Pricing data",
     "description": "Feature name"
@@ -217,6 +223,15 @@
   },
   "exDivTitlePast": {
     "message": "Ex-dividend date (past) — go to Dividends"
+  },
+  "earningsLabel": {
+    "message": "Earnings"
+  },
+  "earningsTitle": {
+    "message": "Next earnings date — go to Earnings"
+  },
+  "earningsTitlePast": {
+    "message": "Earnings date (past) — go to Earnings"
   },
   "ordersAction": {
     "message": "Action",

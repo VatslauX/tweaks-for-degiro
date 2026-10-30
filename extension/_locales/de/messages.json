@@ -38,6 +38,12 @@
   "optExDividendHelp": {
     "message": "Nach dem Spread, wenn bekannt; Klick springt zu Dividenden."
   },
+  "optEarnings": {
+    "message": "Termin der Quartalszahlen in der Kopfzeile"
+  },
+  "optEarningsHelp": {
+    "message": "Nach dem Ex-Dividenden-Tag, wenn bekannt; Klick führt zu Quartalszahlen."
+  },
   "optCompact": {
     "message": "Kompakte Kursdaten"
   },
@@ -186,6 +192,15 @@
   },
   "exDivTitlePast": {
     "message": "Ex-Dividenden-Tag (vergangen) — zu Dividenden"
+  },
+  "earningsLabel": {
+    "message": "Zahlen"
+  },
+  "earningsTitle": {
+    "message": "Nächster Termin für Quartalszahlen — zu Quartalszahlen"
+  },
+  "earningsTitlePast": {
+    "message": "Termin für Quartalszahlen (vergangen) — zu Quartalszahlen"
   },
   "ordersAction": {
     "message": "Aktion"

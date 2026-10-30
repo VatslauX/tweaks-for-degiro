@@ -9,7 +9,7 @@ test('items sit in one container in a fixed order and the line wraps at 420 px',
   await expect(page.locator('#dg-exdiv')).toBeVisible();
   expect(await page.locator('[data-dg-header]').count()).toBe(1);
   // the period change waits for the chart data, which the mock delivers late
-  await expect.poll(() => items(page)).toEqual(['dg-period-change', 'dg-header-spread', 'dg-exdiv']);
+  await expect.poll(() => items(page)).toEqual(['dg-period-change', 'dg-header-spread', 'dg-exdiv', 'dg-earnings']);
   await page.setViewportSize({ width: 420, height: 900 });
   await expect.poll(() => page.evaluate(() => {
     const h = document.querySelector('[data-dg-header]');
@@ -31,6 +31,7 @@ test('each script works alone and removes only its own item', async ({ degiro, s
   await expect(page.locator('#dg-exdiv')).toBeVisible();
   await setFlag(opt, 'periodChange', false);
   await setFlag(opt, 'exDividend', false);
+  await setFlag(opt, 'earningsDate', false);
   await expect(page.locator('#dg-period-change')).toHaveCount(0);
   await expect(page.locator('#dg-exdiv')).toHaveCount(0);
   await expect.poll(() => items(page)).toEqual(['dg-header-spread']);
@@ -58,7 +59,7 @@ test('header values follow the dark theme', async ({ degiro }) => {
 
 test('our container is spaced from DEGIRO\'s price line (the real parent has no gap)', async ({ degiro }) => {
   const { page } = await degiro();
-  await expect.poll(() => items(page)).toEqual(['dg-period-change', 'dg-header-spread', 'dg-exdiv']);
+  await expect.poll(() => items(page)).toEqual(['dg-period-change', 'dg-header-spread', 'dg-exdiv', 'dg-earnings']);
   const gap = await page.evaluate(() => {
     const box = document.querySelector('[data-dg-header]');
     const line = box.previousElementSibling;
