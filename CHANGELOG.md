@@ -1,5 +1,8 @@
 # Release notes
 
+## Unreleased
+- **Click alarm badge to edit**: clicking a gold alarm badge on the product chart opens the alarm editor for that price, matching the order-badge click-to-edit behaviour. The sub-setting *Click badge to edit* (under *Alarms on the chart*) can switch it off.
+
 ## 1.21.0 — 2026-10-30
 - **Price alarms.** An *Alarm* button (bell) after *Sell* on the page of a product in your Favourites opens a *Set price alarm* panel: price, direction (above or below, from the current price) and repeat (*Once*, *Once a day*, *Every time*), with this product's alarms. The button shows how many of the product's alarms are switched on. When the price is reached, a banner appears in every open DEGIRO tab.
 - **Alarms page and sidebar item**: all alarms sorted by product, then price (high to low), with status filters, a product picker, on/off switches, **Edit** (change the price and repeat of an alarm), delete and live prices. The status (*Waiting*, *Fired*, *No trading now*, *Not in current list*, off) is shown as a coloured label, and a "?" next to *Status* explains each one. The sidebar item shows how many banners are open.

@@ -69,6 +69,15 @@
     const s = document.createElement('span');
     s.textContent = arrow + fmt(price, 2, 4);
     d.appendChild(s);
+    if (F?.alarmLinesClick) {
+      d.style.cssText += 'pointer-events:auto;cursor:pointer;';
+      d.addEventListener('pointerdown', e => e.stopPropagation());
+      d.addEventListener('mousedown', e => e.stopPropagation());
+      d.addEventListener('click', e => {
+        e.stopPropagation();
+        document.dispatchEvent(new CustomEvent('dg-alarm-edit', { detail: { price } }));
+      });
+    }
     return d;
   }
 

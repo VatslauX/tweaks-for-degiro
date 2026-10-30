@@ -13,6 +13,7 @@ const DG_DEFAULTS = {
   navLinks: true,      // Orders, Transactions and Alarms in the left sidebar
   priceAlarms: true,   // price alarms: Alarm button on favourites, Alarms page, banner (alarms*.js)
   alarmLines: true,    // price alarms as gold badges on the product chart (needs priceAlarms too)
+  alarmLinesClick: true, // click an alarm badge to open the alarm editor for that price
   ordersFilter: true,  // Orders page: filters and buy/sell totals
   ordersHiddenColumns: ['exchange'], // Orders columns to hide (DG_ORDER_COLUMNS)
   transactionsFilter: true, // Transactions page: filters, buy/sell/net totals and fees
@@ -31,7 +32,7 @@ const DG_ORDER_COLUMNS = ['date', 'symbolIsin', 'exchange', 'action', 'qty', 'li
   'outstanding', 'executed'];
 
 // Flags read by the page-context scripts — the only ones exposed to the page.
-const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick', 'alarmLines'];
+const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick', 'alarmLines', 'alarmLinesClick'];
 
 const dgSettings = { ...DG_DEFAULTS };
 const dgListeners = [];

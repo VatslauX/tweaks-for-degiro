@@ -89,6 +89,7 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Orders, Transactions and Alarms in the sidebar | On |
 | Price alarms (button, Alarms page, sidebar item, banner) | On |
 | ↳ Alarms on the chart | On |
+| ↳ ↳ Click badge to edit | On |
 | Hide sections (+ editable list of titles) | On (*Cash compensation*, in any DEGIRO language) |
 
 Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles. The columns are chosen on the Orders and Transactions pages themselves.

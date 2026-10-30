@@ -42,7 +42,7 @@ test('the page gets only the page-world flags, as booleans', async () => {
   await w.set('sync', { periodChange: false, orders: 'x', spread: false, priceAlarms: false });
   const tab = await w.open({ fixture: 'favourites', hash: '/favourites' });
   assert.deepEqual(JSON.parse(tab.document.documentElement.getAttribute('data-dg-tweaks')),
-    { periodChange: false, chartSelect: true, orders: true, ordersClick: true, alarmLines: true });
+    { periodChange: false, chartSelect: true, orders: true, ordersClick: true, alarmLines: true, alarmLinesClick: true });
 });
 
 test('storage refusing to be read: a failed read keeps the last good settings and is retried; the very first one too', async () => {
@@ -60,7 +60,7 @@ test('storage refusing to be read: a failed read keeps the last good settings an
   assert.deepEqual([settings(tab).navLinks, settings(tab).spread], [false, false], 'the retry brings the stored choices');
   assert.deepEqual(navKeys(tab), []);
   assert.deepEqual(JSON.parse(tab.document.documentElement.getAttribute('data-dg-tweaks') || 'null'),
-    { periodChange: true, chartSelect: true, orders: true, ordersClick: true, alarmLines: true });
+    { periodChange: true, chartSelect: true, orders: true, ordersClick: true, alarmLines: true, alarmLinesClick: true });
 
   tab.run('globalThis.__seen = []; dgOnSettings(s => __seen.push(s.navLinks))');
   w.faults.get = true; // the read that follows the next change fails, and so do its retries
@@ -220,7 +220,7 @@ test('extension disabled or removed (chrome.runtime.id gone): within 2 s every f
   assert.deepEqual(owned(T), []);
   assert.equal(hiddenRows(T), 0);
   assert.deepEqual(JSON.parse(T.document.documentElement.getAttribute('data-dg-tweaks')),
-    { periodChange: false, chartSelect: false, orders: false, ordersClick: false, alarmLines: false });
+    { periodChange: false, chartSelect: false, orders: false, ordersClick: false, alarmLines: false, alarmLinesClick: false });
   // the other tab (extension still alive there) is unaffected
   assert.equal(settings(F).navLinks, true);
   assert.ok(owned(F).length > 0);
@@ -238,7 +238,7 @@ test('bridge exposes only the chart flags, as booleans', async () => {
   await w.advance(200);
   const bridged = JSON.parse(tab.document.documentElement.getAttribute('data-dg-tweaks'));
   assert.ok(bridged, 'data-dg-tweaks attribute is set');
-  assert.deepEqual(Object.keys(bridged).sort(), ['alarmLines', 'chartSelect', 'orders', 'ordersClick', 'periodChange']);
+  assert.deepEqual(Object.keys(bridged).sort(), ['alarmLines', 'alarmLinesClick', 'chartSelect', 'orders', 'ordersClick', 'periodChange']);
   for (const v of Object.values(bridged)) assert.equal(typeof v, 'boolean', 'all values are boolean');
   assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 });

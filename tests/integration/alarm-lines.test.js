@@ -3,7 +3,11 @@
 // prices and directions. Drawing on the chart stays in Playwright (tests/e2e/alarm-lines.spec.js).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld, alarm } = require('./harness');
+const vm = require('node:vm');
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+const { createWorld, alarm, EXT } = require('./harness');
 
 const ATTR = 'data-dg-alarm-lines';
 const lines = tab => tab.document.documentElement.getAttribute(ATTR);
@@ -110,4 +114,92 @@ test('a page that rewrites the attribute is not answered with a rewrite (no writ
   await w.advance(200);
   assert.equal(lines(tab), null, 'switched off: removed');
   noErrors(w);
+});
+
+// ── Badge click behavior (alarm-lines.js, page world) ───────────────────────
+// alarm-lines.js runs in the page world (world: MAIN) and has no access to chrome.*.
+// We load it directly in a VM context with a minimal jsdom document and a stubbed __dgt.
+
+/**
+ * Load alarm-lines.js in a fresh VM context with one alarm at `alarmPrice` for product 123.
+ * Returns { doc, win, container } so tests can query for badges and inspect events.
+ */
+function loadAlarmLines({ alarmLinesClick = true, alarmLines = true, productId = 123, alarmPrice = 20 } = {}) {
+  const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+    url: 'https://trader.degiro.nl/trader/#/products/123/overview',
+  });
+  const win = dom.window;
+  const doc = win.document;
+
+  doc.documentElement.setAttribute('data-dg-tweaks', JSON.stringify({ alarmLines, alarmLinesClick }));
+  doc.documentElement.setAttribute('data-dg-alarm-lines',
+    JSON.stringify({ id: productId, l: [{ p: alarmPrice, d: 'above' }] }));
+
+  // A real container so the layer and badges end up in the real jsdom DOM.
+  const container = doc.createElement('div');
+  container.style.position = 'relative';
+  doc.body.appendChild(container);
+
+  // Minimal chart: price 20 is inside the range 10–30, toPixels places it at midpoint.
+  const chart = {
+    container,
+    yAxis: [{ getExtremes: () => ({ min: 10, max: 30 }), toPixels: () => 150 }],
+    plotTop: 0, plotHeight: 300, plotLeft: 0, plotWidth: 800, chartWidth: 850,
+  };
+
+  let featureConfig = null;
+  const mockHighcharts = { charts: [chart], addEvent() {} };
+  const ctx = vm.createContext({
+    window: { addEventListener() {}, Highcharts: mockHighcharts },
+    document: doc,
+    location: win.location,
+    getComputedStyle: () => ({ position: 'relative' }),
+    CustomEvent: win.CustomEvent,
+    __dgt: {
+      flags: () => {
+        const raw = doc.documentElement.getAttribute('data-dg-tweaks');
+        try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+      },
+      mainChart: () => chart,
+      fmt: n => String(n),
+      page: { productId: () => productId },
+      own: el => el,
+      feature: cfg => { featureConfig = cfg; },
+    },
+  });
+
+  vm.runInContext(fs.readFileSync(path.join(EXT, 'alarm-lines.js'), 'utf8'), ctx);
+  featureConfig.run();
+
+  return { doc, win, container };
+}
+
+test('clicking a badge dispatches dg-alarm-edit with the alarm price', () => {
+  const { doc, win, container } = loadAlarmLines({ alarmLinesClick: true });
+
+  const dispatched = [];
+  doc.addEventListener('dg-alarm-edit', e => dispatched.push(e));
+
+  const badge = container.querySelector('[data-dg-alarm-badge]');
+  assert.ok(badge, 'badge rendered');
+
+  badge.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  assert.equal(dispatched.length, 1, 'one event dispatched');
+  assert.equal(dispatched[0].detail.price, 20, 'event carries the alarm price');
+});
+
+test('badge is not interactive when alarmLinesClick is off', () => {
+  const { doc, win, container } = loadAlarmLines({ alarmLinesClick: false });
+
+  const dispatched = [];
+  doc.addEventListener('dg-alarm-edit', e => dispatched.push(e));
+
+  const badge = container.querySelector('[data-dg-alarm-badge]');
+  assert.ok(badge, 'badge still rendered');
+  assert.ok(!badge.style.cssText.includes('pointer-events:auto'), 'no pointer-events:auto when flag off');
+
+  badge.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  assert.equal(dispatched.length, 0, 'no dg-alarm-edit dispatched when flag off');
 });

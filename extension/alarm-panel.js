@@ -386,6 +386,17 @@ const dgAlarmPanel = (() => {
     stop: () => removeAll()
   });
 
+  document.addEventListener('dg-alarm-edit', e => {
+    const price = /** @type {CustomEvent} */ (e)?.detail?.price;
+    if (!Number.isFinite(price) || !(price > 0)) return;
+    const pid = current?.id ?? page.productId();
+    if (!pid) return;
+    const alarm = S.list().find(a => a.productId === pid && a.price === price && a.on);
+    if (!alarm) return;
+    const h = current ?? { id: alarm.productId, name: alarm.name || alarm.symbol || '#' + alarm.productId, symbol: alarm.symbol, currency: alarm.currency };
+    open(h, alarm);
+  });
+
   return Object.freeze({
     /** @param {{ id: string, productId: number, name: string, symbol: string, currency: string, price: number, repeat: string }} a */
     edit: a => open({ id: a.productId, name: a.name || a.symbol || `#${a.productId}`, symbol: a.symbol, currency: a.currency }, a)

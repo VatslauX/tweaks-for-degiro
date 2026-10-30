@@ -104,6 +104,12 @@
   "optAlarmLinesHelp": {
     "message": "Un badge doré au cours de chaque alarme activée sur le graphique du produit."
   },
+  "optAlarmLinesClick": {
+    "message": "Click badge to edit"
+  },
+  "optAlarmLinesClickHelp": {
+    "message": "Opens the alarm editor for that price."
+  },
   "navOrders": {
     "message": "Ordres",
     "description": "Sidebar link, DEGIRO's own wording"
