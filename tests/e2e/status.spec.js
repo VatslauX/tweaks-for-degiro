@@ -54,16 +54,18 @@ test('status from the page is accepted only for known features and values', asyn
 
 test('the page settles: no render loop between the features and the scheduler', async ({ degiro }) => {
   // count animation frames requested by the page world (the scheduler batches into them)
-  const { page } = await degiro({ initScript: () => {
+  // clock: true so the fake rAF is already in place when the initScript wraps it
+  const { page } = await degiro({ clock: true, initScript: () => {
     const raf = window.requestAnimationFrame.bind(window);
     window.__rafs = 0;
     window.requestAnimationFrame = cb => { window.__rafs++; return raf(cb); };
   } });
+  await page.clock.fastForward(2000); // fire initial scheduler runs; period-change + spread row appear
   await expect(page.locator('#dg-period-change')).toBeVisible();
   await expect(page.locator('[data-spread-row]')).toHaveCount(1);
-  await page.waitForTimeout(1500); // let everything settle
+  await page.clock.fastForward(1500); // let everything settle
   const before = await page.evaluate(() => window.__rafs);
-  await page.waitForTimeout(2000);
+  await page.clock.fastForward(2000); // measure 2 s of virtual time
   const frames = await page.evaluate(() => window.__rafs) - before;
   // a render loop would request ~120 frames in 2 s; the `every` timers need only a few
   expect(frames).toBeLessThan(20);
