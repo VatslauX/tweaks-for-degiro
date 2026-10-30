@@ -135,8 +135,17 @@
       c.setAttribute('data-dg-alarm-filter', k);
       return c;
     }));
+    // Two products with the same name (one ETF on two exchanges) get their symbol after the name,
+    // so their rows and picker entries can be told apart: "iShares Core MSCI World · IWDA".
+    /** @type {Map<string, number>} */
+    const perName = new Map();
+    for (const n of new Map(alarms.map(a => [a.productId, R.label(a).toLowerCase()])).values()) perName.set(n, (perName.get(n) || 0) + 1);
+    const nameOf = (/** @type {any} */ a) => {
+      const n = R.label(a);
+      return (perName.get(n.toLowerCase()) || 0) > 1 && a.symbol && a.symbol !== n ? `${n} · ${a.symbol}` : n;
+    };
     /** @type {Map<number, string>} */
-    const names = new Map(alarms.map(a => [a.productId, R.label(a)]));
+    const names = new Map(alarms.map(a => [a.productId, nameOf(a)]));
     const items = [...names].sort((x, y) => x[1].localeCompare(y[1], undefined, { sensitivity: 'base' })).map(([id, name]) => ({
       text: `${name} (${alarms.filter(a => a.productId === id).length})`,
       checked: view.products.has(id),
@@ -189,16 +198,17 @@
         b.type = 'button';
         b.setAttribute('data-dg-alarm-' + side, '');
         b.title = full;
-        b.setAttribute('aria-label', t(ariaKey, R.label(a)));
+        b.setAttribute('aria-label', t(ariaKey, nameOf(a)));
         b.addEventListener('click', () => { location.hash = `#/products/${a.productId}/overview`; });
         return b;
       };
       const link = document.createElement('a');
       link.href = `#/products/${a.productId}/overview`;
-      link.textContent = R.label(a);
+      link.textContent = nameOf(a);
       link.style.cssText = `color:${th.text};font-weight:600;text-decoration:none;`;
-      // one line, like Transactions: the name only; the symbol is in the tooltip
-      if (a.symbol && a.symbol !== link.textContent) link.title = a.symbol;
+      // one line, like Transactions: the name only (plus the symbol when two products share the
+      // name); otherwise the symbol is in the tooltip
+      if (a.symbol && link.textContent === R.label(a) && a.symbol !== link.textContent) link.title = a.symbol;
       prodRow.append(sideButton('buy', 'alarmBuyAria'), sideButton('sell', 'alarmSellAria'), link);
       prod.append(prodRow);
       const al = td(`text-align:right;color:${a.dir === 'above' ? th.buy : th.sell};`);

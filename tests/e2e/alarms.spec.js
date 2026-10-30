@@ -595,3 +595,18 @@ test('Buy/Sell pills sit before the product name and navigate to its overview pa
   await sell.click();
   await expect(page).toHaveURL(/#\/products\/123\/overview/);
 });
+
+test('two products with the same name show their symbol after it; others show the name only', async ({ degiro, settings }) => {
+  const iwda = alarm({ productId: 201, name: 'iShares Core MSCI World', symbol: 'IWDA' });
+  const eunl = alarm({ productId: 202, name: 'iShares Core MSCI World', symbol: 'EUNL' });
+  const goog = alarm({ productId: 203, name: 'Alphabet Inc. Class A', symbol: 'GOOGL' });
+  await seed(settings, [iwda, eunl, goog]);
+  const { page } = await degiro({ url: ALARMS });
+  const link = a => page.locator(`tr[data-dg-alarm-id="${a.id}"] a[href*="/products/"]`);
+  await expect(link(iwda)).toHaveText('iShares Core MSCI World · IWDA');
+  await expect(link(eunl)).toHaveText('iShares Core MSCI World · EUNL');
+  await expect(link(goog)).toHaveText('Alphabet Inc. Class A');
+  await expect(link(goog)).toHaveAttribute('title', 'GOOGL');
+  await expect(link(iwda)).not.toHaveAttribute('title', /./);
+  await expect(page.locator(`tr[data-dg-alarm-id="${iwda.id}"] [data-dg-alarm-buy]`)).toHaveAttribute('aria-label', 'Buy iShares Core MSCI World · IWDA');
+});
