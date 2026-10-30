@@ -39,7 +39,6 @@ test('drag selects a range: € and % change, dates, dots on the line', async ({
   const { page } = await degiro({ url: URL_P });
   await expect(change(page)).toBeVisible();
   await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
-  await page.waitForTimeout(800);
   await drag(page, 0.25, 0.75);
   const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
   await expect(label).toBeVisible();
@@ -79,7 +78,6 @@ test('both features follow the existing switches', async ({ degiro, settings }) 
   await setFlag(opt, 'chartSelect', false);
   await page.bringToFront();
   await page.mouse.move(5, 5);
-  await page.waitForTimeout(800);
   await drag(page, 0.25, 0.75);
   const shown = await page.evaluate(() => [...document.querySelectorAll('[data-name="performance-chart-interaction-area"] > div')].some(d => /→/.test(d.textContent) && d.style.display === 'block'));
   expect(shown).toBe(false);
@@ -102,7 +100,6 @@ test('DEGIRO "hide values" mode also hides our amounts and percentages, not the 
 
   // range selection: amounts and percentage blurred, dates readable
   await page.mouse.move(5, 5);
-  await page.waitForTimeout(800);
   await drag(page, 0.25, 0.75);
   const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
   await expect(label).toBeVisible();
@@ -165,13 +162,16 @@ test('a chart rebuilt under the pointer still selects up to its right edge', asy
   await page.evaluate(() => { location.hash = '#/portfolio'; });
   await page.mouse.move(at(0.4) + 1, y); // the new chart is hovered (and greyed) from the start
   await expect(page.locator('[data-name="performance-chart-interaction-area"][data-dg-sel]')).toHaveCount(1);
-  await page.waitForTimeout(600); // drawn, and the extension has run on it while hovered
-  // the mock really greys the line right of the cursor
-  const grey = await page.evaluate(x => {
-    const c = document.getElementById('c1'), ctx = c.getContext('2d');
-    const col = cx => { const d = ctx.getImageData(cx, 0, 1, c.height).data; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] < 40 && Math.abs(d[i + 1] - 159) < 40) return true; return false; };
-    return { left: col(Math.round(x * 0.5)), right: col(Math.round(x * 1.5)) };
-  }, box.width * 0.4);
+  // Wait for the rebuilt canvas to be drawn under the pointer (the mock greys the line to its right).
+  let grey;
+  await expect.poll(async () => {
+    grey = await page.evaluate(x => {
+      const c = document.getElementById('c1'), ctx = c.getContext('2d');
+      const col = cx => { const d = ctx.getImageData(cx, 0, 1, c.height).data; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] < 40 && Math.abs(d[i + 1] - 159) < 40) return true; return false; };
+      return { left: col(Math.round(x * 0.5)), right: col(Math.round(x * 1.5)) };
+    }, box.width * 0.4);
+    return grey;
+  }).toEqual({ left: true, right: false });
   expect(grey).toEqual({ left: true, right: false });
   await page.mouse.down();
   await page.mouse.move(at(0.7), y, { steps: 3 });

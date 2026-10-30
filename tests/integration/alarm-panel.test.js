@@ -228,8 +228,10 @@ test('sets an alarm above the current price; the order form is never touched', a
   assert.equal(stored[0].on, true);
   assert.equal(stored[0].name, 'Mock ETF');
   assert.equal(stored[0].currency, '€');
-  // button shows count
-  assert.match(buttons(tab)[0].textContent, /Alarm 1/);
+  // button shows count badge
+  const btnText = buttons(tab)[0].textContent;
+  assert.ok(btnText.includes('Alarm'), 'button includes label');
+  assert.ok(buttons(tab)[0].querySelector('[data-dg-alarm-count]')?.textContent.includes('1'), 'badge shows count 1');
   // order form was never touched
   assert.equal(tab.window.__log.filter(x => /BUY|SELL|CONFIRM/.test(x)).length, 0);
   noErrors(w);

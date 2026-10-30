@@ -98,6 +98,12 @@
   "optPriceAlarmsHelp": {
     "message": "Botón de alarma en los productos de tus Favoritos, una página Alarmas en el menú izquierdo y un aviso cuando se alcanza un precio. Solo se comprueba mientras hay abierta una página de Favoritos o de producto."
   },
+  "optAlarmLines": {
+    "message": "Alarmas en el gráfico"
+  },
+  "optAlarmLinesHelp": {
+    "message": "Una insignia dorada en el precio de cada alarma activada en el gráfico del producto."
+  },
   "navOrders": {
     "message": "Órdenes",
     "description": "Sidebar link, DEGIRO's own wording"

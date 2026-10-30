@@ -13,8 +13,8 @@ Keep the Markdown docs of "Tweaks for DEGIRO (unofficial)" in sync with the code
 1. See what is changing: `git status --short`, `git diff --cached` and `git diff`. If only `.md` files changed, or nothing changed, skip this skill.
 2. Read the changed source files where the diff alone doesn't show the behaviour.
 3. Check each doc below against the change and edit only what has become wrong or incomplete. Leave unrelated wording alone.
-4. Don't bump versions yourself. Tell the user which docs changed (one line each) and anything that needs their decision, e.g. a manifest version bump.
-5. Stage the doc changes together with the code and continue with the commit.
+4. Don't bump versions yourself. Flag any required version bump or other decision for the user.
+5. **Report and hand off.** List changed docs (one line each) and decisions needed. Do not stage or commit. The caller stages the intended files, runs `review` on the pending changes, then commits only after findings are resolved.
 
 ## Docs and when they change
 

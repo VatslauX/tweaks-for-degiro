@@ -98,6 +98,12 @@
   "optPriceAlarmsHelp": {
     "message": "Alarm-Schaltfläche bei Produkten in Ihren Favoriten, eine Seite Alarme im linken Menü und ein Banner, sobald ein Kurs erreicht ist. Wird nur geprüft, solange eine Favoriten- oder Produktseite geöffnet ist."
   },
+  "optAlarmLines": {
+    "message": "Alarme im Chart"
+  },
+  "optAlarmLinesHelp": {
+    "message": "Ein goldenes Abzeichen beim Kurs jedes eingeschalteten Alarms im Produktchart."
+  },
   "navOrders": {
     "message": "Orders",
     "description": "Sidebar link, DEGIRO's own wording"

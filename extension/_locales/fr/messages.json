@@ -98,6 +98,12 @@
   "optPriceAlarmsHelp": {
     "message": "Bouton d'alarme sur les produits de vos Favoris, une page Alarmes dans le menu de gauche et une bannière lorsqu'un cours est atteint. Vérifié uniquement tant qu'une page Favoris ou produit est ouverte."
   },
+  "optAlarmLines": {
+    "message": "Alarmes sur le graphique"
+  },
+  "optAlarmLinesHelp": {
+    "message": "Un badge doré au cours de chaque alarme activée sur le graphique du produit."
+  },
   "navOrders": {
     "message": "Ordres",
     "description": "Sidebar link, DEGIRO's own wording"

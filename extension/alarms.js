@@ -303,6 +303,28 @@ const dgAlarmStore = (() => {
     },
     stop: () => { document.querySelectorAll(`[${BOX}]`).forEach(el => el.remove()); bannerSig = ''; S.setLive(new Map()); }
   });
+  // ---------- lines on the product chart (drawn by alarm-lines.js in the page world) ----------
+  // The page can read this attribute: it carries only the open product's id and its switched-on
+  // alarms' prices and directions, no names, alarm ids, repeat or state. Compared with what this
+  // tab last wrote, not with the attribute, so a page that rewrites it doesn't start a write war.
+  const LINES = 'data-dg-alarm-lines';
+  let linesSent = '';
+  const clearLines = () => { document.documentElement.removeAttribute(LINES); linesSent = ''; };
+  feature({
+    name: 'alarmLinesData',
+    enabled: () => dgSettings.priceAlarms && dgSettings.alarmLines,
+    run() {
+      const pid = page.isProduct() ? page.productId() : 0;
+      const l = pid ? S.list().filter(a => a.on && a.productId === pid).map(a => ({ p: a.price, d: a.dir }))
+        .sort((a, b) => a.p - b.p || (a.d < b.d ? -1 : a.d > b.d ? 1 : 0)) : [];
+      if (!l.length) { if (linesSent) clearLines(); return 'idle'; }
+      const s = JSON.stringify({ id: pid, l });
+      if (s !== linesSent) { document.documentElement.setAttribute(LINES, s); linesSent = s; }
+      return 'ok';
+    },
+    stop: clearLines
+  });
+
   // storage changes (this tab or another) and settings changes don't touch the DOM: nudge the scheduler
   S.onChange(() => schedule(true));
   dgOnSettings(() => schedule(true));

@@ -5,6 +5,7 @@ const dgUi = (() => {
   const BELL = 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0';
   const QUESTION = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6M12 16.8v.2';
   const PENCIL = 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4';
+  const TRASH = 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6';
 
   // the page's colours: light or dark, following DEGIRO's theme
   function theme() {
@@ -153,5 +154,24 @@ const dgUi = (() => {
     return svg;
   }
 
-  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, theme, chip, picker, toggle, icon });
+  // DEGIRO-style status pill: small, rounded, muted by default (off, not in the list, no trading now), coloured for the states that
+  // matter. Backgrounds are rgba tints so they read in both the light and dark themes.
+  /** @param {string} text @param {'waiting' | 'fired' | 'off' | 'unseen' | 'closed'} kind @param {ReturnType<typeof theme>} th */
+  function pill(text, kind, th) {
+    const span = document.createElement('span');
+    span.textContent = text;
+    const muted = th.dark ? 'rgba(255,255,255,.12)' : 'rgba(15,23,26,.07)';
+    const colours = {
+      waiting: { bg: th.dark ? 'rgba(0,149,210,.25)' : 'rgba(0,149,210,.12)', fg: BLUE },
+      fired: { bg: th.dark ? 'rgba(255,90,95,.22)' : 'rgba(228,1,1,.1)', fg: th.sell },
+      off: { bg: muted, fg: th.muted },
+      unseen: { bg: muted, fg: th.muted },
+      closed: { bg: muted, fg: th.muted } // listed, but no price now (market closed)
+    };
+    const c = colours[kind] || colours.off;
+    span.style.cssText = `display:inline-block;font-size:11px;line-height:14px;border-radius:10px;padding:2px 8px;background:${c.bg};color:${c.fg};`;
+    return span;
+  }
+
+  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, TRASH, theme, chip, picker, toggle, icon, pill });
 })();

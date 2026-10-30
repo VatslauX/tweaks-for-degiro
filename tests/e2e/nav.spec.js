@@ -55,7 +55,6 @@ test('in a short window the links step aside so DEGIRO\'s bottom items stay on s
   await expect(link(page, 'alarms')).toBeHidden();
   expect(await onScreen()).toBe(true);
   await page.setViewportSize({ width: 1280, height: 540 }); // still no room: stays hidden
-  await page.waitForTimeout(400);
   await expect(link(page, 'orders')).toBeHidden();
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(link(page, 'orders')).toBeVisible();
@@ -88,13 +87,17 @@ test('hovering Products does not highlight our links or put DEGIRO\'s flyout in 
   await page.hover('[data-name=productsMenuItem]');
   await expect(page.locator('[data-name=productsMenuItem]')).toHaveClass(/flyoutOpen/);
   await poke(page);
-  await page.waitForTimeout(400);
+  await expect.poll(async () => (await state()).every(s => !s.cls.includes('flyoutOpen') && s.links === 1 && s.flyout === 0)).toBe(true);
   for (const s of await state()) { expect(s.cls).not.toContain('flyoutOpen'); expect(s.links).toBe(1); expect(s.flyout).toBe(0); }
   expect(await page.$$eval('[data-dg-nav] .flyout', els => els.length)).toBe(0);
   expect(await link(page, 'transactions').evaluate(a => getComputedStyle(a).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await page.mouse.move(600, 400);
   await poke(page);
-  await page.waitForTimeout(400);
+  await expect.poll(async () => {
+    const items = await state();
+    const count = await page.$$eval('[data-dg-nav]', els => els.length);
+    return count === 3 && items.every(s => s.links === 1);
+  }).toBe(true);
   expect(await page.$$eval('[data-dg-nav]', els => els.length)).toBe(3);
   for (const s of await state()) expect(s.links).toBe(1);
 });

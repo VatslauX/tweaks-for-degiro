@@ -98,6 +98,12 @@
   "optPriceAlarmsHelp": {
     "message": "Pulsante di allarme sui prodotti dei tuoi Preferiti, una pagina Allarmi nel menu a sinistra e un banner quando viene raggiunto un prezzo. Controllato solo mentre è aperta una pagina Preferiti o prodotto."
   },
+  "optAlarmLines": {
+    "message": "Allarmi sul grafico"
+  },
+  "optAlarmLinesHelp": {
+    "message": "Un badge dorato al prezzo di ogni allarme attivo sul grafico del prodotto."
+  },
   "navOrders": {
     "message": "Ordini",
     "description": "Sidebar link, DEGIRO's own wording"

@@ -13,7 +13,7 @@ const COUNT_RUNS = () => {
 test('hovering the chart does not run the spread feature on every frame', async ({ degiro }) => {
   const { page } = await degiro();
   await expect(page.locator('#dg-header-spread')).toBeVisible();
-  await page.waitForTimeout(500);
+  await expect.poll(() => page.evaluate(() => document.getElementById('dg-header-spread').getAttribute('title'))).not.toBeNull();
   await page.evaluate(COUNT_RUNS);
   const box = await page.locator('#chart').boundingBox();
   const end = Date.now() + 2000;
@@ -31,7 +31,7 @@ test('hovering the chart does not run the spread feature on every frame', async 
 test('live ticker: the extension does not retrigger itself', async ({ degiro }) => {
   const { page } = await degiro({ initScript: () => { window.__MOCK_TICK_MS = 200; } });
   await expect(page.locator('#dg-header-spread')).toBeVisible();
-  await page.waitForTimeout(1000);
+  await expect.poll(() => page.evaluate(() => window.__ticks ?? 0)).toBeGreaterThan(0);
   const result = await page.evaluate(() => new Promise(resolve => {
     let foreign = 0, own = 0, runs = 0;
     const t0 = window.__ticks;
