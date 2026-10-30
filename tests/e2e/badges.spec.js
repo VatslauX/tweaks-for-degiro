@@ -61,14 +61,15 @@ test('a new or removed order row in the Outstanding panel reloads the orders onc
 });
 
 test('expanding or minimising the orders panel is not an order change: no extra request', async ({ degiro }) => {
-  const { page, calls } = await degiro();
-  await expect(badge(page)).toBeVisible({ timeout: 8000 });
-  await page.waitForTimeout(5500);
+  const { page, calls } = await degiro({ clock: true });
+  await page.clock.fastForward(2000);
+  await expect(badge(page)).toBeVisible({ timeout: 3000 });
+  await page.clock.fastForward(5500); // past minimum 5 s gap
   const before = calls.update;
   await page.click('#toggle');
-  await page.waitForTimeout(1500);
+  await page.clock.fastForward(1500);
   await page.click('#toggle');
-  await page.waitForTimeout(6000);
+  await page.clock.fastForward(6000);
   expect(calls.update).toBe(before);
 });
 

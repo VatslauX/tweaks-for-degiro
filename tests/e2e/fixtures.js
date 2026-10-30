@@ -68,7 +68,7 @@ const test = base.extend({
   // route.fulfill options, e.g. { status: 401 }, or 'hang' to never answer), or return nothing
   // for the normal mock answer.
   degiro: async ({ context }, use) => {
-    await use(async ({ orders = DEFAULT_ORDERS, url = 'https://trader.degiro.nl/trader/#/products/123/overview', initScript, respond } = {}) => {
+    await use(async ({ orders = DEFAULT_ORDERS, url = 'https://trader.degiro.nl/trader/#/products/123/overview', initScript, respond, clock } = {}) => {
       const calls = { update: 0, config: 0, client: 0, portfolio: 0 };
       await context.route('https://trader.degiro.nl/**', async route => {
         const u = new URL(route.request().url());
@@ -102,6 +102,7 @@ const test = base.extend({
         return route.fulfill({ contentType: 'text/html', body: MOCK });
       });
       const page = await context.newPage();
+      if (clock) await page.clock.install(); // before goto so extension timers are fake from the start
       await page.addInitScript(o => { window.__MOCK_ORDERS = o; }, orders);
       if (initScript) await page.addInitScript(initScript);
       await page.goto(url);

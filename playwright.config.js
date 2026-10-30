@@ -2,7 +2,7 @@
 module.exports = {
   testDir: 'tests/e2e',
   timeout: 30000,
-  workers: 1,
+  workers: 3,
   reporter: [['list']],
   use: { trace: 'retain-on-failure' }
 };
