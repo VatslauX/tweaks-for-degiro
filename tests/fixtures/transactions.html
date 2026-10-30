@@ -31,6 +31,25 @@
     <div><a class="navItem" href="#/theme"><span>Theme</span></a></div>
     <div><a class="navItem" href="#/logout"><span>Log off</span></a></div>
   </nav></aside>
+<script>
+// like DEGIRO: hovering Products adds a transient class to its link and renders a flyout of links inside the item's cell
+(() => {
+  const css = document.createElement('style');
+  css.textContent = '[data-name=sideNavigation] a.flyoutOpen { background: #eee; } .flyout { position: absolute; left: 72px; background: #fff; } .flyout a { flex-direction: row; }';
+  document.head.append(css);
+  const a = document.querySelector('[data-name=productsMenuItem]');
+  const cell = a.parentElement;
+  cell.addEventListener('mouseenter', () => {
+    a.classList.add('flyoutOpen');
+    if (cell.querySelector('.flyout')) return;
+    const f = document.createElement('div'); f.className = 'flyout';
+    ['Shares', 'Trackers (ETFs)', 'Crypto'].forEach(n => { const l = document.createElement('a'); l.className = 'flyoutLink'; l.href = '#/products?productType=' + n; l.textContent = n; f.append(l); });
+    cell.append(f);
+  });
+  cell.addEventListener('mouseleave', () => { a.classList.remove('flyoutOpen'); cell.querySelector('.flyout')?.remove(); });
+})();
+</script>
+
   <!-- DEGIRO's upper panel (open by default): account summary with the "Latest Transactions" mini list, first in the document.
        No value hooks and no filters; one cell carries the date hook to catch column hiding leaking into it. -->
   <div data-name="accountSummary" id="accountSummary">

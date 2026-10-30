@@ -1,6 +1,7 @@
 # Release notes
 
 ## Unreleased
+- **Fix**: hovering *Products* in the sidebar no longer highlights the Orders and Transactions links.
 - **Fix**: the Transactions filters and totals were missing while DEGIRO's upper panel was open.
 - **Fix**: in the product header, the extension's values (period change, spread, ex-dividend date) no longer touch DEGIRO's daily change.
 

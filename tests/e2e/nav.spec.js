@@ -154,3 +154,35 @@ test('in a short window the links step aside so DEGIRO\'s bottom items stay on s
   expect(await onScreen()).toBe(true);
   expect(await labels(page)).toEqual(['Market', 'Favourites', 'Portfolio', 'Inbox', 'Products', 'Orders', 'Transactions']);
 });
+
+test('hovering Products does not highlight our links or put DEGIRO\'s flyout in them', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_O });
+  await expect.poll(() => labels(page)).toContain('Transactions');
+  const state = () => page.$$eval('[data-dg-nav]', els => els.map(el => ({
+    cls: el.querySelector('a').className, links: el.querySelectorAll('a').length, flyout: el.querySelectorAll('.flyout, .flyoutLink').length
+  })));
+  await page.hover('[data-name=productsMenuItem]');
+  await expect(page.locator('[data-name=productsMenuItem]')).toHaveClass(/flyoutOpen/);
+  await poke(page);
+  await page.waitForTimeout(400);
+  for (const s of await state()) { expect(s.cls).not.toContain('flyoutOpen'); expect(s.links).toBe(1); expect(s.flyout).toBe(0); }
+  expect(await page.$$eval('[data-dg-nav] .flyout', els => els.length)).toBe(0);
+  expect(await link(page, 'transactions').evaluate(a => getComputedStyle(a).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  await page.mouse.move(600, 400);
+  await poke(page);
+  await page.waitForTimeout(400);
+  expect(await page.$$eval('[data-dg-nav]', els => els.length)).toBe(2);
+  for (const s of await state()) expect(s.links).toBe(1);
+});
+
+test('a copy made while the flyout is open has no flyout links', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_O, initScript: () => {
+    // the pointer is already on Products when the sidebar first renders
+    document.addEventListener('DOMContentLoaded', () => document.querySelector('[data-name=productsMenuItem]').parentElement.dispatchEvent(new MouseEvent('mouseenter')));
+  } });
+  await expect.poll(() => labels(page)).toContain('Transactions');
+  await expect(page.locator('[data-name=productsMenuItem]')).toHaveClass(/flyoutOpen/);
+  expect(await page.$$eval('[data-dg-nav] a', els => els.length)).toBe(2);
+  expect(await page.$$eval('[data-dg-nav] .flyout, [data-dg-nav] .flyoutLink', els => els.length)).toBe(0);
+  expect(await page.$$eval('[data-dg-nav] a', els => els.map(a => a.className))).not.toContain('navItem flyoutOpen');
+});

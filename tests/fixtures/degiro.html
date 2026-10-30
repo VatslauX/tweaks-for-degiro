@@ -45,6 +45,25 @@
     <div><a class="navItem" href="#/theme"><span>Theme</span></a></div>
     <div><a class="navItem" href="#/logout"><span>Log off</span></a></div>
   </nav></aside>
+<script>
+// like DEGIRO: hovering Products adds a transient class to its link and renders a flyout of links inside the item's cell
+(() => {
+  const css = document.createElement('style');
+  css.textContent = '[data-name=sideNavigation] a.flyoutOpen { background: #eee; } .flyout { position: absolute; left: 72px; background: #fff; } .flyout a { flex-direction: row; }';
+  document.head.append(css);
+  const a = document.querySelector('[data-name=productsMenuItem]');
+  const cell = a.parentElement;
+  cell.addEventListener('mouseenter', () => {
+    a.classList.add('flyoutOpen');
+    if (cell.querySelector('.flyout')) return;
+    const f = document.createElement('div'); f.className = 'flyout';
+    ['Shares', 'Trackers (ETFs)', 'Crypto'].forEach(n => { const l = document.createElement('a'); l.className = 'flyoutLink'; l.href = '#/products?productType=' + n; l.textContent = n; f.append(l); });
+    cell.append(f);
+  });
+  cell.addEventListener('mouseleave', () => { a.classList.remove('flyoutOpen'); cell.querySelector('.flyout')?.remove(); });
+})();
+</script>
+
   <main>
     <h1 id="product">Mock ETF</h1>
     <div id="priceRow" style="display:flex;flex-wrap:wrap;align-items:baseline"><!-- like DEGIRO: a flex parent without gap holds the price line -->

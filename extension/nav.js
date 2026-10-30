@@ -55,10 +55,41 @@
     if (unique.length === 1) currentClass = unique[0];
   }
 
-  // what a copy is made of: the tags and classes of DEGIRO's Products item and everything in it.
-  // A copy made while Products looked current (or before DEGIRO restyled it) is made again.
-  /** @param {Element} wrap */
-  const signature = wrap => [wrap, ...wrap.querySelectorAll('*')].map(n => n.tagName + '.' + (n.getAttribute('class') || '')).join('|');
+  // the classes all of DEGIRO's menu items have (the current item's class excluded): the look of an
+  // item at rest. Classes Products has only while its flyout is open or hovered are not among them.
+  /** @param {Element[]} links */
+  function baseClasses(links) {
+    const [first, ...rest] = links;
+    if (!first) return [];
+    return [...first.classList].filter(c => c !== currentClass && rest.every(a => a.classList.contains(c)));
+  }
+
+  // a copy of Products' own parts only: from DEGIRO's item down to its link, nothing but the path to
+  // the link; in the link, only the icon and the label. Whatever else DEGIRO renders there (the flyout
+  // of product types, say) is left out. The link gets the classes of an item at rest.
+  /** @param {Element} wrap @param {string[]} base */
+  function prototype(wrap, base) {
+    const copy = /** @type {Element} */ (wrap.cloneNode(true));
+    const a = copy.matches(SEL.productsMenuItem) ? copy : copy.querySelector(SEL.productsMenuItem);
+    if (!a) return null;
+    for (let n = a; n !== copy && n.parentElement; n = n.parentElement) {
+      [...n.parentElement.children].forEach(c => { if (c !== n) c.remove(); });
+    }
+    let icon = false, label = false;
+    [...a.children].forEach(c => {
+      const hasIcon = c.matches('svg') || !!c.querySelector('svg');
+      if (hasIcon && !icon) icon = true;
+      else if (!hasIcon && !label && (c.matches('span') || c.querySelector('span'))) label = true;
+      else c.remove();
+    });
+    a.className = base.join(' ');
+    return copy;
+  }
+
+  // what a copy is made of: the tags and classes of the prototype. A copy made before DEGIRO
+  // restyled its items is made again.
+  /** @param {Element} copy */
+  const signature = copy => [copy, ...copy.querySelectorAll('*')].map(n => n.tagName + '.' + (n.getAttribute('class') || '')).join('|');
   let cloneSig = '';
 
   const ours = () => document.querySelectorAll('[data-dg-nav]');
@@ -96,8 +127,12 @@
     /** @type {Element} */
     let wrap = products;
     while (wrap.parentElement && wrap.parentElement !== nav) wrap = wrap.parentElement;
-    learnCurrentClass([...nav.querySelectorAll(SEL.menuItem)].filter(a => !a.closest('[data-dg-nav]')));
-    const sig = signature(wrap);
+    const menu = [...nav.querySelectorAll(SEL.menuItem)].filter(a => !a.closest('[data-dg-nav]'));
+    learnCurrentClass(menu);
+    const base = baseClasses(menu);
+    const proto = prototype(wrap, base);
+    if (!proto) { ours().forEach(el => el.remove()); return 'missing'; }
+    const sig = signature(proto);
     if (sig !== cloneSig) { ours().forEach(el => el.remove()); cloneSig = sig; }
 
     addEventListener('resize', onResize); // the same listener is added only once
@@ -105,7 +140,7 @@
     for (const item of ITEMS) {
       let el = nav.querySelector(`[data-dg-nav="${item.key}"]`);
       if (!el) {
-        el = own(/** @type {Element} */ (wrap.cloneNode(true)));
+        el = own(/** @type {Element} */ (proto.cloneNode(true)));
         el.setAttribute('data-dg-nav', item.key);
         el.querySelectorAll('[data-name], [data-type], [id]').forEach(n => { n.removeAttribute('data-name'); n.removeAttribute('data-type'); n.removeAttribute('id'); });
         // no tooltip or screen-reader name saying "Products": ours instead, where DEGIRO had one
@@ -127,7 +162,7 @@
       // follow DEGIRO's look (theme, layout), and show which page is open
       const a = el.querySelector('a');
       if (a) {
-        const cls = [...products.classList].filter(c => c !== currentClass);
+        const cls = [...base];
         if (item.current() && currentClass) cls.push(currentClass);
         if (a.className !== cls.join(' ')) a.className = cls.join(' ');
         if (item.current()) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
