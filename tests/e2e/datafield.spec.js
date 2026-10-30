@@ -17,9 +17,4 @@ test('spread, header spread and compact work with unknown labels', async ({ degi
   await expect.poll(() => page.$eval('#pricingDl', el => getComputedStyle(el).rowGap)).toBe('4px');
 });
 
-test('falls back to labels when the data-field hooks are missing', async ({ degiro }) => {
-  const { page } = await degiro({ initScript: () => document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-field=BidPrice],[data-field=AskPrice]').forEach(e => e.removeAttribute('data-field'));
-  }) });
-  await expect(page.locator('#askCol > [data-spread-row]')).toHaveText(/Spread€ 0,04 \(0,24%\)$/);
-});
+// → integration (content.test.js): 'falls back to labels when data-field hooks are missing'

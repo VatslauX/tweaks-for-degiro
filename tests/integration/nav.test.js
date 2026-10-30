@@ -262,28 +262,95 @@ test('switching Price alarms or navLinks off gives Favourites its class back', a
   noErrors(w);
 });
 
-// DEGIRO's router handles its own links: a click on Favourites while the Alarms page (same route,
-// #/favourites?dg=alarms) is open fires no hashchange and re-renders nothing. The Alarms page must
-// still give way to the Favourites list.
-for (const [mode, how] of [['push', 'the router pushes #/favourites without a hashchange'], ['ignore', 'the router swallows the click on its open route']]) {
-  test(`a click on Favourites leaves the Alarms page (${how})`, async () => {
-    const w = createWorld();
-    const tab = await w.open({ fixture: 'favourites', hash: ALARMS_HASH, globals: { __MOCK_FAV_LINK: mode } });
-    await w.advance(200);
-    assert.ok(tab.$('[data-dg-alarms-page]'), 'Alarms page open');
-    assert.ok(tab.$('#dg-alarms-page-style'), 'Favourites list hidden');
-    const favLink = tab.$('a[data-name=favouriteProductsMenuItem]');
-    favLink.dispatchEvent(new tab.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
-    await w.advance(200);
-    assert.equal(tab.window.location.hash, '#/favourites');
+// DEGIRO's router keeps the query while you stay in Favourites (__MOCK_STICKY_QUERY in the mock): its
+// Favourites link from #/favourites?dg=alarms gets ?dg=alarms merged back about 40 ms later, so the
+// Alarms page stayed. Every check is made twice, well after that, so a late revert can't slip through.
+async function sticky(hash = ALARMS_HASH) {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'favourites', hash, globals: { __MOCK_STICKY_QUERY: true } });
+  await w.advance(200);
+  return { w, tab };
+}
+const click = (tab, el) => el.dispatchEvent(new tab.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+async function onFavourites(w, tab, hash = '#/favourites') {
+  for (let i = 0; i < 2; i++) {
+    await w.advance(300);
+    assert.equal(tab.window.location.hash, hash);
     assert.equal(tab.$('[data-dg-alarms-page]'), null, 'Alarms page gone');
     assert.equal(tab.$('#dg-alarms-page-style'), null, 'Favourites list shown again');
-    assert.ok(favLink.classList.contains('current'), 'Favourites looks current again');
-    assert.ok(!tab.$('[data-dg-nav=alarms] a').classList.contains('current'), 'Alarms no longer current');
-    noErrors(w);
-  });
+  }
 }
+
+test('a click on Favourites leaves the Alarms page, though DEGIRO keeps the query', async () => {
+  const { w, tab } = await sticky();
+  assert.ok(tab.$('[data-dg-alarms-page]'), 'Alarms page open');
+  const favLink = tab.$('a[data-name=favouriteProductsMenuItem]');
+  click(tab, favLink);
+  await onFavourites(w, tab);
+  assert.ok(favLink.classList.contains('current'), 'Favourites looks current again');
+  assert.ok(!tab.$('[data-dg-nav=alarms] a').classList.contains('current'), 'Alarms no longer current');
+  noErrors(w);
+});
+
+test('from the Alarms page, a list and then Favourites end on plain Favourites, not Alarms', async () => {
+  const { w, tab } = await sticky();
+  click(tab, tab.$('#favouriteLists a[href="#/favourites/2087527"]'));
+  await onFavourites(w, tab, '#/favourites/2087527');
+  click(tab, tab.$('a[data-name=favouriteProductsMenuItem]'));
+  await onFavourites(w, tab);
+  noErrors(w);
+});
+
+test('on a list that still carries dg=alarms, Favourites goes to plain Favourites', async () => {
+  // reached without our click handler: DEGIRO merged the query into the list's URL
+  const { w, tab } = await sticky();
+  tab.window.location.hash = '#/favourites/2087527';
+  await w.advance(300);
+  assert.equal(tab.window.location.hash, '#/favourites/2087527?dg=alarms', 'the mock merged the query');
+  assert.equal(tab.$('[data-dg-alarms-page]'), null, 'a list is not the Alarms page');
+  click(tab, tab.$('a[data-name=favouriteProductsMenuItem]'));
+  await onFavourites(w, tab);
+  noErrors(w);
+});
+
+test('our Alarms item still opens the Alarms page, and a modified click on Favourites is left alone', async () => {
+  const { w, tab } = await sticky('/favourites');
+  assert.equal(tab.$('[data-dg-alarms-page]'), null);
+  const ours = tab.$('[data-dg-nav=alarms] a');
+  // jsdom doesn't follow links: do what the browser does for a plain link
+  ours.addEventListener('click', e => { if (!e.defaultPrevented) { e.preventDefault(); tab.window.location.hash = ours.getAttribute('href'); } });
+  click(tab, ours);
+  for (let i = 0; i < 2; i++) {
+    await w.advance(300);
+    assert.equal(tab.window.location.hash, '#/favourites?dg=alarms');
+    assert.ok(tab.$('[data-dg-alarms-page]'), 'Alarms page open');
+  }
+  // a ctrl-click is the browser's (new tab): not intercepted
+  const e = new tab.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ctrlKey: true });
+  let seen = false;
+  tab.document.addEventListener('click', ev => { seen = ev === e; });
+  tab.$('a[data-name=favouriteProductsMenuItem]').dispatchEvent(e);
+  assert.ok(seen, 'the click reached DEGIRO');
+  noErrors(w);
+});
 
 // 'a copy made while the flyout is open has no flyout links' — stayed in Playwright (e2e/nav.spec.js).
 // The harness globals are static values; there is no hook to dispatch a MouseEvent before the
 // extension scripts run, so the flyout state cannot be set up in jsdom. That test requires initScript.
+
+test('can be switched off and on', async () => {
+  const w = createWorld();
+  const A = await w.open({ fixture: 'favourites', hash: '/favourites' });
+  const B = await w.open({ fixture: 'favourites', hash: '/favourites' });
+  await w.advance(200);
+  const keys = tab => tab.$$('[data-dg-nav]').map(e => e.getAttribute('data-dg-nav'));
+  assert.deepEqual(keys(A), ['orders', 'transactions', 'alarms'], 'all 3 links present');
+  await A.setFlag('navLinks', false);
+  await w.advance(200);
+  assert.deepEqual(keys(A), [], 'links removed in A when navLinks off');
+  assert.deepEqual(keys(B), [], 'links removed in B when navLinks off');
+  await A.setFlag('navLinks', true);
+  await w.advance(200);
+  assert.deepEqual(keys(A), ['orders', 'transactions', 'alarms'], 'links restored');
+  assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
+});

@@ -27,22 +27,7 @@ async function dragOnChart(page, fromFrac, toFrac) {
   await page.mouse.up();
 }
 
-test.describe('Bid/ask spread', () => {
-  test('adds a Spread row at the bottom of the Ask column', async ({ degiro }) => {
-    const { page } = await degiro();
-    const row = page.locator('#askCol > [data-spread-row]');
-    await expect(row).toHaveText(/Spread€ 0,04 \(0,24%\)$/);
-    // it is the last row so both columns stay aligned
-    expect(await page.evaluate(() => document.querySelector('#askCol').lastElementChild.hasAttribute('data-spread-row'))).toBe(true);
-  });
-
-  test('updates when the quote changes', async ({ degiro }) => {
-    const { page } = await degiro();
-    await expect(page.locator('[data-spread-row]')).toHaveCount(1);
-    await page.evaluate(() => { document.querySelectorAll('#askCol dd span')[1].textContent = '€ 17,00'; });
-    await expect(page.locator('[data-spread-row] dd')).toHaveText(/€ 0,10 \(0,59%\)$/);
-  });
-});
+// → integration (content.test.js): 'Bid/ask spread' (adds row, updates live, label fallback)
 
 test.describe('Hide sections', () => {
   test('hides Cash compensation, keeps other sections', async ({ degiro }) => {

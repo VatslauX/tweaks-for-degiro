@@ -25,64 +25,12 @@ test('panel sits below DEGIRO\'s filters, above the table', async ({ degiro }) =
   expect(await page.$eval('#dg-transactions-panel', el => el.previousElementSibling.getAttribute('data-name'))).toBe('transactionsFilters');
 });
 
-test('action, currency and product filters combine; totals follow; Clear resets', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T });
-  await chip(page, 'Buy').click();
-  expect(await visibleRows(page)).toEqual(['Mock Chips ETF EUR|BUY', 'Mock Tech Inc. Class A|BUY', 'Mock Bond ETF EUR|BUY']);
-  await expect(total(page, 'sell')).toHaveText('Total sell —');
-  await expect(total(page, 'fees')).toHaveText('Fees € 12,25');
-  await chip(page, '€').click();
-  expect((await visibleRows(page)).length).toBe(2);
-  await panel(page).locator('[data-dg-products]').click();
-  await panel(page).locator('[role=listbox] label').filter({ hasText: 'Mock Bond' }).locator('input').check();
-  expect(await visibleRows(page)).toEqual(['Mock Bond ETF EUR|BUY']);
-  await expect(total(page, 'net')).toHaveText('Net (buy − sell) € 2.500,00');
-  await expect(totals(page).locator('[data-dg-count]')).toHaveText('1 of 5 transactions');
-  await panel(page).locator('[data-dg-reset]').click();
-  expect((await visibleRows(page)).length).toBe(5);
-});
-
-test('Buy / Sell come from the badge\'s data-action, whatever its text', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_TX_LABELS = { Buy: 'Koop', Sell: 'Verkoop' }; } });
-  await chip(page, 'Sell').click();
-  expect(await visibleRows(page)).toEqual(['Mock Chips ETF EUR|SELL', 'Mock Tech Inc. Class A|SELL']);
-});
 
 test('more pages: totals say they cover this page only', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_MORE_PAGES = true; } });
   await expect(totals(page).locator('[data-dg-count]')).toHaveText('5 of 5 transactions · this page only');
 });
 
-test('filters survive DEGIRO re-rendering; picks that are gone are dropped', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T });
-  await chip(page, '$').click();
-  await page.evaluate(() => window.__rerender());
-  await expect.poll(async () => (await visibleRows(page)).length).toBe(2);
-  // a new date range without any $ trades: the $ filter goes, rows show again
-  await page.evaluate(() => { window.__TX = window.__TX.filter(r => !r[3].startsWith('$')); window.__rerender(); });
-  await expect.poll(async () => (await visibleRows(page)).length).toBe(3);
-  await expect(chip(page, '$')).toHaveCount(0);
-});
-
-// → integration: stays filtered with Orders filter, only on Transactions page, can be switched off, off→on
-
-test('switched off with the product menu open: a later click does not bring it back', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_T });
-  const opt = await settings();
-  await page.bringToFront();
-  await chip(page, 'Sell').click();
-  await panel(page).locator('[data-dg-products]').click();
-  await expect(panel(page).locator('[role=listbox]')).toBeVisible();
-  await setFlag(opt, 'transactionsFilter', false);
-  await expect(panel(page)).toHaveCount(0);
-  await page.bringToFront();
-  await page.mouse.click(5, 5);
-  await page.waitForTimeout(800);
-  await expect(panel(page)).toHaveCount(0);
-  expect((await visibleRows(page)).length).toBe(5);
-});
-
-// → integration: off → on
 
 test('fees from the Fees column when the Total column has no hook', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_NO_TX_TOTAL = true; } });
@@ -130,42 +78,15 @@ test('columns: every column but Product is offered, with DEGIRO\'s header as its
   expect(await columnItems(page).allTextContents()).toEqual(ALL.slice(1, -1));
 });
 
-test('columns: unticking hides, ticking shows; survives re-rendering; Reset restores the defaults', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T });
-  await columnsBtn(page).click();
-  await columnItems(page).filter({ hasText: /^Qty$/ }).locator('input').uncheck();
-  await columnItems(page).filter({ hasText: /^Venue$/ }).locator('input').check();
-  await expect.poll(() => heads(page)).toEqual(without('Qty', 'Exchange', 'Exchange Rate', 'AutoFX Fee'));
-  await page.evaluate(() => window.__rerender());
-  expect(await cellsShown(page)).toBe(11);
-  await panel(page).locator('[data-dg-columns-reset]').click();
+
+
+test('columns: an open date picker\'s calendar table is left alone', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_CALENDAR = true; } });
   await expect.poll(() => heads(page)).toEqual(without(...DEF));
+  expect(await page.$$eval('#calendar th', ths => ths.filter(th => getComputedStyle(th).display !== 'none').length)).toBe(7);
+  expect(await page.$eval('#dg-transactions-panel', el => !el.closest('#calendar'))).toBe(true);
 });
 
-// → integration: columns: saved/reload/live, malformed values
-
-test('columns: found by DEGIRO\'s hooks, not header text (German headers)', async ({ degiro }) => {
-  const de = ['Produkt', 'Datum', 'Symbol | ISIN', 'Börse', 'Ausführungsort', 'Aktion', 'Anzahl', 'Kurs', 'Wert in Lokalwährung', 'Wert', 'Wechselkurs', 'AutoFX-Gebühr', 'Gebühren', 'Gesamt', ''];
-  const { page } = await degiro({ url: URL_T, initScript: `window.__MOCK_TX_HEADERS = ${JSON.stringify(de)};` });
-  await expect.poll(() => heads(page)).toEqual(de.filter(h => !['Börse', 'Ausführungsort', 'Wechselkurs', 'AutoFX-Gebühr'].includes(h)));
-  await columnsBtn(page).click();
-  await expect(columnItems(page).first()).toHaveText('Datum');
-});
-
-// → integration: columns: without Fees hook
-
-test('columns: switching the feature off shows every column, on hides them again', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_T });
-  const opt = await settings();
-  await page.bringToFront();
-  await expect.poll(() => heads(page)).toEqual(without(...DEF));
-  await setFlag(opt, 'transactionsFilter', false);
-  await expect.poll(() => heads(page)).toEqual(ALL);
-  await setFlag(opt, 'transactionsFilter', true);
-  await expect.poll(() => heads(page)).toEqual(without(...DEF));
-});
-
-// → integration: columns: calendar left alone, hook on cell
 
 test('columns: the other columns fit their content and Product gets the spare width', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_T });

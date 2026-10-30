@@ -66,7 +66,7 @@ test('can be switched off', async ({ degiro, settings }) => {
 });
 
 test('never shows the new period with the old data while the chart reloads', async ({ degiro }) => {
-  const { page } = await degiro({ initScript: () => { window.__DATA_DELAY = 1500; } });
+  const { page } = await degiro({ initScript: () => { window.__DATA_DELAY = 1500; }, clock: true });
   await expect(box(page)).toContainText('6M');
   // record every state of the element while 1W loads
   await page.evaluate(() => {
@@ -75,7 +75,8 @@ test('never shows the new period with the old data while the chart reloads', asy
     window.__rec = setInterval(rec, 20);
   });
   await pick(page, '1 W');
-  await page.waitForTimeout(2500);
+  await page.clock.fastForward(2500);
+  await expect.poll(() => box(page).textContent(), { timeout: 5000 }).toContain('1W');
   const seen = await page.evaluate(() => { clearInterval(window.__rec); return window.__seen; });
   const want = (await expected(page, 'week')).toFixed(2).replace('.', ',');
   for (const t of seen.filter(Boolean)) {
@@ -85,7 +86,7 @@ test('never shows the new period with the old data while the chart reloads', asy
 });
 
 test('hovering another period button does not hide or change it', async ({ degiro }) => {
-  const { page } = await degiro();
+  const { page } = await degiro({ clock: true });
   await pick(page, '1 M');
   await expect(box(page)).toContainText('1M');
   const before = await box(page).textContent();
@@ -94,7 +95,7 @@ test('hovering another period button does not hide or change it', async ({ degir
     window.__seen = [];
     window.__rec = setInterval(() => { const el = document.getElementById('dg-period-change'); window.__seen.push(el ? el.textContent : null); }, 20);
   });
-  await page.waitForTimeout(1500);
+  await page.clock.fastForward(1500);
   const seen = await page.evaluate(() => { clearInterval(window.__rec); return window.__seen; });
   expect(new Set(seen)).toEqual(new Set([before]));
 });

@@ -42,30 +42,52 @@ test('the page gets only the page-world flags, as booleans', async () => {
   await w.set('sync', { periodChange: false, orders: 'x', spread: false, priceAlarms: false });
   const tab = await w.open({ fixture: 'favourites', hash: '/favourites' });
   assert.deepEqual(JSON.parse(tab.document.documentElement.getAttribute('data-dg-tweaks')),
-    { periodChange: false, chartSelect: true, orders: true, ordersClick: true });
+    { periodChange: false, chartSelect: true, orders: true, ordersClick: true, alarmLines: true });
 });
 
-test('storage refusing to be read: at load and on a later change the settings fall back to the defaults (flags.js applies an empty read)', async () => {
+test('storage refusing to be read: a failed read keeps the last good settings and is retried; the very first one too', async () => {
   const w = createWorld();
-  w.faults.get = true;
-  const t0 = await w.open({ fixture: 'favourites', hash: '/favourites' });
-  w.faults.get = false;
-  assert.deepEqual(settings(t0), defaults(t0));
-  assert.deepEqual(navKeys(t0), ['orders', 'transactions', 'alarms']);
-
   await w.set('sync', { navLinks: false, spread: false });
+  w.faults.get = true;
   const tab = await w.open({ fixture: 'favourites', hash: '/favourites' });
   await w.advance(200);
-  assert.deepEqual([settings(tab).navLinks, settings(tab).spread], [false, false]);
-  assert.deepEqual(navKeys(tab), []);
-  w.faults.get = true; // the read that follows the next change fails
-  await w.set('sync', { headerSpread: false });
-  await w.advance(200);
+  // the first read failed: nothing better than the defaults is known yet (each script starts on them),
+  // and the page-world flags are not published until a read works
+  assert.deepEqual(settings(tab), defaults(tab));
+  assert.equal(tab.document.documentElement.getAttribute('data-dg-tweaks'), null);
   w.faults.get = false;
-  assert.deepEqual(settings(tab), defaults(tab), 'a failed read applies the defaults');
-  await w.set('sync', { headerSpread: true }); // the next good read brings the stored choices back
+  await w.advance(1000); // retried (1 s, doubling)
+  assert.deepEqual([settings(tab).navLinks, settings(tab).spread], [false, false], 'the retry brings the stored choices');
+  assert.deepEqual(navKeys(tab), []);
+  assert.deepEqual(JSON.parse(tab.document.documentElement.getAttribute('data-dg-tweaks') || 'null'),
+    { periodChange: true, chartSelect: true, orders: true, ordersClick: true, alarmLines: true });
+
+  tab.run('globalThis.__seen = []; dgOnSettings(s => __seen.push(s.navLinks))');
+  w.faults.get = true; // the read that follows the next change fails, and so do its retries
+  await w.set('sync', { headerSpread: false });
+  await w.advance(10000);
+  assert.deepEqual([settings(tab).navLinks, settings(tab).spread, settings(tab).headerSpread], [false, false, true],
+    'the last good settings stay; the defaults do not come back');
+  assert.deepEqual(navKeys(tab), [], 'switched-off features stay off');
+  assert.deepEqual(tab.json('__seen'), [false], 'listeners are not called with the defaults');
+  w.faults.get = false;
+  await w.advance(30000); // the next retry reads the change it missed
+  assert.deepEqual([settings(tab).navLinks, settings(tab).spread, settings(tab).headerSpread], [false, false, false]);
+  noErrors(w);
+});
+
+test('extension disabled while a failed read waits for its retry: every flag goes off and the retry does not bring them back', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites' });
   await w.advance(200);
-  assert.deepEqual([settings(tab).navLinks, settings(tab).spread], [false, false]);
+  w.faults.get = true;
+  await w.set('sync', { spread: false });
+  await w.advance(100);
+  tab.disableExtension();
+  w.faults.get = false;
+  await w.advance(60000);
+  assert.ok(Object.entries(settings(tab)).every(([, v]) => typeof v !== 'boolean' || v === false), 'every flag is off');
+  assert.deepEqual(owned(tab), []);
   noErrors(w);
 });
 
@@ -198,7 +220,7 @@ test('extension disabled or removed (chrome.runtime.id gone): within 2 s every f
   assert.deepEqual(owned(T), []);
   assert.equal(hiddenRows(T), 0);
   assert.deepEqual(JSON.parse(T.document.documentElement.getAttribute('data-dg-tweaks')),
-    { periodChange: false, chartSelect: false, orders: false, ordersClick: false });
+    { periodChange: false, chartSelect: false, orders: false, ordersClick: false, alarmLines: false });
   // the other tab (extension still alive there) is unaffected
   assert.equal(settings(F).navLinks, true);
   assert.ok(owned(F).length > 0);
@@ -206,4 +228,32 @@ test('extension disabled or removed (chrome.runtime.id gone): within 2 s every f
   await w.advance(5000);
   assert.deepEqual(owned(T), []);
   noErrors(w);
+});
+
+// ── Bridge: data-dg-tweaks (flags.js) ───────────────────────────────────────
+
+test('bridge exposes only the chart flags, as booleans', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites' });
+  await w.advance(200);
+  const bridged = JSON.parse(tab.document.documentElement.getAttribute('data-dg-tweaks'));
+  assert.ok(bridged, 'data-dg-tweaks attribute is set');
+  assert.deepEqual(Object.keys(bridged).sort(), ['alarmLines', 'chartSelect', 'orders', 'ordersClick', 'periodChange']);
+  for (const v of Object.values(bridged)) assert.equal(typeof v, 'boolean', 'all values are boolean');
+  assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
+});
+
+test('bridge follows settings changes', async () => {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites' });
+  await w.advance(200);
+  const bridged = () => JSON.parse(tab.document.documentElement.getAttribute('data-dg-tweaks'));
+  assert.equal(bridged().ordersClick, true);
+  await tab.setFlag('ordersClick', false);
+  await w.advance(200);
+  assert.equal(bridged().ordersClick, false);
+  await tab.setFlag('ordersClick', true);
+  await w.advance(200);
+  assert.equal(bridged().ordersClick, true);
+  assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 });

@@ -12,21 +12,22 @@ test('runs on trader.degiro.nl/trader/', async ({ degiro }) => {
 });
 
 test('does not run on other trader.degiro.nl paths', async ({ degiro }) => {
-  const { page } = await degiro({ url: 'https://trader.degiro.nl/login/nl' });
-  await page.waitForTimeout(1500);
+  const { page } = await degiro({ url: 'https://trader.degiro.nl/login/nl', clock: true });
+  await page.clock.fastForward(1500);
   expect(await injected(page)).toEqual({ flags: false, spread: false });
 });
 
 test('does not run on other DEGIRO subdomains', async ({ context }) => {
   await context.route('https://www.degiro.nl/**', r => r.fulfill({ contentType: 'text/html', body: '<dl><div><div><dt>Bid</dt><dd>1,00</dd></div><div><dt>Ask</dt><dd>1,10</dd></div></div></dl>' }));
   const page = await context.newPage();
+  await page.clock.install();
   await page.goto('https://www.degiro.nl/');
-  await page.waitForTimeout(1500);
+  await page.clock.fastForward(1500);
   expect(await injected(page)).toEqual({ flags: false, spread: false });
 });
 
 test('does not run inside iframes', async ({ degiro }) => {
-  const { page } = await degiro();
+  const { page } = await degiro({ clock: true });
   await page.evaluate(() => {
     const f = document.createElement('iframe');
     f.src = '/trader/frame.html'; f.id = 'frm';
@@ -34,6 +35,6 @@ test('does not run inside iframes', async ({ degiro }) => {
   });
   const frame = await (await page.waitForSelector('#frm')).contentFrame();
   await frame.waitForLoadState();
-  await page.waitForTimeout(1500);
+  await page.clock.fastForward(1500);
   expect(await injected(frame)).toEqual({ flags: false, spread: false });
 });

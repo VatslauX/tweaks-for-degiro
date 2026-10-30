@@ -1,10 +1,9 @@
 // Orders → Outstanding: filters (action, currency, product multi-select) and buy/sell totals per currency.
-const { test, expect, setFlag } = require('./fixtures');
+const { test, expect } = require('./fixtures');
 
 const URL_O = 'https://trader.degiro.nl/trader/?mock=orders#/orders/open';
 const panel = page => page.locator('#dg-orders-panel');
 const chip = (page, text) => panel(page).locator('button', { hasText: new RegExp(`^${text.replace(/[$]/g, '\\$')}$`) });
-const visibleRows = page => page.$$eval('#rows tr', rs => rs.filter(r => getComputedStyle(r).display !== 'none').map(r => r.querySelector('[data-name=productName]').textContent + '|' + r.children[4].textContent + '|' + r.querySelector('[data-field=limitColumnValue]').textContent));
 const totals = page => panel(page).locator('[data-dg-totals]');
 
 test('shows totals per currency for buy and sell', async ({ degiro }) => {
@@ -20,24 +19,6 @@ test('panel sits above the table, below the search box', async ({ degiro }) => {
   expect(await page.$eval('#dg-orders-panel', el => el.nextElementSibling.id)).toBe('tableWrap');
 });
 
-test('action filter', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await chip(page, 'Sell').click();
-  expect((await visibleRows(page)).every(r => r.includes('|Sell|'))).toBe(true);
-  expect((await visibleRows(page)).length).toBe(2);
-  await expect(totals(page)).toContainText('Total buy —');
-});
-
-test('currency filter (multi-select)', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await chip(page, '$').click();
-  expect((await visibleRows(page)).every(r => r.endsWith('$ ' + r.split('$ ')[1]))).toBe(true);
-  expect((await visibleRows(page)).length).toBe(4);
-  await chip(page, '€').click(); // both selected = everything
-  expect((await visibleRows(page)).length).toBe(8);
-});
-
-// → integration: product filter (multi-select)
 
 test('a very long product name wraps inside the product menu', async ({ degiro }) => {
   const long = 'AMUNDI MSCI EMERGING MARKETS SRI CLIMATE PARIS ALIGNED UCITS ETF DR ACC';
@@ -49,24 +30,7 @@ test('a very long product name wraps inside the product menu', async ({ degiro }
   expect(r.sw).toBeLessThanOrEqual(r.cw);
 });
 
-test('filters combine, and Clear filters resets', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await chip(page, 'Buy').click();
-  await chip(page, '€').click();
-  expect((await visibleRows(page)).length).toBe(3);
-  await expect(totals(page)).toContainText('3 of 8 orders');
-  await panel(page).locator('[data-dg-reset]').click();
-  expect((await visibleRows(page)).length).toBe(8);
-});
 
-test('filters survive DEGIRO re-rendering the rows', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await chip(page, 'Sell').click();
-  await page.evaluate(() => window.__rerender());
-  await expect.poll(async () => (await visibleRows(page)).length).toBe(2);
-});
-
-// → integration: a picked currency dropped, product menu closes, only on Outstanding page, can be switched off
 
 test('DEGIRO styling: Buy green, Sell red, taken from the Action column', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_O });
@@ -99,33 +63,6 @@ test('columns: only Exchange is hidden by default; every column but Product is o
   expect(await columnItems(page).allTextContents()).toEqual(ALL.slice(1, -1));
 });
 
-test('columns: toggling, re-rendering and Reset; saved apart from the Transactions choice', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_O });
-  await columnsBtn(page).click();
-  await columnItems(page).filter({ hasText: /^Executed$/ }).locator('input').uncheck();
-  await columnItems(page).filter({ hasText: /^Exchange$/ }).locator('input').check();
-  await expect.poll(() => heads(page)).toEqual(without('Executed'));
-  await page.evaluate(() => window.__rerender());
-  await expect.poll(() => heads(page)).toEqual(without('Executed'));
-  const opt = await settings();
-  expect(await opt.evaluate(() => chrome.storage.sync.get(['ordersHiddenColumns', 'txHiddenColumns'])))
-    .toEqual({ ordersHiddenColumns: ['executed'] });
-  await page.bringToFront();
-  await panel(page).locator('[data-dg-columns-reset]').click();
-  await expect.poll(() => heads(page)).toEqual(without('Exchange'));
-});
-
-test('columns: switching off shows every column, on hides them again', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_O });
-  const opt = await settings();
-  await page.bringToFront();
-  await expect.poll(() => heads(page)).toEqual(without('Exchange'));
-  await setFlag(opt, 'ordersFilter', false);
-  await expect.poll(() => heads(page)).toEqual(ALL);
-  await expect(page.locator('#dg-orders-columns')).toHaveCount(0);
-  await setFlag(opt, 'ordersFilter', true);
-  await expect.poll(() => heads(page)).toEqual(without('Exchange'));
-});
 
 test('columns: the other columns fit their content and Product gets the spare width', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_O });
@@ -145,4 +82,3 @@ test('columns: outside DEGIRO\'s openOrders section nothing is hidden or resized
   await expect(totals(page)).toContainText('8 of 8 orders'); // filters and totals still work
 });
 
-// → integration: columns: malformed values, action from data-action

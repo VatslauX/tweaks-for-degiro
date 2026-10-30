@@ -1,5 +1,5 @@
 // Orders and Transactions links in DEGIRO's left sidebar, below Products.
-const { test, expect, setFlag } = require('./fixtures');
+const { test, expect } = require('./fixtures');
 
 const URL_O = 'https://trader.degiro.nl/trader/?mock=orders#/orders/open';
 const nav = page => page.locator('[data-name=sideNavigation] nav[aria-label=primary]');
@@ -35,16 +35,7 @@ test('the open page\'s link looks current; clicking a link goes to DEGIRO\'s pag
 
 // → integration: on a page without current item; only once + re-render; without Products item
 
-test('can be switched off and on', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_O });
-  const opt = await settings();
-  await page.bringToFront();
-  await expect.poll(() => labels(page)).toContain('Orders');
-  await setFlag(opt, 'navLinks', false);
-  await expect.poll(() => labels(page)).toEqual(['Market', 'Favourites', 'Portfolio', 'Inbox', 'Products']);
-  await setFlag(opt, 'navLinks', true);
-  await expect.poll(() => labels(page)).toContain('Transactions');
-});
+// → integration (nav.test.js): 'can be switched off and on'
 
 // DEGIRO re-renders on navigation; any DOM change makes the extension look again
 const poke = page => page.evaluate(() => document.body.appendChild(document.createElement('div')));
@@ -109,3 +100,21 @@ test('hovering Products does not highlight our links or put DEGIRO\'s flyout in 
 });
 
 // → integration: a copy made while flyout is open has no flyout links
+
+// DEGIRO keeps the query while you stay in Favourites (the mock's __MOCK_STICKY_QUERY); its own
+// Favourites link from the Alarms page used to get ?dg=alarms back, so the Alarms page stayed.
+test('our Alarms item opens the Alarms page; DEGIRO\'s Favourites item leaves it', async ({ degiro }) => {
+  const { page } = await degiro({ url: 'https://trader.degiro.nl/trader/?mock=favourites#/favourites',
+    initScript: () => { window.__MOCK_STICKY_QUERY = true; } });
+  const hash = () => page.evaluate(() => location.hash);
+  await link(page, 'alarms').click();
+  await expect(page.locator('[data-dg-alarms-page]')).toBeVisible();
+  expect(await hash()).toBe('#/favourites?dg=alarms');
+  await page.locator('a[data-name=favouriteProductsMenuItem]').click();
+  await expect.poll(hash).toBe('#/favourites');
+  await page.waitForTimeout(300); // DEGIRO's router restores a dropped query about 40 ms later
+  expect(await hash()).toBe('#/favourites');
+  await expect(page.locator('[data-dg-alarms-page]')).toHaveCount(0);
+  await expect(page.locator('[data-name=favourites]')).toBeVisible();
+  await expect(page.locator('a[data-name=favouriteProductsMenuItem]')).toHaveClass(/\bcurrent\b/);
+});
