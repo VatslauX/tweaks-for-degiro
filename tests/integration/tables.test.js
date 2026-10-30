@@ -123,6 +123,41 @@ test('Transactions: without DEGIRO\'s Total hook the Fees column is used', async
   assert.equal(text(tab, 'tx', 'fees'), 'Fees € 11,00');
 });
 
+test('Transactions: a dash in the Fees column is a fee of 0, whatever the dash', async () => {
+  // no Total to subtract from, so the Fees column decides; every dash DEGIRO might print
+  const dashes = ['–', '—', '-', ' – ', '€ –', '−'];
+  const { w, tab } = await transactions(dashes.map((fee, i) =>
+    [`Dash ${i}`, i % 2 ? 'Sell' : 'Buy', 1, '€ -10,00'.replace('-', i % 2 ? '' : '-'), '€ -10,00'.replace('-', i % 2 ? '' : '-'), '—', fee, '—']));
+  assert.equal(text(tab, 'tx', 'fees'), 'Fees € 0,00', 'dash rows count as 0, not as unknown');
+  // the row's other totals are not affected
+  assert.equal(text(tab, 'tx', 'buy'), 'Total buy € 30,00 (3)');
+  assert.equal(text(tab, 'tx', 'sell'), 'Total sell € 30,00 (3)');
+  assert.equal(count(tab, 'tx'), '6 of 6 transactions');
+  noErrors(w);
+});
+
+test('Transactions: a dash fee next to real fees adds 0; no fee information stays unknown', async () => {
+  const { w, tab } = await transactions([
+    ['Alpha', 'Buy', 1, '€ -10,00', '€ -10,00', '—', '€ -1,50', '—'],
+    ['Beta', 'Buy', 1, '€ -10,00', '€ -10,00', '—', '–', '—']
+  ], { __MOCK_NO_TX_TOTAL: true });
+  assert.equal(text(tab, 'tx', 'fees'), 'Fees € 1,50');
+  // neither a Total nor a Fees hook: nothing to go on, so no figure (not a made-up 0)
+  const none = await transactions(null, { __MOCK_NO_TX_TOTAL: true, __MOCK_NO_TX_FEE: true });
+  assert.equal(text(none.tab, 'tx', 'fees'), 'Fees —');
+  noErrors(w);
+  noErrors(none.w);
+});
+
+test('Transactions: a dash in Value (any dash) is not a currency: the Fees cell gives it', async () => {
+  const { w, tab } = await transactions([
+    ['Alpha', 'Buy', 1, '€ -10,00', '–', '—', '€ -1,00', '—'],
+    ['Beta', 'Buy', 1, '€ -10,00', '—', '—', '€ -2,00', '—']
+  ]);
+  assert.equal(text(tab, 'tx', 'fees'), 'Fees € 3,00');
+  noErrors(w);
+});
+
 test('Transactions: Buy/Sell recognised by data-action in any UI language, and by the label when there is none', async () => {
   const { w, tab } = await transactions(null, { __MOCK_TX_LABELS: { Buy: 'Kauf', Sell: 'Verkauf' } });
   assert.equal(text(tab, 'tx', 'buy'), 'Total buy $ 2.701,50 (1) · € 6.100,00 (2)');

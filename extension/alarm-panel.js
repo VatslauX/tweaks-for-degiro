@@ -88,10 +88,19 @@ const dgAlarmPanel = (() => {
       b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); if (current) open(current); });
     }
     const n = S.list().filter(a => a.productId === h.id && a.on).length;
-    const label = t('alarmButton') + (n ? ` ${n}` : '');
-    if (b.getAttribute('data-label') !== label) {
-      b.setAttribute('data-label', label);
-      b.replaceChildren(dgUi.icon(dgUi.BELL, 16), document.createTextNode(label));
+    const dataLabel = `${t('alarmButton')}|${n}`;
+    if (b.getAttribute('data-label') !== dataLabel) {
+      b.setAttribute('data-label', dataLabel);
+      const text = document.createTextNode(t('alarmButton'));
+      if (n > 0) {
+        const badge = document.createElement('span');
+        badge.textContent = String(n);
+        badge.setAttribute('data-dg-alarm-count', '');
+        badge.style.cssText = `background:${dgUi.BLUE};color:#fff;border-radius:9px;font-size:10px;padding:0 6px;line-height:16px;`;
+        b.replaceChildren(dgUi.icon(dgUi.BELL, 16), text, badge);
+      } else {
+        b.replaceChildren(dgUi.icon(dgUi.BELL, 16), text);
+      }
     }
     if (c.sell.nextElementSibling !== b) c.sell.after(b);
   }
@@ -155,13 +164,13 @@ const dgAlarmPanel = (() => {
     const decimals = now ? Math.min(6, Math.max(2, (now.toFixed(6).split('.')[1] || '').replace(/0+$/, '').length)) : 2;
     input.value = now ? fmt(now, decimals) : '';
     label.append(input);
-    const hint = el('div', 'font-size:12px;');
+    const hint = el('div', `border-radius:6px;padding:7px 10px;font-size:12px;`);
     hint.setAttribute('data-dg-alarm-hint', '');
     const msg = el('div', `font-size:12px;color:${th.sell};`);
     msg.setAttribute('data-dg-alarm-msg', '');
     msg.setAttribute('role', 'alert');
 
-    const segWrap = el('div', `display:grid;grid-template-columns:repeat(3,1fr);gap:4px;`);
+    const segWrap = el('div', `display:grid;grid-template-columns:repeat(3,1fr);padding:3px;border-radius:20px;background:${th.line};`);
     const seg = /** @type {HTMLButtonElement[]} */ (['once', 'daily', 'each'].map(k => {
       const b = /** @type {HTMLButtonElement} */ (el('button', '', t(k === 'once' ? 'alarmOnce' : k === 'daily' ? 'alarmDaily' : 'alarmEach')));
       b.type = 'button';
@@ -226,11 +235,18 @@ const dgAlarmPanel = (() => {
     if (dir && noPrice) {
       ui.hint.textContent = t('alarmHintNoPrice', `${dir === 'above' ? '↑' : '↓'} ${money(v)}`);
       ui.hint.style.color = th.muted;
+      ui.hint.style.background = 'transparent';
+      ui.hint.style.display = '';
     } else if (dir) {
       const pct = (v / now - 1) * 100;
       ui.hint.textContent = (dir === 'above' ? '↑ ' : '↓ ') + t(dir === 'above' ? 'alarmHintAbove' : 'alarmHintBelow', money(v), `${pct > 0 ? '+' : ''}${fmt(pct)}%`);
       ui.hint.style.color = dir === 'above' ? th.buy : th.sell;
-    } else ui.hint.textContent = '';
+      ui.hint.style.background = dir === 'above' ? 'rgba(31,138,59,.10)' : 'rgba(214,36,42,.10)';
+      ui.hint.style.display = '';
+    } else {
+      ui.hint.textContent = '';
+      ui.hint.style.display = 'none';
+    }
     const typed = ui.input.value.trim() !== '';
     // a validation message follows the input and the price; a save result stays until the next input
     if (ui.msgKind !== 'result') {
@@ -243,8 +259,8 @@ const dgAlarmPanel = (() => {
     ui.seg.forEach(b => {
       const on = b.getAttribute('data-dg-alarm-repeat') === ui?.repeat;
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.style.cssText = `padding:7px 4px;border-radius:17px;font:inherit;font-size:12.5px;cursor:pointer;background:transparent;` +
-        `border:1px solid ${on ? dgUi.BLUE : th.line};color:${on ? th.text : th.muted};font-weight:${on ? 600 : 400};`;
+      b.style.cssText = `border-radius:17px;padding:7px 4px;font:inherit;font-size:12.5px;cursor:pointer;` +
+        (on ? `background:${th.bg};border:1px solid ${dgUi.BLUE};color:${th.text};font-weight:600;` : `background:transparent;border:1px solid transparent;color:${th.muted};`);
     });
     if (!ui.edit) renderList(th);
   }
@@ -261,13 +277,9 @@ const dgAlarmPanel = (() => {
       row.setAttribute('data-dg-alarm-row', a.id);
       const what = el('span', `color:${a.dir === 'above' ? th.buy : th.sell};`, `${a.dir === 'above' ? '↑' : '↓'} ${fmt(a.price, 2, 4)}`);
       const rep = el('span', `color:${th.muted};font-size:11.5px;flex:1;`, '· ' + t(a.repeat === 'once' ? 'alarmOnce' : a.repeat === 'daily' ? 'alarmDaily' : 'alarmEach'));
-      const sw = /** @type {HTMLInputElement} */ (document.createElement('input'));
-      sw.type = 'checkbox';
-      sw.checked = a.on;
-      sw.setAttribute('role', 'switch');
-      sw.setAttribute('aria-label', t('alarmOnAria', fmt(a.price, 2, 4)));
-      sw.addEventListener('change', () => S.setOn(a.id, sw.checked));
-      const del = /** @type {HTMLButtonElement} */ (el('button', `border:0;background:transparent;color:${th.muted};cursor:pointer;font-size:15px;`, '×'));
+      const sw = dgUi.toggle({ checked: a.on, label: t('alarmOnAria', fmt(a.price, 2, 4)), onChange: on => S.setOn(a.id, on), th });
+      const del = /** @type {HTMLButtonElement} */ (el('button', `border:0;background:transparent;color:${th.muted};cursor:pointer;display:inline-flex;align-items:center;`));
+      del.appendChild(dgUi.icon(dgUi.TRASH, 16));
       del.type = 'button';
       del.setAttribute('data-dg-alarm-delete', '');
       del.setAttribute('aria-label', t('alarmDelete'));

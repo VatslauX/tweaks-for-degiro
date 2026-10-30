@@ -37,6 +37,43 @@
   });
   cell.addEventListener('mouseleave', () => { a.classList.remove('flyoutOpen'); cell.querySelector('.flyout')?.remove(); });
 })();
+// __MOCK_STICKY_QUERY: DEGIRO's router (measured on the live page) keeps the query while you stay in
+// Favourites. Every move within #/favourites... gets the previous query merged back in (new values win),
+// about 40 ms later, through location.hash: #/favourites?dg=alarms -> #/favourites (link, location.hash
+// or replaceState) comes back as #/favourites?dg=alarms; ?x=1 becomes ?dg=alarms&x=1; a list
+// #/favourites/<id> becomes #/favourites/<id>?dg=alarms. An empty value overrides the remembered one and
+// is then dropped (?dg= -> #/favourites). Leaving Favourites forgets the query. DEGIRO's own links
+// (the Favourites item, the lists a[href^="#/favourites/"]) are handled by its click handler.
+if (window.__MOCK_STICKY_QUERY) (() => {
+  const FAV = /^#\/favourites(?=$|[/?])/;
+  const split = h => { const i = h.indexOf('?'); return i < 0 ? [h, new URLSearchParams()] : [h.slice(0, i), new URLSearchParams(h.slice(i + 1))]; };
+  let query = FAV.test(location.hash) ? split(location.hash)[1] : new URLSearchParams();
+  const route = () => {
+    if (!FAV.test(location.hash)) { query = new URLSearchParams(); return; }
+    const [path, now] = split(location.hash);
+    const merged = new URLSearchParams(query);
+    now.forEach((v, k) => merged.set(k, v));
+    [...merged.keys()].forEach(k => { if (!merged.get(k)) merged.delete(k); });
+    query = merged;
+    const want = path + (String(merged) ? `?${merged}` : '');
+    if (want !== location.hash) setTimeout(() => { if (location.hash !== want) location.hash = want; }, 40);
+  };
+  addEventListener('hashchange', route);
+  addEventListener('popstate', route);
+  const lists = document.createElement('nav');
+  lists.id = 'favouriteLists';
+  [['2087527', 'energy'], ['2087528', 'tech']].forEach(([id, name]) => {
+    const l = document.createElement('a'); l.href = `#/favourites/${id}`; l.textContent = name; lists.append(l);
+  });
+  const place = () => document.querySelector('[data-name=favourites]')?.prepend(lists); // this script runs before <main> is parsed
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place); else place();
+  document.addEventListener('click', e => {
+    const a = e.target.closest?.('a[data-name=favouriteProductsMenuItem], a[href^="#/favourites/"]');
+    if (!a || a.closest('[data-dg-own]')) return;
+    e.preventDefault();
+    location.hash = a.getAttribute('href');
+  });
+})();
 </script>
   <main id="mainContent">
     <section data-name="accountSummary">Account summary</section>

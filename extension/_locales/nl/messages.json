@@ -98,6 +98,12 @@
   "optPriceAlarmsHelp": {
     "message": "Alarmknop bij producten in je Favorieten, een pagina Alarmen in het linkermenu en een banner zodra een koers is bereikt. Alleen gecontroleerd terwijl een pagina Favorieten of product open staat."
   },
+  "optAlarmLines": {
+    "message": "Alarmen in de grafiek"
+  },
+  "optAlarmLinesHelp": {
+    "message": "Een gouden badge op de koers van elk ingeschakeld alarm in de productgrafiek."
+  },
   "navOrders": {
     "message": "Orders",
     "description": "Sidebar link, DEGIRO's own wording"

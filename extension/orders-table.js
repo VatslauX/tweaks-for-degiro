@@ -6,7 +6,9 @@
   const { SEL, LABELS, page, own, feature, schedule, parseNum: num, fmt, t } = __dgt; // common.js
   const BUY = LABELS.buy, SELL = LABELS.sell;
   // currency symbol or code in a value cell: "€ -1.234,56", "$1,234.56", "USD 12,00"
-  const currencyOf = text => (String(text || '').match(/[^\d\s.,—−+-]+/) || [''])[0];
+  const currencyOf = text => (String(text || '').match(/[^\d\s.,\u2012-\u2015\u2212+-]+/) || [''])[0];
+  // DEGIRO prints a dash for "none" (en/em dash, hyphen, minus; maybe with a currency): no digits, a dash
+  const isDash = text => !/\d/.test(text) && /[\u2012-\u2015\u2212-]/.test(text);
 
   /**
    * @typedef {{ tr: HTMLElement, action: string, currency: string, product: string, value: number,
@@ -89,14 +91,15 @@
       // values are signed (a buy is negative): totals use the amount
       const local = text(SEL.txLocalValue), value = text(SEL.txValue);
       // fees in the account currency: Value − Total covers every fee (AutoFX too); else the Fees column
-      const fee = num(value) - num(text(SEL.txTotal));
+      const fee = num(value) - num(text(SEL.txTotal)), feeCell = text(SEL.txFee);
       return {
         tr: /** @type {HTMLElement} */ (tr), action, actionCell: badge,
         product: text(SEL.orderProduct),
         currency: currencyOf(local),
         value: Math.abs(num(local)),
-        base: currencyOf(value || text(SEL.txFee)),
-        fee: isFinite(fee) ? fee : -num(text(SEL.txFee))
+        base: currencyOf(value) || currencyOf(feeCell),
+        // a dash in the Fees column means no fee: 0, not unknown
+        fee: isFinite(fee) ? fee : isDash(feeCell) ? 0 : -num(feeCell)
       };
     }).filter(r => r.product);
   }

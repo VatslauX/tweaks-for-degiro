@@ -4,6 +4,7 @@ const dgUi = (() => {
   const BLUE = '#0095D2'; // DEGIRO blue
   const BELL = 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0';
   const PENCIL = 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4';
+  const TRASH = 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6';
 
   // the page's colours: light or dark, following DEGIRO's theme
   function theme() {
@@ -109,5 +110,51 @@ const dgUi = (() => {
     return svg;
   }
 
-  return Object.freeze({ BLUE, BELL, PENCIL, theme, chip, picker, icon });
+  /**
+   * DEGIRO-style toggle switch: a real <input type=checkbox role=switch>, so keyboard, focus and
+   * screen readers keep working, and selectors such as `input[type=checkbox]` still match it. The
+   * track and knob are drawn with inline CSS only (a radial-gradient for the knob, since inline
+   * styles can't add pseudo-elements), repainted on every change.
+   * @param {{ checked: boolean, label?: string, onChange: (on: boolean) => void, th: ReturnType<typeof theme>, disabled?: boolean }} o
+   */
+  function toggle(o) {
+    const inp = /** @type {HTMLInputElement} */ (document.createElement('input'));
+    inp.type = 'checkbox';
+    inp.setAttribute('role', 'switch');
+    if (o.label) inp.setAttribute('aria-label', o.label);
+    inp.checked = !!o.checked;
+    if (o.disabled) inp.disabled = true;
+    inp.style.cssText = 'appearance:none;-webkit-appearance:none;width:32px;height:18px;min-width:32px;' +
+      'border-radius:9px;flex:none;border:0;padding:0;margin:0;outline-offset:2px;outline:2px solid transparent;' +
+      `cursor:${o.disabled ? 'default' : 'pointer'};opacity:${o.disabled ? '.5' : '1'};`;
+    const paint = () => {
+      const on = inp.checked, x = on ? 23 : 9, track = on ? BLUE : o.th.line;
+      inp.style.background = `radial-gradient(circle 7px at ${x}px 9px, #fff 100%, transparent 100%), ${track}`;
+    };
+    paint();
+    inp.addEventListener('change', () => { paint(); o.onChange(inp.checked); });
+    inp.addEventListener('focus', () => { inp.style.outlineColor = BLUE; });
+    inp.addEventListener('blur', () => { inp.style.outlineColor = 'transparent'; });
+    return inp;
+  }
+
+  // DEGIRO-style status pill: small, rounded, muted by default, coloured for the states that
+  // matter. Backgrounds are rgba tints so they read in both the light and dark themes.
+  /** @param {string} text @param {'waiting' | 'fired' | 'off' | 'unseen'} kind @param {ReturnType<typeof theme>} th */
+  function pill(text, kind, th) {
+    const span = document.createElement('span');
+    span.textContent = text;
+    const muted = th.dark ? 'rgba(255,255,255,.12)' : 'rgba(15,23,26,.07)';
+    const colours = {
+      waiting: { bg: th.dark ? 'rgba(0,149,210,.25)' : 'rgba(0,149,210,.12)', fg: BLUE },
+      fired: { bg: th.dark ? 'rgba(255,90,95,.22)' : 'rgba(228,1,1,.1)', fg: th.sell },
+      off: { bg: muted, fg: th.muted },
+      unseen: { bg: muted, fg: th.muted }
+    };
+    const c = colours[kind] || colours.off;
+    span.style.cssText = `display:inline-block;font-size:11px;line-height:14px;border-radius:10px;padding:2px 8px;background:${c.bg};color:${c.fg};`;
+    return span;
+  }
+
+  return Object.freeze({ BLUE, BELL, PENCIL, TRASH, theme, chip, picker, icon, toggle, pill });
 })();

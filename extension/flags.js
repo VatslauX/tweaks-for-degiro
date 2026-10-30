@@ -12,6 +12,7 @@ const DG_DEFAULTS = {
   adjustClose: true,   // click outside "Adjust order" closes it
   navLinks: true,      // Orders, Transactions and Alarms in the left sidebar
   priceAlarms: true,   // price alarms: Alarm button on favourites, Alarms page, banner (alarms*.js)
+  alarmLines: true,    // price alarms as gold badges on the product chart (needs priceAlarms too)
   ordersFilter: true,  // Orders page: filters and buy/sell totals
   ordersHiddenColumns: ['exchange'], // Orders columns to hide (DG_ORDER_COLUMNS)
   transactionsFilter: true, // Transactions page: filters, buy/sell/net totals and fees
@@ -30,7 +31,7 @@ const DG_ORDER_COLUMNS = ['date', 'symbolIsin', 'exchange', 'action', 'qty', 'li
   'outstanding', 'executed'];
 
 // Flags read by the page-context scripts — the only ones exposed to the page.
-const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick'];
+const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick', 'alarmLines'];
 
 const dgSettings = { ...DG_DEFAULTS };
 const dgListeners = [];
@@ -75,12 +76,33 @@ function dgSanitize(s) {
     }
     dgListeners.forEach(fn => { try { fn(dgSettings); } catch (e) {} });
   };
+  // A failed read (lastError, no result, an exception) must not apply the defaults: that would switch
+  // back on what the user switched off. Keep the last good settings (before the first good read, the
+  // defaults every script starts with; the page-world flags stay unpublished) and read again later.
+  let dead = false, retries = 0, retryTimer = 0;
+  const failed = () => {
+    let alive = false;
+    try { alive = !!chrome.runtime?.id; } catch (e) {}
+    if (dead || !alive || retryTimer) return;
+    retryTimer = setTimeout(() => { retryTimer = 0; read(); }, Math.min(30000, 1000 * 2 ** retries++));
+  };
+  const read = () => {
+    if (dead) return;
+    try {
+      chrome.storage.sync.get(DG_DEFAULTS, items => {
+        let err = null;
+        try { err = chrome.runtime?.lastError; } catch (e) {}
+        if (dead) return;
+        if (err || !items || typeof items !== 'object') return failed();
+        retries = 0;
+        apply(items);
+      });
+    } catch (e) { failed(); }
+  };
+  read();
   try {
-    chrome.storage.sync.get(DG_DEFAULTS, apply);
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'sync') chrome.storage.sync.get(DG_DEFAULTS, apply);
-    });
-  } catch (e) { apply({}); }
+    chrome.storage.onChanged.addListener((changes, area) => { if (area === 'sync') read(); });
+  } catch (e) {}
 
   // Disabling, removing or updating the extension leaves the scripts already in open tabs running,
   // the page-world ones too. Once our context is gone, switch every feature off, so nothing keeps
@@ -91,6 +113,8 @@ function dgSanitize(s) {
       try { alive = !!chrome.runtime?.id; } catch (e) {}
       if (alive) return;
       clearInterval(timer);
+      dead = true;
+      clearTimeout(retryTimer);
       /** @type {Record<string, boolean>} */
       const off = {};
       for (const k of Object.keys(DG_DEFAULTS)) if (!Array.isArray(DG_DEFAULTS[k])) off[k] = false;

@@ -33,14 +33,14 @@ gh run list --branch main -L1        # latest run on HEAD's sha, conclusion succ
 
 - The manifest version is newer than the latest tag, and `v<version>` doesn't exist yet (local or `git ls-remote --tags origin`). `release.yml` and `scripts/cws-publish.js` refuse a mismatched tag anyway, so catch it here.
 - `CHANGELOG.md`: the top heading is `## <version> — <YYYY-MM-DD>` (today's date or the planned release date), and no `## Unreleased` section is left. If there is one, the version bump and the CHANGELOG heading are the user's call: ask, then make the change through `update-docs` → `review` → commit.
-- CI: the latest `Test` run on `main` is for `git rev-parse HEAD` and has succeeded (`gh run list --branch main -L1 --json headSha,conclusion,status`).
+- CI: the latest run of `.github/workflows/test.yml` for the exact `HEAD` commit has succeeded. Run `head_sha=$(git rev-parse HEAD)` then `gh run list --workflow test.yml --commit "$head_sha" -L 1 --json headSha,conclusion,status`; confirm `headSha` equals `$head_sha` and `conclusion` is `success`. If there is no run for that SHA, or its latest run is not successful, this check fails. Record the SHA and result.
 - `npm run build`, then `unzip -l dist/tweaks-for-degiro-<version>.zip`: the zip contains only files from `extension/`, the manifest at its root, and no `.DS_Store`, tests or `node_modules`.
 - The manifest still has `"permissions": ["storage"]`, the name `Tweaks for DEGIRO (unofficial)`, and `minimum_chrome_version` ≥ 111 (the unit tests check this too, but it's a store blocker).
 - `STORE_LISTING.md`'s summary matches the English `extDescription`. If features were added since the last tag (`git log v<last>..HEAD --oneline`), check that README, STORE_LISTING and PRIVACY mention them.
 
 ## 2. Full test suite (start now, it takes about 8 minutes)
 
-Start the `run-tests` skill with no scope (it runs in the background) right after preflight, so it overlaps step 3. Don't poll; the notification arrives when it ends. The release needs `ok: true` with 0 failed in every stage (typecheck, lint, unit, integration, e2e). A flaky e2e test (`flaky` > 0) gets reported, not ignored.
+Start the `run-tests` skill with no scope (the full suite) right after preflight, so it overlaps step 3. This is the only workflow that runs the full suite; reviews run only affected scoped tests. Don't poll; the notification arrives when it ends. The release needs `ok: true` with 0 failed in every stage (typecheck, lint, unit, integration, e2e). A flaky e2e test (`flaky` > 0) gets reported, not ignored.
 
 ## 3. Real-site drift check (Claude in Chrome)
 
@@ -149,9 +149,9 @@ JSDOM has no computed styles either. For colours and fonts, grep the fixture CSS
 
 Findings: a hook the real page has and the mock lacks (or the other way round) on a page a feature uses, a real structure the mock doesn't reproduce, or mock colours that differ from the real page. If the real page drifted, the fix includes extending the mock to match (CLAUDE.md).
 
-## 6. Extension output on the real page (optional)
+## 6. Extension output on the real page (conditional)
 
-This counts only if the user has loaded the release candidate unpacked (`chrome://extensions` → Load unpacked → `extension/`, or the built zip). Ask them; don't assume, and don't change their extensions yourself. If they have:
+This check is only possible if the user has loaded the release candidate unpacked (`chrome://extensions` → Load unpacked → `extension/`, or the built zip). Ask them; don't assume, and don't change their extensions yourself. If it is not loaded, mark this section `UNVERIFIED (release candidate not loaded)` and continue. This does not by itself change GO/NO-GO; the installed build is not part of the release gate. If they have:
 - On each page from step 3, read the `data-dg-status` attribute (it's JSON of feature → `ok`/`idle`/`missing`; return only that object). A `missing` for a feature whose page is open is a drift signal: name the feature.
 - Check that the visible additions are there: the Spread row and header items on a product page, the Orders/Transactions/Alarms sidebar items, the filters and totals on Orders and Transactions, the period change on Portfolio. Screenshots are fine for the user; don't save them in the repo.
 

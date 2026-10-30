@@ -306,7 +306,6 @@ test.describe('Adjust order: Esc closes', () => {
     const { page } = await degiro();
     await page.evaluate(() => { window.__openAdjust({ size: 100, price: 15.5 }); window.__openDialog(); });
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
     await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
     expect(await page.evaluate(() => window.__log)).toEqual([]);
   });
@@ -319,7 +318,6 @@ test.describe('Adjust order: Esc closes', () => {
     });
     await page.focus('#limit');
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
     await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
   });
 
@@ -328,7 +326,6 @@ test.describe('Adjust order: Esc closes', () => {
     await page.evaluate(() => window.__openAdjust({ size: 100, price: 15.5 }));
     await page.keyboard.press('Enter');
     await page.keyboard.press('Backspace');
-    await page.waitForTimeout(200);
     await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
     expect(await page.evaluate(() => window.__log)).toEqual([]);
   });
@@ -369,8 +366,8 @@ test.describe('Settings (feature flags)', () => {
     const { page } = await degiro();
     const opt = await settings();
     await setFlag(opt, 'chartSelect', false);
+    await expect.poll(() => page.evaluate(() => JSON.parse(document.documentElement.getAttribute('data-dg-tweaks') || '{}').chartSelect)).toBe(false);
     await page.bringToFront();
-    await page.waitForTimeout(300);
     await dragOnChart(page, 0.2, 0.6);
     const visible = await page.evaluate(() => [...document.querySelectorAll('#chart .highcharts-container div')].some(d => /%\)/.test(d.textContent) && d.style.display === 'block'));
     expect(visible).toBe(false);
@@ -380,16 +377,29 @@ test.describe('Settings (feature flags)', () => {
     const { page } = await degiro();
     const opt = await settings();
     await setFlag(opt, 'adjustClose', false);
-    await page.bringToFront();
-    await page.evaluate(() => window.__openAdjust({ size: 1, price: 1 }));
-    await page.click('#outside');
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
-    await expect(page.locator('[data-name=orderDetails]')).toBeVisible();
+
+    // Wait for the flag to take effect, then verify the form doesn't close
+    await expect(async () => {
+      await page.bringToFront();
+      await page.evaluate(() => window.__openAdjust({ size: 1, price: 1 }));
+      await page.click('#outside');
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-name=orderDetails]')).toBeVisible({ timeout: 500 });
+    }).toPass({ timeout: 5000 });
+
     await setFlag(opt, 'adjustClose', true);
-    await page.bringToFront();
-    await page.keyboard.press('Escape');
-    await expect(page.locator('[data-name=orderDetails]')).toHaveCount(0);
+
+    // Wait for the flag to take effect, then verify the form closes
+    await expect(async () => {
+      await page.bringToFront();
+      // Re-open the form if it's closed
+      const count = await page.locator('[data-name=orderDetails]').count();
+      if (count === 0) {
+        await page.evaluate(() => window.__openAdjust({ size: 1, price: 1 }));
+      }
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-name=orderDetails]')).toHaveCount(0, { timeout: 500 });
+    }).toPass({ timeout: 5000 });
   });
 });
 

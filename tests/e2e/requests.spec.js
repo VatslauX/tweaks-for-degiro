@@ -10,11 +10,11 @@ test('expired session: no request loop, and orders come back with the new sessio
     clock: true,
     respond: u => u.pathname.includes(';jsessionid=TESTSID') ? { status: 401, body: '' } : undefined
   });
-  // Small real-time pause: the PerformanceObserver (which hands the extension the session + account
-  // from DEGIRO's own URLs) fires in real browser time, not via the fake clock. Without this, the
-  // fake 5 s fallback timer fires before the observer callback, making the extension fall back to the
-  // client endpoint (intAccount 4242 instead of 42).
-  await page.waitForTimeout(500); // let PerformanceObserver fire (real time, not fake-clock)
+  // Wait for the real resource entry that supplies the session + account to the extension.
+  // This remains in real browser time while the page's timers are faked.
+  await page.waitForFunction(() => performance.getEntriesByType('resource').some(entry =>
+    entry.name.includes('/product-notes-service/secure/notes?') && entry.name.includes('intAccount=42') && entry.name.includes('sessionId=TESTSID')
+  ));
   // Fire the first rAF so the extension makes its initial poll request
   await page.clock.fastForward(100);
   // Wait in real time for the 401 to be received and processed; only THEN schedule

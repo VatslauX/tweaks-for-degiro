@@ -44,7 +44,6 @@ test('portfolio range label follows the dark theme', async ({ degiro }) => {
   const { page } = await degiro({ url: 'https://trader.degiro.nl/trader/?mock=portfolio#/portfolio', initScript: dark });
   await expect(page.locator('#dg-portfolio-change')).toBeVisible();
   await page.mouse.move(5, 5);
-  await page.waitForTimeout(800);
   await drag(page, '#c1', 0.25, 0.75);
   const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
   await expect(label).toBeVisible();

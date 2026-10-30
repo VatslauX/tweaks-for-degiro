@@ -19,9 +19,11 @@ test('a live tick keeps the selection and updates its values', async ({ degiro }
   await expect(label(page)).toBeVisible();
   const before = await label(page).textContent();
   await page.evaluate(() => { const s = Highcharts.charts.at(-1).series[0]; s.data.at(-1).update(s.data.at(-1).y + 5); });
-  await page.waitForTimeout(300);
+  await expect.poll(async () => {
+    const current = label(page);
+    return await current.isVisible() ? await current.textContent() : before;
+  }).not.toBe(before);
   await expect(label(page)).toBeVisible();
-  expect(await label(page).textContent()).not.toBe(before);
   await page.evaluate(() => Highcharts.charts.at(-1).redraw());
   await expect(label(page)).toBeVisible();
 });
@@ -32,7 +34,6 @@ test('a live tick that adds a point (and drops the oldest) keeps the selection',
   await select(page, 0.3, 0.7);
   await expect(label(page)).toBeVisible();
   await page.evaluate(() => { const s = Highcharts.charts.at(-1).series[0], last = s.data.at(-1); s.addPoint([last.x + 864e5, last.y + 0.1], true, true); });
-  await page.waitForTimeout(300);
   await expect(label(page)).toBeVisible();
 });
 
@@ -61,7 +62,6 @@ test('the label wraps inside a narrow chart', async ({ degiro }) => {
   await expect(page.locator('[data-dg-sel]')).toHaveCount(1);
   await page.evaluate(() => { document.querySelector('#chart').style.width = '260px'; Highcharts.charts.at(-1).reflow(); });
   await page.waitForFunction(() => Highcharts.charts.at(-1).chartWidth === 260);
-  await page.waitForTimeout(300);
   await select(page, 0.3, 0.7, 0.05); // near the top, clear of the order badges
   await expect(label(page)).toBeVisible();
   expect(await page.evaluate(() => {

@@ -72,6 +72,7 @@
     sideNav: '[data-name=sideNavigation] nav',
     productsMenuItem: 'a[data-name=productsMenuItem]',
     favouritesMenuItem: 'a[data-name=favouriteProductsMenuItem]',
+    favouritesLinks: 'a[data-name=favouriteProductsMenuItem], a[href^="#/favourites"]', // the item and the lists (#/favourites/<id>)
     menuItem: 'a[data-name$=MenuItem]',
     orderLimit: '[data-field="limitColumnValue"]',
     orderStop: '[data-field="stopPriceColumnValue"]',
@@ -140,6 +141,8 @@
     isFavourites: () => /^#\/favourites(?=$|[/?])/.test(location.hash),
     // our Alarms page: DEGIRO sends unknown routes to Portfolio, but keeps a query on Favourites
     isAlarms: () => /^#\/favourites\?(?:.*&)?dg=alarms(?:&|$)/.test(location.hash),
+    // DEGIRO carries the query along inside Favourites, so dg=alarms can also sit on a list (#/favourites/<id>?dg=alarms)
+    hasAlarmsQuery: () => /^#\/favourites(?=$|[/?])[^?]*\?(?:.*&)?dg=alarms(?:&|$)/.test(location.hash),
     isPortfolio: () => !!document.querySelector(SEL.perfChart)
   });
 
@@ -305,10 +308,10 @@
     // don't read the chart's SVG, so those changes must not run them
     const inChart = n => !pageWorld && !!(n && (n.nodeType === 1 ? n : n.parentElement)?.closest?.('.highcharts-container'));
     new MutationObserver(muts => {
-      if (muts.some(m => m.type === 'attributes')) return schedule(true); // settings changed (data-dg-tweaks)
+      if (muts.some(m => m.type === 'attributes')) return schedule(true); // settings (data-dg-tweaks) or alarm lines changed
       if (muts.every(m => ours(m.target) || inChart(m.target) || onlyOurs(m))) return;
       schedule();
-    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-dg-tweaks'] });
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-dg-tweaks', 'data-dg-alarm-lines'] });
     addEventListener('hashchange', () => { routeAt = Date.now(); schedule(true); });
     // features with `every`: one timer for all of them
     setInterval(() => {

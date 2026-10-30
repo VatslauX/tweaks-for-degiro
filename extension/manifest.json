@@ -59,6 +59,7 @@
         "common.js",
         "chart-select.js",
         "orders.js",
+        "alarm-lines.js",
         "period.js",
         "portfolio.js"
       ],

@@ -2,7 +2,7 @@
 // but keeps a query on Favourites). Drawn inside DEGIRO's main area; DEGIRO's Favourites list stays
 // on the page, hidden, so its prices keep updating and the alarms keep being checked.
 (() => {
-  const { SEL, page, own, feature, t, fmt, schedule } = __dgt; // common.js
+  const { SEL, page, OWN, own, feature, t, fmt, schedule } = __dgt; // common.js
   const R = dgAlarmRules, S = dgAlarmStore;
   const ROOT = 'data-dg-alarms-page', STYLE = 'dg-alarms-page-style';
   /** @type {{ status: string, products: Set<number>, menu: boolean }} */
@@ -33,6 +33,13 @@
     if (st.firedAt && today(st.firedAt)) return t('alarmStatusFired', when(st.firedAt));
     if (price == null) return t('alarmStatusNotInList');
     return t('alarmStatusWaiting');
+  }
+  /** @param {any} a @param {any} st @param {number | undefined} price @returns {'waiting' | 'fired' | 'off' | 'unseen'} */
+  function statusKind(a, st, price) {
+    if (st.firedAt && !a.on) return 'off';
+    if (st.firedAt && today(st.firedAt)) return 'fired';
+    if (price == null) return 'unseen';
+    return 'waiting';
   }
   /** @param {any} a */
   function shown(a) {
@@ -118,14 +125,10 @@
       if (ref) { const p = (a.price / ref - 1) * 100; dist.textContent = `${p > 0 ? '+' : ''}${fmt(p)}%`; } else dist.textContent = '–';
       const stc = td();
       stc.setAttribute('data-dg-alarm-status', '');
-      stc.textContent = status(a, st, price);
+      stc.append(dgUi.pill(status(a, st, price), statusKind(a, st, price), th));
       const onc = td();
-      const sw = /** @type {HTMLInputElement} */ (document.createElement('input'));
-      sw.type = 'checkbox';
-      sw.checked = a.on;
-      sw.setAttribute('role', 'switch');
-      sw.setAttribute('aria-label', t('alarmOnAria', money(a, a.price)));
-      sw.addEventListener('change', () => S.setOn(a.id, sw.checked));
+      const sw = dgUi.toggle({ checked: a.on, label: t('alarmOnAria', money(a, a.price)),
+        onChange: on => S.setOn(a.id, on), th });
       onc.append(sw);
       const delc = td();
       const acts = el('div', 'display:flex;align-items:center;gap:8px;justify-content:flex-end;');
@@ -136,10 +139,11 @@
       edit.setAttribute('aria-label', t('alarmEditAria', money(a, a.price)));
       edit.append(dgUi.icon(dgUi.PENCIL, 14), document.createTextNode(t('alarmEdit')));
       edit.addEventListener('click', () => dgAlarmPanel.edit(a));
-      const del = /** @type {HTMLButtonElement} */ (el('button', `border:0;background:transparent;color:${th.muted};cursor:pointer;font-size:15px;`, '×'));
+      const del = /** @type {HTMLButtonElement} */ (el('button', `border:0;background:transparent;color:${th.muted};cursor:pointer;display:inline-flex;align-items:center;padding:4px;`));
       del.type = 'button';
       del.setAttribute('data-dg-alarm-delete', '');
       del.setAttribute('aria-label', t('alarmDelete'));
+      del.append(dgUi.icon(dgUi.TRASH, 16));
       del.addEventListener('click', () => S.remove(a.id));
       acts.append(edit, del);
       delc.append(acts);
@@ -221,6 +225,25 @@
   };
   document.addEventListener('pointerup', release, true);
   document.addEventListener('pointercancel', release, true);
+
+  // DEGIRO's router keeps the query while you stay in Favourites: from #/favourites?dg=alarms, its own
+  // Favourites link (or a list, #/favourites/<id>) gets ?dg=alarms merged back in, so the Alarms page
+  // would never go (or would come back on the next Favourites click). Only an empty value overrides
+  // the remembered one, and DEGIRO then drops it from the URL. So a plain click on one of DEGIRO's
+  // Favourites links goes to that link with dg= added. Navigation only: nothing else is clicked.
+  addEventListener('click', e => {
+    if (!dgSettings.priceAlarms || !page.hasAlarmsQuery() || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = (/** @type {Element} */ (e.target)).closest?.(SEL.favouritesLinks);
+    if (!a || a.closest(`[${OWN}]`)) return; // our Alarms item keeps its dg=alarms
+    const href = a.getAttribute('href') || '';
+    if (!/^#\/favourites(?=$|[/?])/.test(href)) return;
+    const [path, query = ''] = href.split(/\?(.*)/s);
+    const params = new URLSearchParams(query);
+    params.set('dg', '');
+    e.preventDefault();
+    e.stopPropagation();
+    location.hash = `${path}?${params}`;
+  }, true);
 
   // a click outside the open product menu closes it
   document.addEventListener('click', e => {

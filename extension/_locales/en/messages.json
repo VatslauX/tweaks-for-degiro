@@ -117,6 +117,12 @@
   "optPriceAlarmsHelp": {
     "message": "Alarm button on products in your Favourites, an Alarms page in the left menu, and a banner when a price is reached. Checked only while a Favourites or product page is open."
   },
+  "optAlarmLines": {
+    "message": "Alarms on the chart"
+  },
+  "optAlarmLinesHelp": {
+    "message": "A gold badge at the price of each switched-on alarm on the product chart."
+  },
   "navOrders": {
     "message": "Orders",
     "description": "Sidebar link, DEGIRO's own wording"
