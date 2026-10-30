@@ -28,9 +28,11 @@ test('no session in request URLs: orders still load through the fallback', async
 
 test('without window.Highcharts the chart features report "Not found"', async ({ degiro, settings }) => {
   // DEGIRO "bundles Highcharts without the global": the mock's chart never appears either
-  const { page } = await degiro({ initScript: () => {
+  const { page } = await degiro({ clock: true, initScript: () => {
     Object.defineProperty(window, 'Highcharts', { get: () => undefined, set: () => {}, configurable: false });
   } });
+  // chart features are page-world: the fake clock skips the 8 s "loading" window before "Not found"
+  await page.clock.fastForward(9000);
   const opt = await settings();
   await expect.poll(async () => {
     await page.bringToFront();

@@ -45,22 +45,62 @@ const DEFAULT_ORDERS = [
   { productId: 999, product: 'Other stock', buysell: 'B', size: 10, price: 100, stopPrice: 0, orderType: 'LIMIT' } // other product
 ];
 
+// A browser launch costs about 0.5 s, so a worker reuses one for this many tests. A new profile after
+// that keeps chrome.storage.sync under its write quota (120 a minute), which counts per profile.
+const REUSE = 10;
+
+// what one test leaves behind: its tabs, routes and cookies, and the extension's storage
+async function reset(context) {
+  const keep = await context.newPage(); // the browser must keep a tab open
+  for (const p of context.pages()) if (p !== keep) await p.close();
+  await context.unrouteAll({ behavior: 'ignoreErrors' });
+  await context.clearCookies();
+  await keep.goto(`chrome-extension://${extensionId(EXT)}/options.html`); // writes storage only on a change
+  await keep.evaluate(() => Promise.all([chrome.storage.sync.clear(), chrome.storage.local.clear()]));
+  await keep.goto('about:blank');
+}
+
 const test = base.extend({
   // browser UI language, which picks the extension's _locales; test.use({ lang: 'de' }) to change it
-  lang: ['en-US', { option: true }],
-  context: async ({ lang }, use) => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dgt-'));
-    const context = await chromium.launchPersistentContext(dir, {
-      channel: 'chromium',
-      headless: false,
-      locale: lang,
-      // --lang works on Linux and Windows; macOS ignores it (it reads AppleLanguages)
-      args: ['--headless=new', `--lang=${lang}`, `--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
-      viewport: { width: 1280, height: 900 }
+  lang: ['en-US', { option: true, scope: 'worker' }],
+  // a browser for this test alone, e.g. one that switches the extension off: test.use({ freshBrowser: true })
+  freshBrowser: [false, { option: true }],
+  browserPool: [async ({ lang }, use) => {
+    let context = null, dir = '', uses = 0;
+    const close = async () => {
+      if (!context) return;
+      await context.close().catch(() => {});
+      fs.rmSync(dir, { recursive: true, force: true });
+      context = null;
+    };
+    await use({
+      async take(fresh) {
+        if (fresh || !context || uses >= REUSE) {
+          await close();
+          dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dgt-'));
+          context = await chromium.launchPersistentContext(dir, {
+            channel: 'chromium',
+            headless: false,
+            locale: lang,
+            // --lang works on Linux and Windows; macOS ignores it (it reads AppleLanguages)
+            args: ['--headless=new', `--lang=${lang}`, `--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
+            viewport: { width: 1280, height: 900 }
+          });
+          uses = 0;
+        }
+        uses++;
+        return context;
+      },
+      close
     });
+    await close();
+  }, { scope: 'worker' }],
+  context: async ({ browserPool, freshBrowser }, use, testInfo) => {
+    const context = await browserPool.take(freshBrowser);
     await use(context);
-    await context.close();
-    fs.rmSync(dir, { recursive: true, force: true });
+    // a failed test may have left the browser in any state: never hand it to the next test
+    if (freshBrowser || testInfo.status !== testInfo.expectedStatus) return browserPool.close();
+    try { await reset(context); } catch { await browserPool.close(); }
   },
   extId: async ({}, use) => use(extensionId(EXT)),
 

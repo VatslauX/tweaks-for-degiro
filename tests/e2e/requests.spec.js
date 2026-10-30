@@ -50,12 +50,22 @@ test('a session the fallback returns that was rejected is not used again', async
 });
 
 test('a request that never answers times out, and orders load on the next poll', async ({ degiro }) => {
-  test.setTimeout(60000);
   let n = 0;
   const { page, calls } = await degiro({
+    clock: true,
+    // AbortSignal.timeout runs on a browser timer the fake clock can't reach: route it through setTimeout
+    initScript: () => {
+      AbortSignal.timeout = ms => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('signal timed out', 'TimeoutError')), ms); return c.signal; };
+    },
     respond: u => u.pathname.startsWith('/trading/secure/v5/update/') && n++ === 0 ? 'hang' : undefined
   });
-  await expect(badge(page)).toBeVisible({ timeout: 30000 });
+  await page.waitForTimeout(500); // let the PerformanceObserver hand over the session (real time, see above)
+  // each poll step advances fake time; fetch results still arrive in real time between steps
+  const step = ms => async () => { await page.clock.fastForward(ms); return calls.update; };
+  await expect.poll(step(500), { timeout: 5000 }).toBe(1);
+  await page.clock.fastForward(15000); // the hung request times out
+  await expect.poll(step(1000), { timeout: 10000 }).toBe(2); // next poll, 20 s after the first
+  await expect.poll(async () => { await page.clock.fastForward(500); return badge(page).count(); }, { timeout: 5000 }).toBeGreaterThan(0);
   expect(calls.update).toBe(2);
 });
 

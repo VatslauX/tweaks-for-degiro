@@ -2,6 +2,8 @@
 // They must notice and stop: no more order requests to DEGIRO, our additions removed.
 const { test, expect } = require('./fixtures');
 
+test.use({ freshBrowser: true }); // the extension stays switched off in this browser
+
 const badge = page => page.locator('#chart div:not(:has(div))', { hasText: /^BUY 100 · 15,50$/ });
 
 test('disabling the extension stops the order polling and removes our additions', async ({ degiro, context, extId }) => {
