@@ -405,6 +405,9 @@
   "alarmStatusNotInList": {
     "message": "Non nella lista attuale"
   },
+  "alarmStatusNoTrading": {
+    "message": "Nessuna negoziazione ora"
+  },
   "alarmSeen": {
     "message": "visto $1"
   },

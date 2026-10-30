@@ -31,7 +31,7 @@
   function status(a, st, price) {
     if (st.firedAt && !a.on) return t('alarmStatusFiredOff', when(st.firedAt));
     if (st.firedAt && today(st.firedAt)) return t('alarmStatusFired', when(st.firedAt));
-    if (price == null) return t('alarmStatusNotInList');
+    if (price == null) return t(S.listed().has(a.productId) ? 'alarmStatusNoTrading' : 'alarmStatusNotInList');
     return t('alarmStatusWaiting');
   }
   /** @param {any} a */

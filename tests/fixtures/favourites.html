@@ -85,8 +85,9 @@
     prices[id] = v;
     const el = document.querySelector(`[data-field=LastPrice][data-id="${id}"]`);
     if (!el) return;
+    if (v == null) { el.title = ''; el.textContent = el.textContent.replace(/[\d.,]+$/, '—'); return; } // market closed: a dash
     if (!window.__MOCK_NO_TITLE) el.title = nl(v);
-    el.textContent = el.textContent.replace(/[\d.,]+$/, nl(v));
+    el.textContent = el.textContent.replace(/[\d.,]+$|—$/, nl(v));
   };
   window.__showList = name => { shown = name; render(); };
   document.querySelectorAll('#lists button').forEach(b => b.onclick = () => window.__showList(b.dataset.list));

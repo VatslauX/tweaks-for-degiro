@@ -8,6 +8,7 @@ const dgAlarmStore = (() => {
   /** @type {Record<string, any>} */ let state = {};
   /** @type {any[]} */ let events = [];
   /** @type {Map<number, number>} */ let live = new Map();
+  /** products with a row in the list, priced or not (market closed: the price shows a dash) @type {Set<number>} */ let listed = new Set();
   /** @type {(() => void)[]} */ const listeners = [];
   const changed = () => listeners.forEach(fn => { try { fn(); } catch (e) {} });
   let syncLoaded = false, localLoaded = false;
@@ -161,8 +162,8 @@ const dgAlarmStore = (() => {
 
   return Object.freeze({
     ready: () => syncLoaded && localLoaded, foreign: foreignWithin,
-    list: () => alarms, state: () => state, events: () => events, live: () => live,
-    /** @param {Map<number, number>} m */ setLive: m => { live = m; },
+    list: () => alarms, state: () => state, events: () => events, live: () => live, listed: () => listed,
+    /** @param {Map<number, number>} m @param {Set<number>} [ids] */ setLive: (m, ids) => { live = m; listed = ids || new Set(m.keys()); },
     /** @param {() => void} fn */ onChange: fn => { listeners.push(fn); },
     add, setOn, remove, update, closeEvent, record
   });
@@ -176,7 +177,8 @@ const dgAlarmStore = (() => {
   const SEEN_EVERY = 60000; // `last` price written at most once a minute per alarm
 
   // prices DEGIRO shows on this page: productId → price (Favourites rows, or this product's own)
-  function readPrices() {
+  /** @param {Set<number>} [present] filled with every product that has an element, priced or not */
+  function readPrices(present) {
     /** @type {Map<number, number>} */
     const out = new Map();
     /** @type {Element[]} */
@@ -187,6 +189,7 @@ const dgAlarmStore = (() => {
     for (const el of els) {
       const id = Number(el.getAttribute('data-id'));
       if (!Number.isSafeInteger(id) || id <= 0 || (only && id !== only) || out.has(id)) continue;
+      present?.add(id);
       const v = parseNum(el.getAttribute('title') || el.textContent || '');
       if (Number.isFinite(v) && v > 0) out.set(id, v);
     }
@@ -292,8 +295,8 @@ const dgAlarmStore = (() => {
     name: 'priceAlarms',
     enabled: () => dgSettings.priceAlarms,
     run() {
-      const prices = readPrices();
-      S.setLive(prices);
+      const present = new Set(), prices = readPrices(present);
+      S.setLive(prices, present);
       if (prices.size && S.ready()) check(prices);
       banners();
       return prices.size || S.events().length ? 'ok' : 'idle';

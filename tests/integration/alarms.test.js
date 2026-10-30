@@ -289,3 +289,18 @@ test('the 25-alarm limit: add() says full', async () => {
   const { tab } = await setup(Array.from({ length: 25 }, () => alarm({ price: 500 })));
   assert.equal(await tab.run(`dgAlarmStore.add(${JSON.stringify(alarm())})`), 'full');
 });
+
+test('Alarms page: a listed product without a price says "No trading now"; one not in the list says "Not in current list"; nothing fires', async () => {
+  const w = createWorld();
+  await w.set('sync', { dgAlarms: [alarm({ price: 17, dir: 'above' }), alarm({ productId: 999, price: 1 })] });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(200);
+  tab.setPrice(123, null); // market closed: the Last price cell shows a dash
+  await w.advance(300);
+  const statuses = tab.$$('[data-dg-alarm-status]').map(e => e.textContent);
+  assert.deepEqual(statuses.sort(), ['No trading now', 'Not in current list']);
+  assert.equal(events(w).length, 0);
+  await price(tab, 123, 20);
+  assert.equal(events(w).length, 1);
+  noErrors(w);
+});

@@ -445,6 +445,9 @@
   "alarmStatusNotInList": {
     "message": "Not in current list"
   },
+  "alarmStatusNoTrading": {
+    "message": "No trading now"
+  },
   "alarmSeen": {
     "message": "seen $1"
   },
