@@ -19,6 +19,9 @@ const dgAlarmRules = (() => {
   /** Bytes one character takes in the stored JSON: UTF-8 of its JSON escape, quotes excluded (so `"` and `\\` count 2). */
   const jsonBytes = ch => ENC.encode(JSON.stringify(ch)).length - 2;
 
+  // a price cell without a price reads "$ —": the dash is not part of the currency
+  const DASHES = /[\u2010-\u2015\u2212-]/g;
+
   /** Text, cleaned and capped by characters and by UTF-8 bytes; never splits a surrogate pair. */
   function text(v, chars, bytes) {
     if (typeof v !== 'string') return '';
@@ -50,7 +53,7 @@ const dgAlarmRules = (() => {
       seen.add(a.id);
       out.push({ id: a.id, productId: a.productId,
         name: text(a.name, LIMITS.name, BYTES.name), symbol: text(a.symbol, LIMITS.symbol, BYTES.symbol),
-        currency: text(a.currency, LIMITS.currency, BYTES.currency), price, dir: a.dir, repeat: a.repeat,
+        currency: text(typeof a.currency === 'string' ? a.currency.replace(DASHES, '') : a.currency, LIMITS.currency, BYTES.currency), price, dir: a.dir, repeat: a.repeat,
         on: a.on !== false, created: pos(a.created) ? a.created : 0 });
     }
     return out;

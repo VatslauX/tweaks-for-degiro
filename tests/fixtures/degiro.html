@@ -164,6 +164,8 @@
   window.__setPrice = (id, v) => document.querySelectorAll(`[data-field=CurrentPrice][data-id="${id}"]`).forEach(e => {
     const s = v.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 8 }); e.title = s; e.textContent = '€' + s;
   });
+  // market closed: the price cells show the currency and a dash, the title keeps the last price
+  if (window.__MOCK_PRICE_DASH) document.querySelectorAll('[data-field=CurrentPrice]').forEach(e => { e.textContent = '$ \u2014'; });
   // DEGIRO's Place order panel has its own Buy/Sell pair and product name (Review Focus 2)
   if (window.__MOCK_ORDER_PANEL) {
     const p = document.createElement('div');

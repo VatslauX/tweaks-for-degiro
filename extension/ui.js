@@ -3,6 +3,7 @@
 const dgUi = (() => {
   const BLUE = '#0095D2'; // DEGIRO blue
   const BELL = 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0';
+  const QUESTION = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6M12 16.8v.2';
   const PENCIL = 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4';
 
   // the page's colours: light or dark, following DEGIRO's theme
@@ -86,6 +87,49 @@ const dgUi = (() => {
     return wrap;
   }
 
+  /**
+   * DEGIRO-style toggle switch: a real checkbox (role switch, keyboard Space) over a 40x24 track with a knob.
+   * @param {{ on: boolean, label: string, onChange: (on: boolean) => void, th: ReturnType<typeof theme> }} o
+   * @returns {HTMLLabelElement}
+   */
+  function toggle(o) {
+    const { th } = o;
+    if (!document.getElementById('dg-toggle-style')) {
+      // one owned style: the focus ring (keyboard focus only) and forced-colors, which must keep on/off apart
+      const st = __dgt.own(document.createElement('style'));
+      st.id = 'dg-toggle-style';
+      st.textContent = '[data-dg-toggle] input:focus-visible + span { box-shadow: 0 0 0 2px var(--dg-tg-bg), 0 0 0 4px ' + BLUE + '; }\n' +
+        '[data-dg-toggle] span { forced-color-adjust: none; }';
+      document.head.append(st);
+    }
+    const lab = document.createElement('label');
+    lab.setAttribute('data-dg-toggle', '');
+    lab.style.cssText = 'position:relative;display:inline-block;flex:none;width:40px;height:24px;cursor:pointer;vertical-align:middle;';
+    lab.style.setProperty('--dg-tg-bg', th.bg);
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = o.on;
+    cb.setAttribute('role', 'switch');
+    cb.setAttribute('aria-label', o.label);
+    cb.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1;';
+    const track = document.createElement('span');
+    track.style.cssText = 'position:absolute;inset:0;box-sizing:border-box;border-radius:300px;pointer-events:none;';
+    const knob = document.createElement('span');
+    knob.style.cssText = 'position:absolute;top:3px;width:16px;height:16px;border-radius:50%;pointer-events:none;' +
+      'transition:left .3s cubic-bezier(0,0,.2,1);';
+    const paint = () => {
+      const on = cb.checked;
+      track.style.background = on ? BLUE : th.bg;
+      track.style.border = `1px solid ${on ? BLUE : th.line}`;
+      knob.style.background = on ? '#fff' : th.muted;
+      knob.style.left = on ? '20px' : '4px';
+    };
+    paint();
+    cb.addEventListener('change', () => { paint(); o.onChange(cb.checked); });
+    lab.append(cb, track, knob);
+    return lab;
+  }
+
   // an outline icon; the <svg> is made in the namespace of one already on the page, so no
   // namespace URL appears in our source (tests/unit/static.test.js)
   /** @param {string} d @param {number} size @param {string} [color] */
@@ -109,5 +153,5 @@ const dgUi = (() => {
     return svg;
   }
 
-  return Object.freeze({ BLUE, BELL, PENCIL, theme, chip, picker, icon });
+  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, theme, chip, picker, toggle, icon });
 })();

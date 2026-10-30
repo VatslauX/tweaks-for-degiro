@@ -42,7 +42,7 @@ const dgAlarmPanel = (() => {
   /** @param {number} id */
   function currencyOf(id) {
     for (const el of document.querySelectorAll(`${SEL.currentPrice}[data-id="${id}"]`)) {
-      const c = text(el).replace(/[\d.,\s+\-−%()]/g, '');
+      const c = text(el).replace(/[^\p{L}\p{Sc}]/gu, '');
       if (c) return c.slice(0, R.LIMITS.currency);
     }
     return '';
@@ -256,17 +256,16 @@ const dgAlarmPanel = (() => {
     const sig = JSON.stringify([mine, th.bg]);
     if (sig === ui.listSig) return;
     ui.listSig = sig;
+    // keep keyboard focus on the same control of the same row across the rebuild
+    const a = document.activeElement;
+    const frow = a && ui.list.contains(a) ? a.closest('[data-dg-alarm-row]')?.getAttribute('data-dg-alarm-row') : null;
+    const fkind = !a ? '' : a.matches('[role=switch]') ? '[role=switch]' : a.matches('[data-dg-alarm-delete]') ? '[data-dg-alarm-delete]' : '';
     ui.list.replaceChildren(...mine.map(a => {
       const row = el('div', `display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid ${th.line};border-radius:8px;padding:7px 10px;font-size:13px;font-variant-numeric:tabular-nums;`);
       row.setAttribute('data-dg-alarm-row', a.id);
       const what = el('span', `color:${a.dir === 'above' ? th.buy : th.sell};`, `${a.dir === 'above' ? '↑' : '↓'} ${fmt(a.price, 2, 4)}`);
       const rep = el('span', `color:${th.muted};font-size:11.5px;flex:1;`, '· ' + t(a.repeat === 'once' ? 'alarmOnce' : a.repeat === 'daily' ? 'alarmDaily' : 'alarmEach'));
-      const sw = /** @type {HTMLInputElement} */ (document.createElement('input'));
-      sw.type = 'checkbox';
-      sw.checked = a.on;
-      sw.setAttribute('role', 'switch');
-      sw.setAttribute('aria-label', t('alarmOnAria', fmt(a.price, 2, 4)));
-      sw.addEventListener('change', () => S.setOn(a.id, sw.checked));
+      const sw = dgUi.toggle({ on: a.on, label: t('alarmOnAria', fmt(a.price, 2, 4)), th, onChange: on => S.setOn(a.id, on) });
       const del = /** @type {HTMLButtonElement} */ (el('button', `border:0;background:transparent;color:${th.muted};cursor:pointer;font-size:15px;`, '×'));
       del.type = 'button';
       del.setAttribute('data-dg-alarm-delete', '');
@@ -275,6 +274,10 @@ const dgAlarmPanel = (() => {
       row.append(what, rep, sw, del);
       return row;
     }));
+    if (frow && fkind) {
+      const row = [...ui.list.children].find(r => r.getAttribute('data-dg-alarm-row') === frow);
+      /** @type {HTMLElement | null | undefined} */ (row?.querySelector(fkind))?.focus();
+    }
   }
 
   async function save() {

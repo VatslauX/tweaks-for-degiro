@@ -235,6 +235,21 @@ test('sets an alarm above the current price; the order form is never touched', a
   noErrors(w);
 });
 
+test('an alarm set while the price cell shows a dash keeps a clean currency', async () => {
+  // market closed: every copy of the price cell reads "$ —" from the start, the title keeps the last price
+  const { w, tab } = await setupProduct([], { __MOCK_PRICE_DASH: true });
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel opened');
+  fill(tab, '[data-dg-alarm-price]', '18');
+  await w.advance(100);
+  tab.$('[data-dg-alarm-set]').click();
+  await w.advance(500);
+  assert.equal(listOf(w).length, 1);
+  assert.equal(listOf(w)[0].currency, '$');
+  noErrors(w);
+});
+
 test('refuses an equal or invalid price', async () => {
   const { w, tab } = await setupProduct();
   tab.$('[data-dg-alarm-button]').click();
@@ -819,5 +834,89 @@ test('Alarms page: keyboard focus on Edit survives a price tick', async () => {
   const active = tab.document.activeElement;
   assert.ok(active?.hasAttribute('data-dg-alarm-edit'), 'active element is still an Edit button');
   assert.equal(active?.closest('tr')?.getAttribute('data-dg-alarm-id'), a.id, 'same row retains focus');
+  noErrors(w);
+});
+
+// ---------- Status "?" hint (Alarms page) ----------
+// The hover look, its colours and the bubble's place on the screen stay in Playwright.
+const tipBtn = tab => tab.$('[data-dg-alarms-page] thead [data-dg-alarm-tip]');
+const tipBubbles = tab => tab.$$('[data-dg-alarm-tip-bubble]');
+const firstLatest = tab => alarmPageRows(tab)[0].querySelectorAll('td')[1].textContent;
+const esc = tab => tab.document.dispatchEvent(new tab.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+const enter = (tab, el) => el.dispatchEvent(new tab.window.MouseEvent('mouseenter'));
+// the pointer goes to the page corner: mouseleave on the button, pointermove elsewhere
+function leave(tab) {
+  tipBtn(tab).dispatchEvent(new tab.window.MouseEvent('mouseleave'));
+  tab.document.body.dispatchEvent(new tab.window.MouseEvent('pointermove', { bubbles: true }));
+}
+
+test('Alarms page: the Status "?" opens on keyboard focus, Esc closes, a click toggles', async () => {
+  const { w, tab } = await setupAlarmsPage([alarm({ price: 18 })]);
+  tipBtn(tab).focus();
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 1, 'focus opens');
+  esc(tab);
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 0, 'Esc closes');
+  tipBtn(tab).click();
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 1, 'click opens');
+  leave(tab);
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 1, 'pinned by the click');
+  tipBtn(tab).click();
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 0, 'second click closes');
+  noErrors(w);
+});
+
+test('Alarms page: an open Status bubble survives a price tick, stays single and keeps the focus', async () => {
+  const { w, tab } = await setupAlarmsPage([alarm({ price: 18 })]);
+  enter(tab, tipBtn(tab));
+  tipBtn(tab).click();
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 1);
+  leave(tab);
+  const before = firstLatest(tab);
+  await priceAt(tab, 123, 16.5, 300);
+  assert.notEqual(firstLatest(tab), before, 'the page was rebuilt');
+  assert.equal(tipBubbles(tab).length, 1);
+  assert.equal(tipBtn(tab).getAttribute('aria-expanded'), 'true');
+  tipBtn(tab).focus();
+  await priceAt(tab, 123, 16.4, 400);
+  assert.equal(tipBubbles(tab).length, 1);
+  assert.ok(tab.document.activeElement?.hasAttribute('data-dg-alarm-tip'), 'the ? keeps the focus');
+  noErrors(w);
+});
+
+test('Alarms page: a bubble closed with Esc stays closed across a price tick while the button keeps the focus', async () => {
+  const { w, tab } = await setupAlarmsPage([alarm({ price: 18 })]);
+  tipBtn(tab).focus();
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 1);
+  esc(tab);
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 0);
+  const before = firstLatest(tab);
+  await priceAt(tab, 123, 16.5, 400);
+  assert.notEqual(firstLatest(tab), before, 'rebuilt');
+  assert.equal(tipBubbles(tab).length, 0);
+  assert.ok(tab.document.activeElement?.hasAttribute('data-dg-alarm-tip'), 'the ? keeps the focus');
+  noErrors(w);
+});
+
+test('Alarms page: a bubble closed by a second click stays closed across a price tick', async () => {
+  const { w, tab } = await setupAlarmsPage([alarm({ price: 18 })]);
+  tipBtn(tab).click();
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 1);
+  tipBtn(tab).click();
+  await w.flush();
+  assert.equal(tipBubbles(tab).length, 0);
+  leave(tab);
+  const before = firstLatest(tab);
+  await priceAt(tab, 123, 16.5, 400);
+  assert.notEqual(firstLatest(tab), before);
+  assert.equal(tipBubbles(tab).length, 0);
   noErrors(w);
 });

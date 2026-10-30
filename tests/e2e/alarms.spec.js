@@ -366,3 +366,137 @@ test('Alarms page columns: Latest comes before Alarm, numbers right-aligned', as
   for (const i of [1, 2, 3]) { expect(aligns[i]).toBe('right'); expect(aligns[n + i]).toBe('right'); }
   for (const i of [0, 4, 5]) expect(aligns[i]).not.toBe('right');
 });
+
+// ---------- Status "?" hint (Alarms page) ----------
+const tipBtn = page => page.locator('[data-dg-alarms-page] thead [data-dg-alarm-tip]');
+const tipBubble = page => page.locator('[data-dg-alarm-tip-bubble]');
+const insideViewport = (page, loc) => loc.evaluate(e => {
+  const r = e.getBoundingClientRect(), w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
+  return r.left >= 0 && r.top >= 0 && r.right <= w && r.bottom <= h;
+});
+
+// stays in Playwright: computed colours, getBoundingClientRect, real hover and mouse leave
+test('Alarms page: the Status "?" opens on hover with all five statuses and closes on leave', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await expect(tipBtn(page)).toHaveAttribute('aria-label', 'About the statuses');
+  await expect(tipBubble(page)).toHaveCount(0);
+  await tipBtn(page).hover();
+  await expect(tipBubble(page)).toHaveCount(1);
+  await expect(tipBubble(page)).toHaveAttribute('role', 'tooltip');
+  await expect(tipBtn(page)).toHaveAttribute('aria-expanded', 'true');
+  await expect(tipBubble(page).locator('[data-dg-alarm-tip-line]')).toHaveCount(5);
+  const text = await tipBubble(page).innerText();
+  for (const s of ['Status', 'Waiting', 'Fired', 'Fired, switched off', 'Not in current list', 'No trading now']) expect(text).toContain(s);
+  const css = await tipBubble(page).evaluate(e => { const c = getComputedStyle(e); return [c.backgroundColor, c.color, c.borderRadius]; });
+  expect(css).toEqual(['rgb(15, 23, 26)', 'rgb(255, 255, 255)', '4px']);
+  expect(await insideViewport(page, tipBubble(page))).toBe(true);
+  await page.mouse.move(5, 5);
+  await expect(tipBubble(page)).toHaveCount(0);
+  await expect(tipBtn(page)).toHaveAttribute('aria-expanded', 'false');
+});
+
+// stays in Playwright: viewport sizes and getBoundingClientRect
+test('Alarms page: the Status bubble stays inside the screen on a phone and on a desktop', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ price: 18 })]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  for (const [w, h] of [[390, 800], [1280, 800]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await tipBtn(page).scrollIntoViewIfNeeded();
+    await page.evaluate(() => document.activeElement?.blur()); // Esc leaves the focus on the button
+    await tipBtn(page).focus();
+    await expect(tipBubble(page)).toHaveCount(1);
+    expect(await insideViewport(page, tipBubble(page))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(tipBubble(page)).toHaveCount(0);
+  }
+});
+
+// toggle switches (DEGIRO style) instead of plain checkboxes
+const knobOf = sw => sw.locator('xpath=..').locator('span').nth(1);
+const trackOf = sw => sw.locator('xpath=..').locator('span').first();
+
+// stays in Playwright: computed width, knob position and track colour, real click on the label
+test('Alarms page: the On control is a switch; clicking the track toggles it, Space too; knob and track change', async ({ degiro, settings }) => {
+  const a = alarm();
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  const sw = page.getByRole('switch');
+  await expect(sw).toHaveCount(1);
+  await expect(sw).toBeChecked();
+  expect(await trackOf(sw).evaluate(e => getComputedStyle(e).width)).toBe('40px');
+  await expect(knobOf(sw)).toHaveCSS('left', '20px');
+  await expect(trackOf(sw)).toHaveCSS('background-color', 'rgb(0, 149, 210)');
+  await sw.locator('xpath=..').click(); // the label: the visible track and knob
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, on: false }]);
+  await expect(sw).not.toBeChecked();
+  await expect(knobOf(sw)).toHaveCSS('left', '4px');
+  await expect(trackOf(sw)).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await sw.focus();
+  await page.keyboard.press('Space');
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, on: true }]);
+  // focus survives a price tick
+  await setPrice(page, 123, 16.5);
+  await page.waitForTimeout(300);
+  await expect(page.getByRole('switch')).toBeFocused();
+});
+
+// stays in Playwright: computed knob position, real click on the label, focus after a rebuild in the panel
+test('panel: the alarm list uses the same switches; clicking the track toggles the alarm', async ({ degiro, settings }) => {
+  const a = alarm({ id: 'p1' });
+  const opt = await seed(settings, [a]);
+  const { page } = await degiro({ url: PRODUCT });
+  await page.bringToFront();
+  await alarmBtn(page).click();
+  const sw = page.locator('[data-dg-alarm-row=p1]').getByRole('switch');
+  await expect(sw).toBeChecked();
+  await expect(knobOf(sw)).toHaveCSS('left', '20px');
+  await sw.locator('xpath=..').click(); // the label: the visible track and knob
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: 'p1', on: false }]);
+  await expect(sw).not.toBeChecked();
+  await expect(knobOf(sw)).toHaveCSS('left', '4px');
+  await sw.focus();
+  await page.keyboard.press('Space');
+  await expect.poll(() => stored(opt)).toMatchObject([{ id: 'p1', on: true }]);
+  // the list is rebuilt after the save: keyboard focus stays on the same switch
+  await expect(sw).toBeChecked();
+  await expect(page.locator('[data-dg-alarm-row=p1]').getByRole('switch')).toBeFocused();
+});
+
+// stays in Playwright: :focus-visible ring (computed box-shadow) needs real keyboard focus
+test('Alarms page: keyboard focus shows a ring on the track (also when on) and it survives a rebuild', async ({ degiro, settings }) => {
+  await seed(settings, [alarm()]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  const sw = page.getByRole('switch');
+  await expect(sw).toBeChecked();
+  await expect(trackOf(sw)).toHaveCSS('box-shadow', 'none');
+  await page.locator('[data-dg-alarm-edit]').first().focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(sw).toBeFocused();
+  const ring = await trackOf(sw).evaluate(e => getComputedStyle(e).boxShadow);
+  expect(ring).not.toBe('none');
+  expect(ring).toContain('rgb(0, 149, 210)');
+  expect(ring).toContain('rgb(255, 255, 255)'); // an offset gap in the page colour, visible on the blue track
+  await setPrice(page, 123, 16.5);
+  await page.waitForTimeout(300);
+  await expect(sw).toBeFocused();
+  expect(await trackOf(sw).evaluate(e => getComputedStyle(e).boxShadow)).toBe(ring);
+});
+
+// stays in Playwright: computed colours in the dark theme
+test('Alarms page: switch colours follow the dark theme when off', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ on: false })]);
+  const { page } = await degiro({
+    url: ALARMS,
+    initScript: () => document.addEventListener('DOMContentLoaded', () => { document.body.style.background = '#0f171a'; document.body.style.color = '#f3f7f9'; })
+  });
+  await page.bringToFront();
+  const sw = page.getByRole('switch');
+  await expect(sw).not.toBeChecked();
+  await expect(trackOf(sw)).toHaveCSS('background-color', 'rgb(15, 23, 26)');
+  await expect(knobOf(sw)).toHaveCSS('background-color', 'rgb(143, 160, 166)');
+});

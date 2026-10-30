@@ -8,12 +8,18 @@
   /** @type {{ status: string, products: Set<number>, menu: boolean }} */
   const view = { status: 'all', products: new Set(), menu: false };
   let sig = '';
+  /** The "?" hint on the Status header: open by pointer hover, keyboard focus or a click (pinned). Kept here so a rebuild keeps it. */
+  const tip = { hover: false, focus: false, pinned: false };
+  const tipOpen = () => tip.hover || tip.focus || tip.pinned;
+  let restoring = false; // focus given back after a rebuild is not a new focus: it must not reopen a dismissed bubble
   let pressing = false; // a pointer press that started inside our page is in progress
 
   function remove() {
     document.getElementById(STYLE)?.remove();
     document.querySelector(`[${ROOT}]`)?.remove();
+    document.querySelectorAll('[data-dg-alarm-tip-bubble]').forEach(b => b.remove());
     sig = '';
+    tip.hover = tip.focus = tip.pinned = false;
     view.menu = false;
     view.status = 'all'; // the filters live only while the page is open
     view.products.clear();
@@ -31,7 +37,7 @@
   function status(a, st, price) {
     if (st.firedAt && !a.on) return t('alarmStatusFiredOff', when(st.firedAt));
     if (st.firedAt && today(st.firedAt)) return t('alarmStatusFired', when(st.firedAt));
-    if (price == null) return t('alarmStatusNotInList');
+    if (price == null) return t(S.listed().has(a.productId) ? 'alarmStatusNoTrading' : 'alarmStatusNotInList');
     return t('alarmStatusWaiting');
   }
   /** @param {any} a */
@@ -48,6 +54,62 @@
     e.style.cssText = css;
     if (txt != null) e.textContent = txt;
     return e;
+  }
+
+  const TIP_ID = 'dg-alarm-status-tip';
+
+  /** Re-draws the bubble to match the state: one at most, under the "?" button, kept on screen. */
+  function syncTip() {
+    const root = document.querySelector(`[${ROOT}]`);
+    const btn = root?.querySelector('[data-dg-alarm-tip]');
+    document.querySelectorAll('[data-dg-alarm-tip-bubble]').forEach(b => b.remove());
+    if (!root || !btn) return;
+    const open = tipOpen();
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (!open) return;
+    const bubble = own(el('div', 'position:fixed;z-index:2147483000;box-sizing:border-box;width:min(360px,calc(100vw - 32px));background:#0F171A;color:#fff;' +
+      'padding:8px 10px;border-radius:4px;font-size:12px;line-height:18px;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere;' +
+      'box-shadow:rgba(0,0,0,.02) 0 8px 24px 0,rgba(0,0,0,.04) 0 4px 4px 0,rgba(0,0,0,.08) 0 0 2px 0;'));
+    bubble.id = TIP_ID;
+    bubble.setAttribute('role', 'tooltip');
+    bubble.setAttribute('data-dg-alarm-tip-bubble', '');
+    bubble.append(el('div', 'font-weight:600;margin-bottom:4px;', t('alarmColStatus')));
+    [['alarmStatusWaiting', 'alarmTipWaiting'], ['alarmStatusFiredName', 'alarmTipFired'], ['alarmStatusFiredOffName', 'alarmTipFiredOff'],
+      ['alarmStatusNotInList', 'alarmTipNotInList'], ['alarmStatusNoTrading', 'alarmTipNoTrading']].forEach(([name, text]) => {
+      const line = el('div', 'margin-top:3px;');
+      line.setAttribute('data-dg-alarm-tip-line', '');
+      line.append(el('span', 'font-weight:600;', t(name)), document.createTextNode(' \u2013 ' + t(text)));
+      bubble.append(line);
+    });
+    document.body.append(bubble); // not in the page root: a transformed ancestor would break position:fixed
+    position(bubble, btn);
+  }
+  /** @param {HTMLElement} bubble @param {Element} btn */
+  function position(bubble, btn) {
+    const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    const w = bubble.offsetWidth, h = bubble.offsetHeight;
+    bubble.style.left = `${Math.round(Math.max(16, Math.min(r.left, vw - w - 16)))}px`;
+    const below = r.bottom + 4;
+    bubble.style.top = `${Math.round(below + h > vh - 8 && r.top - 4 - h >= 8 ? r.top - 4 - h : below)}px`;
+  }
+  /** @param {Partial<typeof tip>} s */
+  function setTip(s) { Object.assign(tip, s); syncTip(); }
+
+  function tipButton() {
+    const b = /** @type {HTMLButtonElement} */ (el('button', `display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:20px;height:20px;padding:0;margin:0 0 0 4px;` +
+      `border:0;background:transparent;color:${dgUi.BLUE};cursor:pointer;`));
+    b.type = 'button';
+    b.setAttribute('data-dg-alarm-tip', '');
+    b.setAttribute('aria-label', t('alarmTipAria'));
+    b.setAttribute('aria-describedby', TIP_ID);
+    b.setAttribute('aria-expanded', 'false');
+    b.append(dgUi.icon(dgUi.QUESTION, 20));
+    b.addEventListener('mouseenter', () => setTip({ hover: true }));
+    b.addEventListener('mouseleave', () => setTip({ hover: false }));
+    b.addEventListener('focus', () => { if (!restoring) setTip({ focus: true }); });
+    b.addEventListener('blur', () => { if (b.isConnected) setTip({ focus: false }); });
+    b.addEventListener('click', () => setTip(tip.pinned ? { hover: false, focus: false, pinned: false } : { pinned: true }));
+    return b;
   }
 
   /** @param {ReturnType<typeof dgUi.theme>} th */
@@ -91,7 +153,9 @@
     const thead = document.createElement('thead');
     const hr = document.createElement('tr');
     ['alarmColProduct', 'alarmColLatest', 'alarmColAlarm', 'alarmColDistance', 'alarmColRepeat', 'alarmColStatus', 'alarmColOn', ''].forEach(k => {
-      hr.append(el('th', `text-align:${k === 'alarmColLatest' || k === 'alarmColAlarm' || k === 'alarmColDistance' ? 'right' : 'left'};font-weight:500;color:${th.muted};font-size:12px;padding:9px 12px;border-bottom:1px solid ${th.line};white-space:nowrap;`, k ? t(k) : ''));
+      const h = el('th', `text-align:${k === 'alarmColLatest' || k === 'alarmColAlarm' || k === 'alarmColDistance' ? 'right' : 'left'};font-weight:500;color:${th.muted};font-size:12px;padding:9px 12px;border-bottom:1px solid ${th.line};white-space:nowrap;`, k ? t(k) : '');
+      if (k === 'alarmColStatus') h.append(tipButton());
+      hr.append(h);
     });
     thead.append(hr);
     const tbody = document.createElement('tbody');
@@ -120,13 +184,7 @@
       stc.setAttribute('data-dg-alarm-status', '');
       stc.textContent = status(a, st, price);
       const onc = td();
-      const sw = /** @type {HTMLInputElement} */ (document.createElement('input'));
-      sw.type = 'checkbox';
-      sw.checked = a.on;
-      sw.setAttribute('role', 'switch');
-      sw.setAttribute('aria-label', t('alarmOnAria', money(a, a.price)));
-      sw.addEventListener('change', () => S.setOn(a.id, sw.checked));
-      onc.append(sw);
+      onc.append(dgUi.toggle({ on: a.on, label: t('alarmOnAria', money(a, a.price)), th, onChange: on => S.setOn(a.id, on) }));
       const delc = td();
       const acts = el('div', 'display:flex;align-items:center;gap:8px;justify-content:flex-end;');
       const edit = /** @type {HTMLButtonElement} */ (el('button', `display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:300px;` +
@@ -164,6 +222,7 @@
       if (a.matches('[data-dg-alarm-edit]')) return `tr[data-dg-alarm-id="${CSS.escape(row)}"] [data-dg-alarm-edit]`;
       return '';
     }
+    if (a.hasAttribute('data-dg-alarm-tip')) return '[data-dg-alarm-tip]';
     const f = a.getAttribute('data-dg-alarm-filter');
     if (f) return `[data-dg-alarm-filter="${CSS.escape(f)}"]`;
     return a.hasAttribute('data-dg-alarm-products') ? '[data-dg-alarm-products]' : '';
@@ -184,7 +243,7 @@
     view.products.forEach(p => { if (!ids.has(p)) view.products.delete(p); });
     const th = dgUi.theme();
     // an open menu must not be rebuilt under the cursor by a price tick
-    const key = JSON.stringify([S.list(), view.menu ? [] : S.state(), view.menu ? [] : [...S.live()], view.status, [...view.products], view.menu, th.bg, th.text]);
+    const key = JSON.stringify([S.list(), view.menu ? [] : S.state(), view.menu ? [] : [...S.live()], view.status, [...view.products], view.menu, [...S.listed()].sort((x, y) => x - y), th.bg, th.text]);
     let root = document.querySelector(`[${ROOT}]`);
     const list = main.querySelector(`:scope > ${SEL.favourites}`);
     // where DEGIRO's Favourites list was, so its footer stays at the bottom
@@ -200,7 +259,11 @@
     if (!placed) { if (list) list.after(root); else main.append(root); }
     const wrap = root.querySelector('[data-dg-alarm-scroll]');
     if (wrap) wrap.scrollLeft = scroll;
-    if (focus) /** @type {HTMLElement | null} */ (root.querySelector(focus))?.focus();
+    if (focus) {
+      restoring = true;
+      try { /** @type {HTMLElement | null} */ (root.querySelector(focus))?.focus(); } finally { restoring = false; }
+    }
+    syncTip();
     return 'ok';
   }
 
@@ -221,6 +284,24 @@
   };
   document.addEventListener('pointerup', release, true);
   document.addEventListener('pointercancel', release, true);
+
+  // the "?" bubble: Esc closes it, a click elsewhere unpins it, and a pointer that left a rebuilt button closes a stale hover
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && tipOpen()) setTip({ hover: false, focus: false, pinned: false });
+  });
+  document.addEventListener('pointermove', e => {
+    if (tip.hover && !(/** @type {Element} */ (e.target)).closest?.('[data-dg-alarm-tip]')) setTip({ hover: false });
+  }, true);
+  document.addEventListener('click', e => {
+    if (tip.pinned && !(/** @type {Element} */ (e.target)).closest?.('[data-dg-alarm-tip]')) setTip({ pinned: false });
+  });
+  const place = () => {
+    if (!tipOpen()) return;
+    const bubble = document.getElementById(TIP_ID), btn = document.querySelector(`[${ROOT}] [data-dg-alarm-tip]`);
+    if (bubble && btn) position(bubble, btn);
+  };
+  window.addEventListener('resize', place);
+  window.addEventListener('scroll', place, true);
 
   // a click outside the open product menu closes it
   document.addEventListener('click', e => {

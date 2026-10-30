@@ -285,7 +285,40 @@ test('storage refusing the write: add() reports an error and the list comes back
   assert.equal(listOf(w).length, 1);
 });
 
+test('Alarms page: switching between two lists with only dashes updates No trading now / Not in current list', async () => {
+  const w = createWorld();
+  await w.set('sync', { dgAlarms: [alarm({ price: 17 }), alarm({ productId: 901, price: 1 })] });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(200);
+  for (const id of [123, 456, 789, 901]) tab.setPrice(id, null); // every price is a dash: the live prices stay empty in both lists
+  await w.advance(300);
+  const byId = () => Object.fromEntries(tab.$$('tr[data-dg-alarm-id]').map(r => [r.querySelector('a').getAttribute('href'), r.querySelector('[data-dg-alarm-status]').textContent]));
+  const status = id => byId()[`#/products/${id}/overview`];
+  assert.equal(status(123), 'No trading now');
+  assert.equal(status(901), 'Not in current list');
+  tab.showList('energy');
+  await w.advance(300);
+  assert.equal(status(123), 'Not in current list');
+  assert.equal(status(901), 'No trading now');
+  noErrors(w);
+});
+
 test('the 25-alarm limit: add() says full', async () => {
   const { tab } = await setup(Array.from({ length: 25 }, () => alarm({ price: 500 })));
   assert.equal(await tab.run(`dgAlarmStore.add(${JSON.stringify(alarm())})`), 'full');
+});
+
+test('Alarms page: a listed product without a price says "No trading now"; one not in the list says "Not in current list"; nothing fires', async () => {
+  const w = createWorld();
+  await w.set('sync', { dgAlarms: [alarm({ price: 17, dir: 'above' }), alarm({ productId: 999, price: 1 })] });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(200);
+  tab.setPrice(123, null); // market closed: the Last price cell shows a dash
+  await w.advance(300);
+  const statuses = tab.$$('[data-dg-alarm-status]').map(e => e.textContent);
+  assert.deepEqual(statuses.sort(), ['No trading now', 'Not in current list']);
+  assert.equal(events(w).length, 0);
+  await price(tab, 123, 20);
+  assert.equal(events(w).length, 1);
+  noErrors(w);
 });
