@@ -1,5 +1,8 @@
 # Release notes
 
+## 1.21.3 — 2026-10-31
+- **No changes to the extension itself**: this release only adds tests (unit coverage of the shared helpers and the settings sanitizer, integration coverage of hidden sections, compact pricing data, the header dates, the period change and the status report) and developer notes.
+
 ## 1.21.2 — 2026-10-31
 - **Faster**: open orders appear on the chart about 2 seconds sooner after a product page opens, and the portfolio change appears as soon as DEGIRO's chart data arrives.
 - **Earnings date in the product header**: the next earnings date from DEGIRO's Earnings section sits after the ex-dividend date. Click it to jump to Earnings. It has its own switch in Settings.
