@@ -1,7 +1,11 @@
 ---
 name: update-docs
 description: Use before every git commit in this repo (and when the user says "update docs"). Brings README, CHANGELOG, CLAUDE.md, PRIVACY and STORE_LISTING in line with the pending code changes.
-model: sonnet
+context: fork
+agent: general-purpose
+model: haiku
+background: true
+disallowed-tools: Agent
 ---
 
 # Update docs before commit

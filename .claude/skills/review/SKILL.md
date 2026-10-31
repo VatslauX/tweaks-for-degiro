@@ -3,6 +3,8 @@ name: review
 description: Use after every development task in this repo (any change to extension/, tests/ or scripts/), before every git commit (after update-docs), and when the user says "review" or "code review". Runs in its own sub-agent with a fresh context. Reviews pending changes against project safety, store and robustness rules, runs relevant scoped tests (the full suite runs at release), and reports findings by priority.
 context: fork
 agent: general-purpose
+background: true
+disallowed-tools: Agent
 ---
 
 # Code review
