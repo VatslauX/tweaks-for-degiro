@@ -164,3 +164,31 @@ test('sanitize drops dashes from the currency ("$ —" read while the market was
   assert.strictEqual(cur('€–'), '€');
   assert.strictEqual(cur('—'), '');
 });
+
+test('text fields that are not text at all become empty, and the switch and created time are coerced', () => {
+  const [out] = R.sanitize([{ ...A, name: 123, symbol: null, currency: { toString: () => '€' } }]);
+  assert.strictEqual(out.name, '');
+  assert.strictEqual(out.symbol, '');
+  assert.strictEqual(out.currency, '', 'an object is not a currency, even one that prints like it');
+
+  assert.strictEqual(R.sanitize([{ ...A, on: false }])[0].on, false);
+  assert.strictEqual(R.sanitize([{ ...A, on: 'yes' }])[0].on, true, 'anything but false is on');
+  assert.strictEqual(R.sanitize([{ ...A, on: undefined }])[0].on, true);
+  for (const created of [0, -1, NaN, '1', null, undefined])
+    assert.strictEqual(R.sanitize([{ ...A, created }])[0].created, 0, `created ${String(created)} → 0`);
+  assert.strictEqual(R.sanitize([{ ...A, created: 1700000000000 }])[0].created, 1700000000000);
+});
+
+test('sanitizeEvents drops everything that is not a fired alarm', () => {
+  for (const bad of [null, undefined, 'x', 5, {}, { 0: { alarmId: 'a1', price: 1, at: 1 } }])
+    assert.deepStrictEqual(R.sanitizeEvents(bad), [], `${JSON.stringify(bad)} → no events`);
+  const entries = [
+    null, 5, 'a1', [], { price: 1, at: 1 }, { alarmId: 123, price: 1, at: 1 }, { alarmId: 'bad id', price: 1, at: 1 },
+    { alarmId: 'x'.repeat(40), price: 1, at: 1 }, { alarmId: 'a1', at: 1 }, { alarmId: 'a1', price: 1 },
+    { alarmId: 'a1', price: 0, at: 1 }, { alarmId: 'a1', price: NaN, at: 1 }, { alarmId: 'a1', price: 1, at: 0 },
+    { alarmId: 'a1', price: '1', at: 1 }
+  ];
+  assert.deepStrictEqual(R.sanitizeEvents(entries), []);
+  assert.deepStrictEqual(R.sanitizeEvents([...entries, { alarmId: 'a1', price: 2, at: 3, extra: '<b>' }]),
+    [{ alarmId: 'a1', price: 2, at: 3 }], 'the one good event, without unknown fields');
+});

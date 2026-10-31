@@ -13,7 +13,8 @@ paths:
 
 - `createWorld({ storage })` creates one browser profile. `chrome.storage.sync/local` is shared across tabs, values are JSON-copied, `onChanged` is asynchronous, and `world.latency`, `world.faults`, and `world.log` support timing, failure, and write assertions.
 - `world.open({ fixture, hash, settings, lang, globals })` returns a tab. `globals` supplies fixture switches and data such as `__TX`, `__ORDERS`, and `__MOCK_*`. Fixture inline scripts run before extension scripts.
-- Tab helpers include `tab.setPrice`, `tab.go(hash)`, `tab.setFlag(key, on)`, `tab.run(code)`, `tab.json(expr)`, `tab.owned()`, and `world.set(area, items)`.
+- Tab helpers include `tab.setPrice`, `tab.go(hash)`, `tab.setFlag(key, on)`, `tab.run(code)`, `tab.json(expr)`, `tab.owned()`, `tab.message(msg, sender?)` (delivers a `chrome.runtime` message, like the toolbar popup, and returns the reply), and `world.set(area, items)`.
+- Page-world scripts (`world: "MAIN"`) are not loaded by the harness. Load them, with `common.js`, in a `vm` context over a JSDOM page, as `tests/integration/period.test.js` and `tests/integration/alarm-lines.test.js` do.
 - `Date`, timers, and `requestAnimationFrame` share a virtual clock. Use `world.advance(ms)` to run timers, frames, promises, and storage events in order; `world.skip(ms)` to jump time; `world.flush()`/`tab.flush()` to settle work due now. Check `world.errors` is empty.
 - To prove a test fails without a change, point `DGT_EXTENSION_DIR` at a scratch copy of `extension/`; never deliberately break the working source tree.
 - JSDOM has no layout. Use Playwright E2E tests for sizes, visibility, sticky header choice, sidebar fit, menu clamping, computed colors, and options-page layout. Use integration tests for logic across inputs, tabs, races, and time. Extend fixtures when a feature relies on new DEGIRO DOM.

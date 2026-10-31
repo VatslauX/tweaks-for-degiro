@@ -8,7 +8,7 @@
 // What is faked:
 //  - chrome.storage.sync/.local (shared by every tab of the world, JSON-copied values, onChanged delivered
 //    asynchronously to all tabs, optional latency and failures), chrome.i18n (real _locales files),
-//    chrome.runtime (id, onMessage).
+//    chrome.runtime (id, onMessage: tab.message(msg) delivers one and returns the reply).
 //  - Time: Date, setTimeout/setInterval and requestAnimationFrame of every tab run on ONE virtual clock per
 //    world. Nothing waits for real time; tests move it with world.advance(ms) or tab.flush().
 //  - jsdom gaps the scripts rely on: CSS.escape, TextEncoder, crypto.randomUUID.
@@ -198,7 +198,7 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
       virtualConsole.on('error', (...a) => console.error('[tab]', ...a));
       const dom = new JSDOM(html, { url: `https://trader.degiro.nl/trader/#${hash.replace(/^#/, '')}`, runScripts: 'outside-only', virtualConsole });
       const win = dom.window;
-      const tab = { world, window: win, document: win.document, listeners: [], closed: false, dead: false, dom };
+      const tab = { world, window: win, document: win.document, listeners: [], messageListeners: [], closed: false, dead: false, dom };
       tabs.add(tab);
 
       // ---- browser APIs ----
@@ -208,7 +208,7 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
         i18n: { getMessage: (key, subs) => getMessage(lang, key, subs), getUILanguage: () => lang },
         runtime: {
           get id() { return extensionId; }, // gone once the extension is disabled or removed
-          onMessage: { addListener: () => {} },
+          onMessage: { addListener: fn => tab.messageListeners.push(fn) },
           getManifest: () => JSON.parse(fs.readFileSync(path.join(EXT, 'manifest.json'), 'utf8'))
         }
       };
@@ -260,6 +260,12 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
       };
       /** like the options page: write the flag to chrome.storage.sync */
       tab.setFlag = async (key, on) => { await chromeApi.storage.sync.set({ [key]: on }); await world.flush(); };
+      /** like the toolbar popup: send a chrome.runtime message to this tab and return the reply, as plain JSON */
+      tab.message = (msg, sender = { id: extensionId }) => {
+        let reply;
+        for (const fn of tab.messageListeners) { try { fn(msg, sender, r => { reply = r; }); } catch (e) { errors.push(e); } }
+        return json(reply);
+      };
       /** everything the extension added carries data-dg-own */
       tab.owned = () => tab.$$('[data-dg-own]');
       await world.flush();
