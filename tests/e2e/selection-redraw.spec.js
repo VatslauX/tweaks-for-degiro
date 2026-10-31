@@ -1,7 +1,7 @@
 // The range selection survives plain redraws (live price ticks) and is cleared by a new period.
 const { test, expect } = require('./fixtures');
 
-async function select(page, a = 0.3, b = 0.7, yFrac = 0.5) {
+async function select(page, a = 0.3, b = 0.7, yFrac = 0.05) { // near the top, clear of the order badges (they swallow pointerdown)
   const box = await page.locator('#chart .highcharts-container').boundingBox();
   const y = box.y + box.height * yFrac;
   await page.mouse.move(box.x + box.width * a, y);

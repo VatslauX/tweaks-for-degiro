@@ -12,7 +12,7 @@ const dark = () => {
 
 async function drag(page, sel, a, b) {
   const box = await page.locator(sel).boundingBox();
-  const y = box.y + box.height / 2;
+  const y = box.y + Math.min(box.height / 2, 20); // near the top, clear of the order badges (they swallow pointerdown)
   await page.mouse.move(box.x + box.width * a, y);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * (a + b) / 2, y, { steps: 3 });

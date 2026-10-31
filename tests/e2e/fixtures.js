@@ -168,4 +168,12 @@ async function setFlag(settingsPage, key, on) {
   await expect(cb).toBeChecked({ checked: on });
 }
 
-module.exports = { test, expect, setFlag, DEFAULT_ORDERS, EXT, portfolioSeries };
+// With the fake clock the extension's timers and frames only run when the test advances time, but
+// DEGIRO's session reaches it in real time (PerformanceObserver) and answers arrive in real time.
+// A single fastForward can therefore come too early. Advance in small steps until `locator` shows up.
+async function advanceUntilVisible(page, locator, step = 100) {
+  await expect.poll(async () => { await page.clock.fastForward(step); return locator.count(); }, { timeout: 10000 }).toBeGreaterThan(0);
+  await expect(locator).toBeVisible();
+}
+
+module.exports = { test, expect, setFlag, advanceUntilVisible, DEFAULT_ORDERS, EXT, portfolioSeries };

@@ -37,8 +37,12 @@ function makeChart(width, height) {
  * Load and run orders.js in an isolated VM context.
  * Returns helpers to drive the feature and inspect timer calls.
  */
-function loadOrders({ flagOrders = true, twoCharts = false } = {}) {
+function loadOrders({ flagOrders = true, twoCharts = false, session = false } = {}) {
   const timers = [];
+  // session: DEGIRO's own request URL carries the session, rows: rows in DEGIRO's Outstanding panel,
+  // clock: virtual time for Date.now(), requests: update requests orders.js made
+  const clock = { t: 1_000_000 }, rows = { n: 0 }, requests = [];
+  class FakeDate extends Date { static now() { return clock.t; } }
   let featureConfig = null;
 
   const mainChartObj = makeChart(900, 300);
@@ -74,10 +78,11 @@ function loadOrders({ flagOrders = true, twoCharts = false } = {}) {
       },
       setAttribute() {},
     },
-    querySelectorAll() { return []; },
+    querySelectorAll(sel) { return sel === 'tr[data-name=openOrder]' ? Array.from({ length: rows.n }) : []; },
     querySelector()    { return null; },
     createElement()    { return mockElement(); },
     activeElement: null,
+    visibilityState: 'visible',
   };
 
   const ctx = vm.createContext({
@@ -88,10 +93,15 @@ function loadOrders({ flagOrders = true, twoCharts = false } = {}) {
       origin: 'https://trader.degiro.nl',
       href: 'https://trader.degiro.nl/trader/#/products/123/overview',
     },
-    performance:          { getEntriesByType: () => [] },
+    performance:          { getEntriesByType: () => (session ? [{ name: 'https://trader.degiro.nl/notes?intAccount=42&sessionId=SID' }] : []) },
     PerformanceObserver:  class { observe() {} },
-    fetch:                () => Promise.reject(new Error('no fetch in tests')),
+    fetch: path => {
+      if (!session) return Promise.reject(new Error('no fetch in tests'));
+      requests.push(path);
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ orders: { value: [] } }) });
+    },
     Promise,
+    Date: FakeDate,
     setTimeout:           (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
     clearTimeout:         () => 0,
     setInterval:          () => 0,
@@ -126,6 +136,7 @@ function loadOrders({ flagOrders = true, twoCharts = false } = {}) {
       },
       page: { productId: () => 123, isProduct: () => true, isOrders: () => false },
       own:     el => el,
+      schedule: () => {},
       feature: cfg => { featureConfig = cfg; },
       t:       key => key,
     },
@@ -137,6 +148,7 @@ function loadOrders({ flagOrders = true, twoCharts = false } = {}) {
   return {
     timers,
     handlers,
+    clock, rows, requests,
     mainChartObj,
     otherChart,
     setFlagOrders: v => { currentFlagOrders = v; },
@@ -193,4 +205,29 @@ test('redraw handler: schedules timers for the main chart when the flag is on', 
 
   assert.ok(timers.length > before, 'two timers scheduled for a main-chart redraw when the flag is on');
   assert.equal(timers.length - before, 2, 'exactly two timers (immediate + 700 ms)');
+});
+
+// moved from e2e (badges.spec.js): only timer and call-count logic, no layout
+test('a new or removed order row in the Outstanding panel reloads the orders once', async () => {
+  const { clock, rows, requests, run } = loadOrders({ session: true });
+  const settle = () => new Promise(r => setImmediate(r)); // let the fetch continuation finish
+
+  run(); await settle();
+  assert.equal(requests.length, 1, 'first poll');
+
+  clock.t += 100; rows.n = 5; run(); await settle(); // panel expanded: 0 -> 5 rows is not an order change
+  assert.equal(requests.length, 1, 'expanding the panel does not reload');
+
+  clock.t += 12000; // well past the 5 s minimum gap, before the 20 s poll
+  rows.n = 6; run(); await settle(); // a new order row
+  assert.equal(requests.length, 2, 'a new row reloads at once (gap > 5 s)');
+
+  clock.t += 2500; rows.n = 5; run(); await settle(); // a row removed, 2.5 s after the reload
+  assert.equal(requests.length, 2, 'held back by the 5 s minimum gap');
+
+  clock.t += 3600; run(); await settle(); // 6.1 s since the reload
+  assert.equal(requests.length, 3, 'deferred reload fires once past the gap');
+
+  clock.t += 3000; run(); await settle();
+  assert.equal(requests.length, 3, 'no further reloads');
 });

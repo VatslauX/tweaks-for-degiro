@@ -1,13 +1,12 @@
 // Orders need DEGIRO's session. Normally it is read from DEGIRO's own request URLs; if those stop
 // carrying it, orders.js asks DEGIRO's config and client endpoints instead (only then).
-const { test, expect } = require('./fixtures');
+const { test, expect, advanceUntilVisible } = require('./fixtures');
 
 const badge = page => page.locator('#chart div', { hasText: /^BUY 100 · 15,50$/ });
 
 test('session from request URLs: the fallback endpoints are never called', async ({ degiro }) => {
   const { page, calls } = await degiro({ clock: true });
-  await page.clock.fastForward(2000); // fire the initial scheduler run / first poll
-  await expect(badge(page)).toBeVisible({ timeout: 3000 });
+  await advanceUntilVisible(page, badge(page)); // the initial scheduler run and first poll
   await page.clock.fastForward(6000); // past the 5 s fallback delay
   expect(calls.config).toBe(0);
   expect(calls.client).toBe(0);
@@ -32,10 +31,10 @@ test('without window.Highcharts the chart features report "Not found"', async ({
     Object.defineProperty(window, 'Highcharts', { get: () => undefined, set: () => {}, configurable: false });
   } });
   // chart features are page-world: the fake clock skips the 8 s "loading" window before "Not found"
-  await page.clock.fastForward(9000);
   const opt = await settings();
   await expect.poll(async () => {
     await page.bringToFront();
+    await page.clock.fastForward(9000); // repeated: the first runs can come after the first jump
     await opt.evaluate(() => globalThis.dgLoadStatus());
     return opt.locator('#pageStatusList li', { hasText: 'Range selection' }).textContent();
   }, { timeout: 10000 }).toMatch(/Not found/);

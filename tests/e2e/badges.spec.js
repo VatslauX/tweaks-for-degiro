@@ -1,5 +1,5 @@
 // Order badges: keyboard access, reload when DEGIRO's order list changes, crowded charts.
-const { test, expect, setFlag } = require('./fixtures');
+const { test, expect, setFlag, advanceUntilVisible } = require('./fixtures');
 
 const badge = page => page.locator('#chart div:not(:has(div))', { hasText: /^BUY 100 · 15,50$/ });
 const log = page => page.evaluate(() => window.__log.join(','));
@@ -36,41 +36,11 @@ test('badges are not buttons when clicking is switched off', async ({ degiro, se
   await expect(badge(page)).not.toHaveAttribute('tabindex', /.*/);
 });
 
-test('a new or removed order row in the Outstanding panel reloads the orders once', async ({ degiro }) => {
-  const { page, calls } = await degiro({ clock: true });
-  await page.clock.fastForward(2000); // first poll (T_last ≈ 16 ms)
-  await expect(badge(page)).toBeVisible({ timeout: 3000 });
-  await expect.poll(() => calls.update).toBeGreaterThanOrEqual(1);
-  await page.click('#toggle'); // expand DEGIRO's panel: panel rows appear (triggers debounce reload)
-  await expect(page.locator('tr[data-name=openOrder]').first()).toBeVisible();
-  // fastForward(5500) fires the panel-expansion debounce reload (at ~T=5016 ms, T_last ≈ 5016 ms).
-  // fastForward(5000) then puts T at ~12500 ms, so gap = 12500 - 5016 ≈ 7.5 s > 5 s:
-  // the next insert-triggered reload will fire immediately, not deferred.
-  await page.clock.fastForward(5500);
-  await page.clock.fastForward(5000);
-  const before = calls.update;
-  await page.evaluate(() => {
-    const t = document.createElement('table'); t.id = 'extra';
-    t.innerHTML = '';
-    const tr = document.createElement('tr'); tr.setAttribute('data-name', 'openOrder');
-    t.appendChild(tr); document.body.appendChild(t);
-  });
-  await page.clock.fastForward(100); // fire rAF: gap > 5 s → immediate reload
-  await expect.poll(() => calls.update, { timeout: 5000 }).toBe(before + 1);
-  // second change right after is held back by the 5 s minimum gap
-  await page.evaluate(() => document.getElementById('extra').remove());
-  await page.clock.fastForward(2500); // < 5 s since last reload
-  expect(calls.update).toBe(before + 1);
-  await page.clock.fastForward(3600); // past 5 s gap → deferred reload fires
-  await expect.poll(() => calls.update, { timeout: 5000 }).toBe(before + 2);
-  await page.clock.fastForward(3000); // no further reloads
-  expect(calls.update).toBe(before + 2);
-});
+// → integration (orders.test.js): 'a new or removed order row in the Outstanding panel reloads the orders once'
 
 test('expanding or minimising the orders panel is not an order change: no extra request', async ({ degiro }) => {
   const { page, calls } = await degiro({ clock: true });
-  await page.clock.fastForward(2000);
-  await expect(badge(page)).toBeVisible({ timeout: 3000 });
+  await advanceUntilVisible(page, badge(page));
   await page.clock.fastForward(5500); // past minimum 5 s gap
   const before = calls.update;
   await page.click('#toggle');

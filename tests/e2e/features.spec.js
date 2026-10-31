@@ -19,7 +19,8 @@ async function badgeGeometry(page) {
 
 async function dragOnChart(page, fromFrac, toFrac) {
   const box = await page.locator('#chart .highcharts-container').boundingBox();
-  const y = box.y + box.height / 2;
+  // near the top, clear of the order badges: they appear when the orders arrive and swallow pointerdown
+  const y = box.y + box.height * 0.05;
   await page.mouse.move(box.x + box.width * fromFrac, y);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * (fromFrac + toFrac) / 2, y, { steps: 3 });

@@ -1,5 +1,5 @@
 // Feature status in the toolbar popup ("On this page"), and the shared scheduler behind it.
-const { test, expect } = require('./fixtures');
+const { test, expect, advanceUntilVisible } = require('./fixtures');
 
 // the popup asks the active tab; bring DEGIRO to the front, then refresh the popup's list
 async function popupStatus(page, opt) {
@@ -13,7 +13,7 @@ test('popup lists which features work on the open DEGIRO page', async ({ degiro,
   const { page } = await degiro();
   await expect(page.locator('#dg-period-change')).toBeVisible();
   const opt = await settings();
-  await expect.poll(async () => (await popupStatus(page, opt))['Open orders on chart'], { timeout: 8000 }).toBe('Working');
+  await expect.poll(async () => (await popupStatus(page, opt))['Open orders on chart'], { timeout: 15000 }).toBe('Working');
   const s = await popupStatus(page, opt);
   expect(s['Bid/ask spread']).toBe('Working');
   expect(s['Range selection']).toBe('Working');
@@ -35,7 +35,7 @@ test('popup hides the list when the active tab is not DEGIRO', async ({ settings
 test('status from the page is accepted only for known features and values', async ({ degiro, settings }) => {
   const { page } = await degiro();
   const opt = await settings();
-  await expect.poll(async () => (await popupStatus(page, opt))['Open orders on chart'], { timeout: 8000 }).toBe('Working');
+  await expect.poll(async () => (await popupStatus(page, opt))['Open orders on chart'], { timeout: 15000 }).toBe('Working');
   // the page can write the status attribute: unknown keys and values must be ignored
   await page.evaluate(() => document.documentElement.setAttribute('data-dg-status',
     JSON.stringify({ orders: '<img src=x onerror=alert(1)>', evil: 'ok', spread: 'missing', chartSelect: 'missing' })));
@@ -54,7 +54,9 @@ test('the page settles: no render loop between the features and the scheduler', 
     window.__rafs = 0;
     window.requestAnimationFrame = cb => { window.__rafs++; return raf(cb); };
   } });
-  await page.clock.fastForward(2000); // fire initial scheduler runs; period-change + spread row appear
+  // fire the initial scheduler runs: period-change, spread row and the order badges (which wait for the
+  // session and the answer, both in real time) appear; the frames they cause must not fall into the sample
+  await advanceUntilVisible(page, page.locator('#chart div', { hasText: /^BUY 100 · 15,50$/ }));
   await expect(page.locator('#dg-period-change')).toBeVisible();
   await expect(page.locator('[data-spread-row]')).toHaveCount(1);
   await page.clock.fastForward(1500); // let everything settle

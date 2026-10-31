@@ -9,9 +9,9 @@ test('selection label renders page strings as text, not HTML', async ({ degiro }
     Highcharts.setOptions({ lang: { shortMonths: Array(12).fill(evil), months: Array(12).fill(evil) } });
   });
   const box = await page.locator('#chart .highcharts-container').boundingBox();
-  await page.mouse.move(box.x + box.width * 0.2, box.y + 150);
+  await page.mouse.move(box.x + box.width * 0.2, box.y + 20); // near the top, clear of the order badges
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.6, box.y + 150, { steps: 5 });
+  await page.mouse.move(box.x + box.width * 0.6, box.y + 20, { steps: 5 });
   await page.mouse.up();
   const label = page.locator('#chart .highcharts-container > div', { hasText: '→' });
   await expect(label).toContainText('<img src=x');
