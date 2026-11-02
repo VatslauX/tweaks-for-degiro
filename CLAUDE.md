@@ -29,7 +29,7 @@ The main session uses the `run-tests` skill for tests. A forked review agent run
 ## Project map
 
 - `extension/`: shipped extension. Source architecture and security requirements are in `.claude/rules/extension-architecture.md` and `.claude/rules/extension-security.md`.
-- `tests/unit/`: static checks for the manifest, source safety, translations, and store publishing, plus the
+- `tests/unit/`: static checks for the manifest, source safety, translations, store publishing, and GitHub Actions pins (every `uses:` is a commit SHA with a version comment, and Dependabot tracks actions), plus the
   logic that needs no page: the alarm rules, the settings sanitizer (`flags.js` in a `vm` sandbox) and the
   helpers of `common.js` (JSDOM globals before the require; see `tests/unit/common-dom.test.js`).
 - `tests/integration/`, `tests/e2e/`, `tests/fixtures/`: DOM and browser behavior against local mocks. See `.claude/rules/test-fixtures.md`.
