@@ -31,9 +31,9 @@ test('not shown when the date is unknown', async ({ degiro }) => {
 test('past dates are shown muted, future in blue', async ({ degiro }) => {
   const { page } = await degiro();
   await expect(link(page)).toBeVisible();
-  expect(await page.$eval('#dg-earnings', el => getComputedStyle(el.lastElementChild).color)).toBe('rgb(0, 159, 223)');
+  expect(await page.$eval('#dg-earnings', el => getComputedStyle(el.lastElementChild).color)).toBe('rgb(0, 149, 210)');
   await page.evaluate(() => { document.querySelector('#earnWidget time[data-field=dateTime]').textContent = '01/02/2020'; });
-  await expect.poll(() => page.$eval('#dg-earnings', el => getComputedStyle(el.lastElementChild).color)).toBe('rgb(121, 138, 144)');
+  await expect.poll(() => page.$eval('#dg-earnings', el => getComputedStyle(el.lastElementChild).color)).toBe('rgb(101, 117, 123)');
 });
 
 test('ignores a date outside the Earnings widget', async ({ degiro }) => {

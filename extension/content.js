@@ -128,7 +128,7 @@
       el.style.cssText = 'display:inline-flex;align-items:baseline;gap:4px;';
       const label = document.createElement('span');
       label.textContent = t('spread');
-      label.style.cssText = 'color:#798A90;font-size:12px;font-weight:500;';
+      label.style.cssText = 'color:#65757B;font-size:12px;font-weight:500;';
       const value = /** @type {HTMLElement} */ (rel.cloneNode(false)); // DEGIRO's text style for the daily change
       for (const a of [...value.attributes]) if (a.name.startsWith('data-')) value.removeAttribute(a.name);
       value.removeAttribute('title');

@@ -8,9 +8,9 @@
   const ENDPOINT = '/portfolio-metrics/secure/api/v1/portfolio/value';
   const LINE = [0, 159, 223]; // DEGIRO blue used for the line
   const DG = {
-    font: 'Inter, Helvetica, HelveticaNeue, sans-serif', text: '#0F171A', muted: '#798A90',
-    upDot: '#078307', downDot: '#E3282B', upText: '#1E8302', downText: '#E3282B',
-    upFill: 'rgba(7,131,7,.08)', downFill: 'rgba(227,40,43,.08)', edge: 'rgba(121,138,144,.7)'
+    font: 'Inter, Helvetica, HelveticaNeue, sans-serif', text: '#0F171A', muted: '#65757B',
+    upDot: '#078307', downDot: '#E40101', upText: '#1E8302', downText: '#E40101',
+    upFill: 'rgba(7,131,7,.08)', downFill: 'rgba(228,1,1,.08)', edge: 'rgba(101,117,123,.7)'
   };
   const PERIODS = { ONE_MONTH: '1M', THREE_MONTHS: '3M', SIX_MONTHS: '6M', YEAR_TO_DATE: 'YTD', ONE_YEAR: '1Y', THREE_YEARS: '3Y', FIVE_YEARS: '5Y', ALL: 'ALL', MAX: 'ALL' };
   const CHANGE_ID = 'dg-portfolio-change';

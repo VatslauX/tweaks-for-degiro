@@ -120,7 +120,7 @@ test('the change over the selected period, in the header container, before the o
 test('a fall is shown with the minus and DEGIRO\'s red; prices under 10 get three decimals', () => {
   const p = load({ chartSeries: [series(30, 20, 9.5, 9)] });
   assert.equal(p.value(), '-0,500 (-5,26%)');
-  assert.equal(p.color(), 'rgb(227, 40, 43)');
+  assert.equal(p.color(), 'rgb(228, 1, 1)');
 });
 
 test('a candlestick series: the close of the first and last point', () => {

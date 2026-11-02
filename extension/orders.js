@@ -1,7 +1,7 @@
 // Open orders on the DEGIRO product chart: a dashed line plus a badge on the left.
 // Runs in the page context (world: MAIN). Uses the same session as DEGIRO itself.
 (() => {
-  const BUY = '#078307', SELL = '#E3282B';
+  const BUY = '#078307', SELL = '#E40101';
   const POLL_MS = 20000, TIMEOUT_MS = 15000; // a hung request must not stop polling
   let sid = /** @type {string | null} */ (null), acc = /** @type {string | null} */ (null),
     orders = [], version = 0, loading = false, last = 0;

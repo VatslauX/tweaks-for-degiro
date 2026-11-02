@@ -117,7 +117,7 @@ test('pageTheme(): the first solid background decides light or dark', () => {
   const light = pageTheme(document.getElementById('inner'));
   assert.equal(light.dark, false);
   assert.equal(light.upText, '#1E8302');
-  assert.equal(light.downText, '#E3282B');
+  assert.equal(light.downText, '#E40101');
   assert.equal(light.border, '0');
 });
 

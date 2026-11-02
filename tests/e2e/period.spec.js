@@ -52,7 +52,7 @@ test('green when up, red when down', async ({ degiro }) => {
     const v = document.querySelector('#dg-period-change').lastElementChild;
     return { pct: v.textContent, color: getComputedStyle(v).color };
   });
-  expect(color).toBe(pct.startsWith('+') ? 'rgb(30, 131, 2)' : 'rgb(227, 40, 43)');
+  expect(color).toBe(pct.startsWith('+') ? 'rgb(30, 131, 2)' : 'rgb(228, 1, 1)');
 });
 
 test('can be switched off', async ({ degiro, settings }) => {

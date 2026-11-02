@@ -62,7 +62,7 @@ test('a date still to come gets the plain title; a date that has passed says so 
   const w = createWorld();
   const tab = await openProduct(w);
   assert.equal(item(tab, 'dg-exdiv').title, 'Ex-dividend date — go to Dividends');
-  assert.equal(item(tab, 'dg-exdiv').lastElementChild.style.color, 'rgb(0, 159, 223)', 'DEGIRO blue');
+  assert.equal(item(tab, 'dg-exdiv').lastElementChild.style.color, 'rgb(0, 149, 210)', 'DEGIRO blue');
   assert.equal(item(tab, 'dg-earnings').title, 'Next earnings date — go to Earnings');
 
   const exdiv = tab.$('time[data-field=exDividendDate]');
@@ -72,7 +72,7 @@ test('a date still to come gets the plain title; a date that has passed says so 
   await touch(w, tab);
   assert.equal(value(tab, 'dg-exdiv'), '12/11/2020');
   assert.equal(item(tab, 'dg-exdiv').title, 'Ex-dividend date (past) — go to Dividends');
-  assert.equal(item(tab, 'dg-exdiv').lastElementChild.style.color, 'rgb(121, 138, 144)', 'muted');
+  assert.equal(item(tab, 'dg-exdiv').lastElementChild.style.color, 'rgb(101, 117, 123)', 'muted');
   assert.equal(item(tab, 'dg-earnings').title, 'Earnings date (past) — go to Earnings');
   noErrors(w);
 });

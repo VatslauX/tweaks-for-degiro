@@ -4,11 +4,11 @@
   // DEGIRO palette and fonts
   const DG = {
     font: 'Inter, Helvetica, HelveticaNeue, sans-serif',
-    text: '#0F171A', muted: '#798A90',
-    upDot: '#078307', downDot: '#E3282B',   // chart markers
-    upText: '#1E8302', downText: '#E3282B', // change text (+0,26 (+1,58%))
-    upFill: 'rgba(7,131,7,.08)', downFill: 'rgba(227,40,43,.08)',
-    edge: 'rgba(121,138,144,.7)'
+    text: '#0F171A', muted: '#65757B',
+    upDot: '#078307', downDot: '#E40101',   // chart markers
+    upText: '#1E8302', downText: '#E40101', // change text (+0,26 (+1,58%))
+    upFill: 'rgba(7,131,7,.08)', downFill: 'rgba(228,1,1,.08)',
+    edge: 'rgba(101,117,123,.7)'
   };
   const { flags, pageTheme, mainChart, priceSeries, xs, ys, fmt, own, feature } = __dgt; // common.js
   // per chart: clears its selection (charts are DEGIRO's objects, so nothing is stored on them)

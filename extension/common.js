@@ -193,7 +193,7 @@
     return {
       dark, bg,
       text: getComputedStyle(document.body).color || (dark ? '#F3F7F9' : '#0F171A'),
-      upText: dark ? '#4CB82E' : '#1E8302', downText: dark ? '#FF5A5F' : '#E3282B',
+      upText: dark ? '#4CB82E' : '#1E8302', downText: dark ? '#FF5A5F' : '#E40101',
       shadow: dark ? '0 1px 3px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.5)' : '0 1px 2px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.12)',
       border: dark ? '1px solid rgba(255,255,255,.14)' : '0'
     };

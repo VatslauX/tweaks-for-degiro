@@ -4,7 +4,7 @@
 // Runs in page context (world: MAIN) to read window.Highcharts.
 (() => {
   const ID = 'dg-period-change';
-  const MUTED = '#798A90';
+  const MUTED = '#65757B';
 
   const { flags, pageTheme, mainChart, priceSeries, xs, ys, fmt, SEL, LABELS, page, own, feature } = __dgt; // common.js
   const PERIOD = LABELS.period;

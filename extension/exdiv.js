@@ -2,7 +2,7 @@
 // and Earnings widgets know the dates. Clicking one scrolls to its widget (without touching the app's hash route).
 (() => {
   const ID = 'dg-exdiv', EARNINGS_ID = 'dg-earnings';
-  const BLUE = '#009FDF', MUTED = '#798A90';
+  const BLUE = '#0095D2', MUTED = '#65757B';
   const { SEL, LABELS, page, own, feature } = __dgt; // common.js
   const visible = el => el && el.getBoundingClientRect().height > 0;
   // Our header items (period change 0, spread 1, ex-div 2, earnings 3) share one wrapping container placed right
@@ -53,7 +53,7 @@
   function reveal(w) {
     if (!w) return;
     w.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    w.animate?.([{ backgroundColor: 'rgba(0,159,223,.15)' }, { backgroundColor: 'transparent' }], { duration: 1200 });
+    w.animate?.([{ backgroundColor: 'rgba(0,149,210,.15)' }, { backgroundColor: 'transparent' }], { duration: 1200 });
   }
   const withDigits = t => t && /\d/.test(t.textContent) ? t : null;
 
