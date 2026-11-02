@@ -15,12 +15,18 @@ test('disabling the extension stops the order polling and removes our additions'
   const ext = await context.newPage();
   const toggle = ext.locator('#enableToggle:visible');
   // chrome://extensions renders late on a busy machine and can swallow the click or show a stale state:
-  // load the page again to read the real state, and click only while the toggle shows "on"
+  // load the page again to read the real state, and click only while the toggle shows "on".
+  // The toggle is a <cr-toggle role="switch">, so its state lives in aria-checked (Chrome used to
+  // expose aria-pressed). Wait for a definite aria-checked before reading it: toBeChecked() reads a
+  // missing attribute as "off", which would pass against a toggle that is still on.
   await expect(async () => {
     await ext.goto(`chrome://extensions/?id=${extId}`);
-    await expect(toggle).toHaveAttribute('aria-pressed', /true|false/);
-    if ((await toggle.getAttribute('aria-pressed')) === 'true') await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false', { timeout: 4000 });
+    await expect(toggle).toHaveAttribute('aria-checked', /^(true|false)$/);
+    if (await toggle.isChecked()) await toggle.click();
+    // Assert the attribute, not not.toBeChecked(): a cr-toggle that re-renders and drops
+    // aria-checked for a tick would read as "off" and let this block exit with the
+    // extension still enabled, failing later and more confusingly.
+    await expect(toggle).toHaveAttribute('aria-checked', 'false', { timeout: 4000 });
   }).toPass({ timeout: 40000 });
   await ext.close();
 

@@ -25,12 +25,12 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@playwright/test": "^1.56.0",
-    "@types/chrome": "^0.3.6",
+    "@playwright/test": "^1.64.1",
+    "@types/chrome": "^0.3.7",
     "eslint": "^9.39.5",
-    "globals": "^17.13.0",
-    "highcharts": "^4.2.1",
-    "jsdom": "25.0.1",
+    "globals": "^17.14.0",
+    "highcharts": "4.2.1",
+    "jsdom": "^29.1.1",
     "typescript": "^5.9.3"
   },
   "private": true

@@ -14,8 +14,11 @@ updates:
     commit-message:
       prefix: "ci"
     groups:
+      # Minor and patch bumps travel together; a major gets its own PR, so one
+      # breaking action cannot hold back routine pin refreshes.
       actions:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   # The extension ships no runtime dependencies; these are test and lint tools only.
   - package-ecosystem: "npm"
@@ -25,13 +28,19 @@ updates:
     commit-message:
       prefix: "deps"
     groups:
+      # Same split: eslint and typescript majors change lint rules and type
+      # diagnostics, so they need their own PR rather than blocking a patch batch.
       dev-dependencies:
         dependency-type: "development"
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     ignore:
-      # The product fixture loads Highcharts from node_modules to mirror the real
-      # DEGIRO page (.claude/rules/test-fixtures.md), so the major version is a
-      # mock-parity decision, not a dependency bump. Minor and patch updates still
-      # come through; a major one is the user's call.
+      # Pinned exactly, every update ignored: the live DEGIRO product chart reports
+      # "Created with Highstock 4.2.1" (read from its SVG <desc> on 2026-11-02), and
+      # the product fixture loads this package at that same version to mirror the page
+      # (it serves the highcharts.js build rather than highstock.js; the live chart's
+      # x-axis was measured as non-ordinal, matching the fixture's plain datetime axis)
+      # (.claude/rules/test-fixtures.md). Any bump, patch included, moves the mock
+      # away from the version the real page runs. Re-check the page's version before
+      # changing this; it is a mock-parity decision, not a dependency bump.
       - dependency-name: "highcharts"
-        update-types: ["version-update:semver-major"]
