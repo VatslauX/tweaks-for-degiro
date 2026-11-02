@@ -1,11 +1,37 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot keeps the SHA-pinned GitHub Actions and the dev dependencies current.
+# The actions in .github/workflows/ are pinned to commit SHAs (supply-chain hardening,
+# code-scanning rule ai-scan/cwe-829): the release job holds a Chrome Web Store OIDC
+# token, so a mutable tag there is a path to publishing a malicious build. Dependabot
+# rewrites the SHA and the `# vX.Y.Z` comment together, so pinning stays maintainable.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # The extension ships no runtime dependencies; these are test and lint tools only.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        patterns: ["*"]
+    ignore:
+      # The product fixture loads Highcharts from node_modules to mirror the real
+      # DEGIRO page (.claude/rules/test-fixtures.md), so the major version is a
+      # mock-parity decision, not a dependency bump. Minor and patch updates still
+      # come through; a major one is the user's call.
+      - dependency-name: "highcharts"
+        update-types: ["version-update:semver-major"]

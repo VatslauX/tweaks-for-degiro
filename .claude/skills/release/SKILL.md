@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use before pushing a release tag (`v<version>`) of Tweaks for DEGIRO, and when the user says "release", "prepare release" or "release check". Runs the pre-release gate in the main session - preflight (branch, version, CHANGELOG, CI, build), the full test suite, a read-only drift check of selectors, page structure and styles against the real DEGIRO site, mock parity - and ends with a go/no-go report. Never pushes the tag.
+description: Use before pushing a release tag (`v<version>`) of Tweaks for DEGIRO, and when the user says "release", "prepare release" or "release check". Runs the pre-release gate in the main session - preflight (branch, version, CHANGELOG, CI, build, GitHub code-scanning alerts), the full test suite, a read-only drift check of selectors, page structure and styles against the real DEGIRO site, mock parity - and ends with a go/no-go report. Never pushes the tag.
 argument-hint: "[--skip-site]  (skip the real-site check only when the user says so; the report then says NO-GO for site drift unverified)"
 ---
 
@@ -37,6 +37,30 @@ gh run list --branch main -L1        # latest run on HEAD's sha, conclusion succ
 - `npm run build`, then `unzip -l dist/tweaks-for-degiro-<version>.zip`: the zip contains only files from `extension/`, the manifest at its root, and no `.DS_Store`, tests or `node_modules`.
 - The manifest still has `"permissions": ["storage"]`, the name `Tweaks for DEGIRO (unofficial)`, and `minimum_chrome_version` ≥ 111 (the unit tests check this too, but it's a store blocker).
 - `STORE_LISTING.md`'s summary matches the English `extDescription`. If features were added since the last tag (`git log v<last>..HEAD --oneline`), check that README, STORE_LISTING and PRIVACY mention them.
+
+### Code scanning gate (release SLA)
+
+**No new high or critical code-scanning alert ships in a release.** Check this every time, as part of preflight.
+
+```
+gh api repos/VatslauX/tweaks-for-degiro/code-scanning/alerts --paginate \
+  -q '.[] | select(.state=="open") | select(.rule.security_severity_level=="high" or .rule.security_severity_level=="critical") | "\(.number)\t\(.created_at)\t\(.rule.id)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+```
+
+- **New** means the alert was not already open when the previous release shipped. Take the baseline from the remote, not from local tags (they go stale): `gh release list -L 1` and `gh release view v<last> --json publishedAt -q .publishedAt`. An alert whose `created_at` is after that is new. For a borderline case read the alert (`gh api .../code-scanning/alerts/<n>`) and decide from the code it points at, not from the timestamp alone.
+- Any new open high/critical alert is **NO-GO**, whatever file it is in, including `.github/workflows/`, `scripts/` and `tests/` — a compromised release workflow or build script publishes the extension.
+- An alert that was already open at the previous release is a **note**, not a blocker — but name it, with its number, age and the releases it has already shipped in, and ask the user whether they want it fixed before this one. Don't let a high alert ride along release after release just because it is old.
+- Alerts below high (medium, low, note, warning) go in the report under *Unverified / accepted*; they don't block.
+
+**Empty output is not automatically a pass.** The query above prints nothing both when there is no high alert and when nothing has been scanned. Confirm a scan actually covers the release commit:
+
+```
+gh api "repos/VatslauX/tweaks-for-degiro/code-scanning/analyses?ref=refs/heads/main&per_page=30" -q '.[] | "\(.commit_sha)\t\(.tool.name)\t\(.created_at)"'
+```
+
+- CodeQL runs per push. It must have an analysis for `git rev-parse HEAD`, or for an ancestor of `HEAD` whose only later commits touch nothing CodeQL scans (docs, `.claude/`, Markdown — verify with `git diff --stat <analysed-sha>..HEAD`). Otherwise the gate is **not evaluated**: NO-GO.
+- AI Scan is not per-push. Report the date and commit of its latest analysis so the user can see how stale it is; stale AI Scan alone is a note, not a NO-GO.
+- Fix a blocking alert the usual way (bug-fix sub-agent → `run-tests` → `review` → `update-docs` → `review` → commit), then re-run this skill. Dismissing an alert in the GitHub UI is the user's call alone; never dismiss one yourself and never suggest dismissal as a way to clear the gate.
 
 ## 2. Full test suite (start now, it takes about 8 minutes)
 
@@ -161,13 +185,14 @@ Wait for the `run-tests` result, then report:
 
 1. **Verdict**: GO or NO-GO, with the version and the commit (`git rev-parse --short HEAD`).
 2. **Preflight**: one line per check, pass/fail.
-3. **Tests**: `ok` and passed/failed/skipped/flaky per stage, and every failure (`file:line`, title).
-4. **Selectors and structure**: drift found (selector, page, real count, mock count), then *not verifiable* with the reason.
-5. **Styles**: the mismatch table (constant, `file:line`, real value).
-6. **Mock parity**: the differences.
-7. **Unverified**: the other theme, conditional selectors, the extension output if no release candidate was loaded, and anything skipped with `--skip-site`.
+3. **Code scanning**: open high/critical alerts, each marked *new since `v<last>`* (blocking) or *pre-existing* (note), with number, rule and `path:line`; or "gate not evaluable" with the reason.
+4. **Tests**: `ok` and passed/failed/skipped/flaky per stage, and every failure (`file:line`, title).
+5. **Selectors and structure**: drift found (selector, page, real count, mock count), then *not verifiable* with the reason.
+6. **Styles**: the mismatch table (constant, `file:line`, real value).
+7. **Mock parity**: the differences.
+8. **Unverified**: the other theme, conditional selectors, the extension output if no release candidate was loaded, and anything skipped with `--skip-site`.
 
-NO-GO if any preflight check fails, any test fails, a required selector or structural fact drifted, or a style constant visibly mismatches the real page. Each clear defect is fixed in a fresh bug-fix sub-agent (CLAUDE.md: symptom, where it shows, what not to touch, a test that fails without the fix, the mock extended to match the real page), then go through `run-tests` → `review` → `update-docs` → `review` → commit, and run this skill again.
+NO-GO if any preflight check fails, a new high or critical code-scanning alert is open (or the gate could not be evaluated), any test fails, a required selector or structural fact drifted, or a style constant visibly mismatches the real page. Each clear defect is fixed in a fresh bug-fix sub-agent (CLAUDE.md: symptom, where it shows, what not to touch, a test that fails without the fix, the mock extended to match the real page), then go through `run-tests` → `review` → `update-docs` → `review` → commit, and run this skill again.
 
 On GO, give the user the commands to run themselves, and don't run them:
 
