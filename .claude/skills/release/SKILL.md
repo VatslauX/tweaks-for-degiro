@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use before pushing a release tag (`v<version>`) of Tweaks for DEGIRO, and when the user says "release", "prepare release" or "release check". Runs the pre-release gate in the main session - preflight (branch, version, CHANGELOG, CI, build, GitHub code-scanning alerts), the full test suite, a read-only drift check of selectors, page structure and styles against the real DEGIRO site, mock parity - and ends with a go/no-go report. Never pushes the tag.
+description: Use before pushing a release tag (`v<version>`) of Tweaks for DEGIRO, and when the user says "release", "prepare release" or "release check". Runs the pre-release gate in the main session - preflight (branch, version, CHANGELOG, CI, build, GitHub code-scanning and Dependabot alerts), the full test suite, a read-only drift check of selectors, page structure and styles against the real DEGIRO site, mock parity - and ends with a go/no-go report. Never pushes the tag.
 argument-hint: "[--skip-site]  (skip the real-site check only when the user says so; the report then says NO-GO for site drift unverified)"
 ---
 
@@ -38,9 +38,11 @@ gh run list --branch main -L1        # latest run on HEAD's sha, conclusion succ
 - The manifest still has `"permissions": ["storage"]`, the name `Tweaks for DEGIRO (unofficial)`, and `minimum_chrome_version` ≥ 111 (the unit tests check this too, but it's a store blocker).
 - `STORE_LISTING.md`'s summary matches the English `extDescription`. If features were added since the last tag (`git log v<last>..HEAD --oneline`), check that README, STORE_LISTING and PRIVACY mention them.
 
-### Code scanning gate (release SLA)
+### Security alert gate (release SLA)
 
-**No new high or critical code-scanning alert ships in a release.** Check this every time, as part of preflight.
+**No new high or critical alert ships in a release**, on either surface: GitHub code scanning and Dependabot. Check both every time, as part of preflight. They are separate APIs and a clean result on one says nothing about the other.
+
+#### Code scanning
 
 ```
 gh api repos/VatslauX/tweaks-for-degiro/code-scanning/alerts --paginate \
@@ -60,7 +62,26 @@ gh api "repos/VatslauX/tweaks-for-degiro/code-scanning/analyses?ref=refs/heads/m
 
 - CodeQL runs per push. It must have an analysis for `git rev-parse HEAD`, or for an ancestor of `HEAD` whose only later commits touch nothing CodeQL scans (docs, `.claude/`, Markdown — verify with `git diff --stat <analysed-sha>..HEAD`). Otherwise the gate is **not evaluated**: NO-GO.
 - AI Scan is not per-push. Report the date and commit of its latest analysis so the user can see how stale it is; stale AI Scan alone is a note, not a NO-GO.
-- Fix a blocking alert the usual way (bug-fix sub-agent → `run-tests` → `review` → `update-docs` → `review` → commit), then re-run this skill. Dismissing an alert in the GitHub UI is the user's call alone; never dismiss one yourself and never suggest dismissal as a way to clear the gate.
+
+#### Dependabot
+
+```
+gh api repos/VatslauX/tweaks-for-degiro/dependabot/alerts --paginate \
+  -q '.[] | select(.state=="open") | select(.security_advisory.severity=="high" or .security_advisory.severity=="critical") | "\(.number)\t\(.created_at)\t\(.dependency.package.name)\t\(.dependency.scope)\t\(.security_advisory.ghsa_id)\tfix:\(.security_vulnerability.first_patched_version.identifier // "none")"'
+```
+
+- The same baseline rule applies: new (after the previous release's `publishedAt`) blocks, pre-existing is a note.
+- **Scope decides severity here.** `runtime` scope is a real blocker: it would ship. `development` scope (test and lint tooling) is a **note**, not a NO-GO — the extension has no runtime dependencies and the zip contains only `extension/`, which the build check in this section already verifies. Say which scope each alert is and why it does or does not block.
+- `.dependency.scope` is nullable, and `github-actions` alerts carry no scope at all. A `null` or unrecognised scope **blocks** until you have read the alert and established otherwise. An alert on an action used by `release.yml` or `cws-auth-check.yml` blocks outright: that job holds the Chrome Web Store OIDC token.
+- Check `extension/` really doesn't bundle the package before calling a `development` alert harmless: `grep -rl <package> extension/`. A hit that is only a reference to something the DEGIRO page itself loads (`window.Highcharts`) is not bundling; a vendored copy of the library in `extension/` would be, and that blocks.
+- Dismissals are per-advisory, not per-package: a new advisory for an already-dismissed package opens a fresh alert.
+- An `ignore` entry in `.github/dependabot.yml` **can** suppress that package's security PRs as well as its version bumps; GitHub's own reference is ambiguous about how far an `update-types`-scoped entry reaches, so don't assert it. The repo's only entry ignores `highcharts` majors. Decide per alert from the `fix:` column the query already prints: report "no automatic fix" only when the patched version is a major bump for a package whose majors are ignored. A patch or minor fix still arrives.
+- Dependabot alerts need no analysis freshness check (GitHub re-evaluates them from the manifest), but a `0` count is only meaningful if the API answered: a failed call is *not evaluated*, so report it as such rather than as a pass.
+
+#### Both surfaces
+
+- Fix a blocking alert the usual way (bug-fix sub-agent → `run-tests` → `review` → `update-docs` → `review` → commit), then re-run this skill. Dismissing an alert is the user's call alone; never dismiss one yourself and never suggest dismissal as a way to clear the gate. If the user asks for a dismissal, state the reasoning accurately in the dismissal comment — including anything that weakens it — rather than repeating a rationale that doesn't hold.
+- Record what was dismissed and why in the report, so a dismissed alert isn't mistaken later for one that was fixed.
 
 ## 2. Full test suite (start now, it takes about 8 minutes)
 
@@ -185,14 +206,14 @@ Wait for the `run-tests` result, then report:
 
 1. **Verdict**: GO or NO-GO, with the version and the commit (`git rev-parse --short HEAD`).
 2. **Preflight**: one line per check, pass/fail.
-3. **Code scanning**: open high/critical alerts, each marked *new since `v<last>`* (blocking) or *pre-existing* (note), with number, rule and `path:line`; or "gate not evaluable" with the reason.
+3. **Security alerts**: both surfaces. Code scanning: open high/critical alerts, each marked *new since `v<last>`* (blocking) or *pre-existing* (note), with number, rule and `path:line`; or "gate not evaluable" with the reason. Dependabot: open high/critical alerts with package, scope and GHSA id (`runtime`, `null` or unrecognised scope blocks; `development` is a note unless the package is vendored in `extension/`). Name anything dismissed, and any package an `ignore` entry leaves without automatic fixes.
 4. **Tests**: `ok` and passed/failed/skipped/flaky per stage, and every failure (`file:line`, title).
 5. **Selectors and structure**: drift found (selector, page, real count, mock count), then *not verifiable* with the reason.
 6. **Styles**: the mismatch table (constant, `file:line`, real value).
 7. **Mock parity**: the differences.
 8. **Unverified**: the other theme, conditional selectors, the extension output if no release candidate was loaded, and anything skipped with `--skip-site`.
 
-NO-GO if any preflight check fails, a new high or critical code-scanning alert is open (or the gate could not be evaluated), any test fails, a required selector or structural fact drifted, or a style constant visibly mismatches the real page. Each clear defect is fixed in a fresh bug-fix sub-agent (CLAUDE.md: symptom, where it shows, what not to touch, a test that fails without the fix, the mock extended to match the real page), then go through `run-tests` → `review` → `update-docs` → `review` → commit, and run this skill again.
+NO-GO if any preflight check fails, a new high or critical alert is open on either security surface — code scanning, or Dependabot at `runtime`, `null` or unrecognised scope, or at `development` scope when the package is vendored in `extension/` — or either gate could not be evaluated, any test fails, a required selector or structural fact drifted, or a style constant visibly mismatches the real page. Each clear defect is fixed in a fresh bug-fix sub-agent (CLAUDE.md: symptom, where it shows, what not to touch, a test that fails without the fix, the mock extended to match the real page), then go through `run-tests` → `review` → `update-docs` → `review` → commit, and run this skill again.
 
 On GO, give the user the commands to run themselves, and don't run them:
 
