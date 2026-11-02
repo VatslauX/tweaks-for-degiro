@@ -21,7 +21,7 @@
   let raw = /** @type {string | null} */ (null), parsed = /** @type {{ id: number, prices: number[] } | null} */ (null);
   /** @param {string | null} r */
   function parse(r) {
-    let v = null;
+    let v;
     try { v = r ? JSON.parse(r) : null; } catch (e) { return null; }
     if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
     if (!Number.isSafeInteger(v.id) || v.id <= 0 || !Array.isArray(v.l) || v.l.length > MAX) return null;
