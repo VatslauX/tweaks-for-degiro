@@ -93,7 +93,7 @@ function dgSanitize(s) {
     if (dead) return;
     try {
       chrome.storage.sync.get(DG_DEFAULTS, items => {
-        let err = null;
+        let err = /** @type {chrome.runtime.LastError | null | undefined} */ (null);
         try { err = chrome.runtime?.lastError; } catch (e) {}
         if (dead) return;
         if (err || !items || typeof items !== 'object') return failed();

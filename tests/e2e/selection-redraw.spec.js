@@ -57,6 +57,24 @@ test('the result is announced through a polite live region', async ({ degiro }) 
   await expect(live).toHaveText('');
 });
 
+test('pressing Escape mid-drag stops the drag, not just hides it', async ({ degiro }) => {
+  const { page } = await degiro();
+  await expect(page.locator('[data-dg-sel]')).toHaveCount(1);
+  const box = await page.locator('#chart .highcharts-container').boundingBox();
+  const y = box.y + box.height * 0.05; // near the top, clear of the order badges
+  await page.mouse.move(box.x + box.width * 0.3, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, y, { steps: 3 });
+  await expect(label(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(label(page)).toBeHidden();
+  // the pointer is still down: without resetting the drag, the next move would redraw
+  // a stale selection wrongly anchored at the chart's start
+  await page.mouse.move(box.x + box.width * 0.7, y, { steps: 3 });
+  await expect(label(page)).toBeHidden();
+  await page.mouse.up();
+});
+
 test('the label wraps inside a narrow chart', async ({ degiro }) => {
   const { page } = await degiro();
   await expect(page.locator('[data-dg-sel]')).toHaveCount(1);

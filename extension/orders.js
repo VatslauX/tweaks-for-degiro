@@ -3,16 +3,18 @@
 (() => {
   const BUY = '#078307', SELL = '#E3282B';
   const POLL_MS = 20000, TIMEOUT_MS = 15000; // a hung request must not stop polling
-  let sid = null, acc = null, orders = [], version = 0, loading = false, last = 0;
+  let sid = /** @type {string | null} */ (null), acc = /** @type {string | null} */ (null),
+    orders = [], version = 0, loading = false, last = 0;
   // A session DEGIRO rejected (401/403) is never used again, and after a rejection the next
   // request waits (20 s, doubling up to 5 min), so an expired session can't cause a request loop.
   const rejected = new Set(), mine = new Set(), RETRY_MIN_MS = 20000, RETRY_MAX_MS = 300000;
   let retryAt = 0, retryMs = 0;
   let lastMain = null; // cheap cache for the redraw hook; updated in run() so the handler avoids mainChart()
-  const EXTRA_MIN_MS = 5000; let rowCount = null, rowsChanged = false; // see run()
+  const EXTRA_MIN_MS = 5000; let rowCount = /** @type {number | null} */ (null), rowsChanged = false; // see run()
   const useSid = s => { if (s && !rejected.has(s)) sid = s; };
   // feature flags, bridged from the extension by flags.js (null = not loaded yet)
-  let F = null;
+  /** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean }} DgPageFlags */
+  let F = /** @type {DgPageFlags | null} */ (null);
   const { flags: readFlags, pageTheme, mainChart, parseNum: num, fmt, SEL, LABELS, page, own, feature, schedule, t } = __dgt; // common.js
   // per chart: our plot line ids, badge layer, render signature (charts are DEGIRO's objects)
   /** @type {WeakMap<object, { ids: string[], layer: HTMLElement | null, sig: string, hooked: boolean }>} */
@@ -277,7 +279,7 @@
       return d;
     });
     // for when they can't all be placed: one "N orders" badge, measured together with the rest
-    let merged = null;
+    let merged = /** @type {HTMLDivElement | null} */ (null);
     if (items.length > 1) {
       merged = plain(t('badgeMerged', count(items)), items.map(o => o.label).join('\n'));
       merged.style.cssText += 'position:absolute;left:0;top:0;visibility:hidden;transform:translateY(-50%);';

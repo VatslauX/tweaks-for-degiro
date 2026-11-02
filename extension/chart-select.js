@@ -30,7 +30,7 @@
 
 
   // one Esc listener for all charts (clears the last selection)
-  let activeClear = null;
+  let activeClear = /** @type {(() => void) | null} */ (null);
   window.addEventListener('keydown', e => { if (e.key === 'Escape') activeClear?.(); });
 
   function attach(chart) {
@@ -64,7 +64,7 @@
     }
     const announce = (/** @type {string} */ text) => { if (live) live.textContent = text; };
 
-    let start = null, dragging = false, moved = false;
+    let start = /** @type {number | null} */ (null), dragging = false, moved = false;
     // the shown selection: its edge times and a fingerprint of the chart state it was made on
     /** @type {{ t1: number, t2: number, span: number } | null} */
     let sel = null;
@@ -163,7 +163,7 @@
       activeClear = clear;
     });
     box.addEventListener('pointermove', e => {
-      if (!dragging) return;
+      if (!dragging || start == null) return;
       const x = xIn(e);
       if (Math.abs(x - start) > 3) { moved = true; draw(start, x); }
     });

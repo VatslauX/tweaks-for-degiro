@@ -212,7 +212,7 @@
     let openMenu = null;
 
     // DEGIRO's own Buy/Sell colours, read from the Action column (fallback: DEGIRO palette)
-    let pageBuy = null, pageSell = null;
+    let pageBuy = /** @type {string | null} */ (null), pageSell = /** @type {string | null} */ (null);
     function readActionColours(rows) {
       const leaf = el => { let e = el; while (e && e.firstElementChild) e = e.firstElementChild; return e; };
       const b = rows.find(r => r.action === 'buy'), s = rows.find(r => r.action === 'sell');
@@ -438,7 +438,8 @@
     return v.dir === 'ascending' || v.dir === 'descending' ? { col: v.col, dir: v.dir } : null;
   }
 
-  let dgOrdersSort = null, sortLoaded = false;
+  /** @typedef {{ col: string, dir: 'ascending' | 'descending' }} SortState */
+  let dgOrdersSort = /** @type {SortState | null} */ (null), sortLoaded = false;
   try {
     chrome.storage.sync.get({ dgOrdersSort: null }, r => { dgOrdersSort = sanitizeSort(r?.dgOrdersSort); sortLoaded = true; schedule(); });
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -456,7 +457,8 @@
   // (confirmed against the real page: repeated clicks never replace the node), so keying resets off the
   // element could, if DEGIRO ever did replace it for an unrelated reason, revert a just-made user click
   // and retry forever. A brief "missing" table (DEGIRO still loading) is not treated as leaving the page.
-  let sortMounted = false, sortPendingKey = null, sortPendingFrom = null, sortUserDone = false,
+  let sortMounted = false, sortPendingKey = /** @type {string | null} */ (null),
+    sortPendingFrom = /** @type {string | null} */ (null), sortUserDone = false,
     sortAttempts = 0, sortPendingWait = 0, sortRestoring = false;
 
   // a click saves the column once DEGIRO applies it (read back in sortRun, against the aria-sort value

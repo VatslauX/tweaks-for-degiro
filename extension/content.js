@@ -146,11 +146,11 @@
 
   function update() {
     if (!dgSettings.spread) document.querySelectorAll(`[${ROW_ATTR}]`).forEach(el => el.remove());
-    let headerRes = null, pairs = 0;
+    let headerRes = /** @type {{ pct: number, comma: boolean, text: string } | null} */ (null), pairs = 0;
 
     priceDts('Bid').forEach(bidDt => {
       // Smallest ancestor that also contains an Ask row = this table copy
-      let scope = bidDt.parentElement, askDt = null;
+      let scope = bidDt.parentElement, askDt = /** @type {Element | undefined} */ (undefined);
       while (scope && scope !== document.body) {
         askDt = [...scope.querySelectorAll('dt')].find(dt => isPriceDt(dt, 'Ask'));
         if (askDt) break;

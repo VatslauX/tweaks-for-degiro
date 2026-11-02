@@ -2,16 +2,17 @@
 // global `__dgt`; in Node (unit tests) it is exported instead. No chrome.* here.
 // Chrome injects a file only once per page, so the isolated world loads an identical copy,
 // common-isolated.js. Edit this file, then run `npm run sync-common` (a test checks they match).
+/** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean }} DgPageFlags */
 (() => {
   // ---------- numbers ----------
   // Decimal separator DEGIRO uses on this page: ',' ("€ 1.234,56") or '.' ("$1,234.56").
   // Read from DEGIRO's own price fields; cached briefly because it rarely changes.
-  let sepCache = null, sepAt = 0;
+  let sepCache = /** @type {string | null} */ (null), sepAt = 0;
   function decimalSep() {
     if (typeof document === 'undefined') return ',';
     if (sepCache && Date.now() - sepAt < 10000) return sepCache;
     const els = document.querySelectorAll('[data-field$="Price"], [data-field="RelativeDifference"], [data-field="valuableColumnValue"], [data-field="totalInBaseCurrency"]');
-    let sep = null;
+    let sep = /** @type {string | null} */ (null);
     for (const el of els) {
       const m = (el.textContent || '').match(/\d([.,])(\d+)\D*$/);
       // two decimals after the last separator: that separator is the decimal one
@@ -168,7 +169,7 @@
   // ---------- page ----------
   // Feature flags bridged from the extension by flags.js (null = not loaded yet).
   // Parsed only when the attribute changes: the scheduler reads it for every feature.
-  let flagsRaw = null, flagsVal = null;
+  let flagsRaw = /** @type {string | null} */ (null), flagsVal = /** @type {DgPageFlags | null} */ (null);
   function flags() {
     const raw = document.documentElement.getAttribute('data-dg-tweaks');
     if (raw !== flagsRaw) {
@@ -180,7 +181,7 @@
 
   // Colours from the page: DEGIRO has a light and a dark theme.
   function pageTheme(el) {
-    let n = el, bg = null;
+    let n = el, bg = /** @type {string | null} */ (null);
     while (n && n.nodeType === 1) {
       const c = getComputedStyle(n).backgroundColor, m = c.match(/[\d.]+/g);
       if (m && (m.length < 4 || +m[3] > 0.5)) { bg = c; break; }

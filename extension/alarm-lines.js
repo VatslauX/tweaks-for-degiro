@@ -7,7 +7,8 @@
   const BELL = 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0'; // ui.js BELL (not reachable from here)
   const H_LABEL = 16; // badge height: 14px line + border
   const { flags: readFlags, mainChart, fmt, page, own, feature } = __dgt; // common.js
-  let F = null;
+  /** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean }} DgPageFlags */
+  let F = /** @type {DgPageFlags | null} */ (null);
   // the chart identified as main by the last run(): a cheap cache so the redraw hook (which fires
   // on every chart, on every tick) never has to call mainChart() (a getBoundingClientRect per chart)
   let lastMain = null;

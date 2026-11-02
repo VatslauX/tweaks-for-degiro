@@ -88,20 +88,22 @@
   const STATES = { ok: 'statusOk', loading: 'statusLoading', idle: 'statusIdle', error: 'statusError', missing: 'statusMissing' };
   async function loadStatus() {
     const box = $('#pageStatus'), list = $('#pageStatusList');
-    let res = null;
+    let res = /** @type {Record<string, string> | null} */ (null);
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id != null) res = await chrome.tabs.sendMessage(tab.id, { type: 'dg-status' });
     } catch (e) {} // not a DEGIRO tab: no content script to answer
-    const rows = Object.keys(FEATURES).filter(k => res && STATES[res[k]]);
+    const status = res; // a const snapshot narrows for the closures below; `res` itself does not
+    if (!status) { box.hidden = true; list.replaceChildren(); return; }
+    const rows = Object.keys(FEATURES).filter(k => STATES[status[k]]);
     box.hidden = !rows.length;
     list.replaceChildren(...rows.map(k => {
       const li = document.createElement('li');
       const name = document.createElement('span');
       name.textContent = t(FEATURES[k]);
       const state = document.createElement('span');
-      state.textContent = t(STATES[res[k]]);
-      state.className = res[k];
+      state.textContent = t(STATES[status[k]]);
+      state.className = status[k];
       li.append(name, state);
       return li;
     }));

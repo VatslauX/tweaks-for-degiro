@@ -21,7 +21,8 @@
   const $ = sel => document.querySelector(sel);
 
   // ---------- data: follow DEGIRO's own requests for the chart ----------
-  let url = null, data = [], period = null, version = 0, versionAt = 0, loading = false;
+  let url = /** @type {URL | null} */ (null), data = [], period = /** @type {string | null} */ (null),
+    version = 0, versionAt = 0, loading = false;
 
   function seen(name) {
     try {
@@ -117,7 +118,7 @@
   const isLine = (d, i) => d[i + 3] > 200 && Math.abs(d[i] - LINE[0]) < 40 && Math.abs(d[i + 1] - LINE[1]) < 40 && Math.abs(d[i + 2] - LINE[2]) < 40;
 
   // horizontal extent of the line (css px, relative to the canvas) + pixel access
-  let scratch = null, scratchCtx = null;
+  let scratch = /** @type {HTMLCanvasElement | null} */ (null), scratchCtx = /** @type {CanvasRenderingContext2D | null} */ (null);
   function geometry() {
     const c = lineCanvas();
     if (!c) return null;
@@ -126,6 +127,7 @@
     // canvas directly — repeated getImageData on it makes Chrome log a performance warning
     try {
       if (!scratch) { scratch = document.createElement('canvas'); scratchCtx = scratch.getContext('2d', { willReadFrequently: true }); }
+      if (!scratchCtx) return null; // getContext can fail (e.g. too many contexts already open)
       if (scratch.width !== c.width || scratch.height !== c.height) { scratch.width = c.width; scratch.height = c.height; }
       scratchCtx.clearRect(0, 0, c.width, c.height);
       scratchCtx.drawImage(c, 0, 0);
@@ -149,12 +151,13 @@
     return { canvas: c, w: W, h: Hh, left: first / scale, right: last / scale, height: Hh / scale, lineY };
   }
 
+  /** @typedef {{ canvas: HTMLCanvasElement, w: number, h: number, left: number, right: number, height: number, lineY: (xCss: number) => number | null }} Geometry */
   // DEGIRO greys the line right of the cursor while hovering, so read the canvas while not hovered.
   // The cache belongs to one canvas: DEGIRO builds a new chart when Portfolio is reached from another
   // page (same size, same data), and the old canvas is detached (its rect is all zeros). If the pointer
   // is already over the new chart, the line's extent is kept from the replaced canvas (`stale`), and
   // only the canvas and where the line is are read from the new one, until it is measured unhovered.
-  let geoCache = null, geoAt = 0, geoKey = '', stale = null;
+  let geoCache = /** @type {Geometry | null} */ (null), geoAt = 0, geoKey = '', stale = /** @type {Geometry | null} */ (null);
   function refreshGeometry(force) {
     const area = $(SEL.perfArea);
     const c = lineCanvas();
@@ -184,7 +187,7 @@
   /** @type {{ area: HTMLElement | null, clear: (() => void) | null, hide: string | null }} */
   const sel = { area: null, clear: null, hide: null };
   // one Esc listener for the page (clears the current selection)
-  let activeClear = null;
+  let activeClear = /** @type {(() => void) | null} */ (null);
   window.addEventListener('keydown', e => { if (e.key === 'Escape') activeClear?.(); });
 
   function attachSelect() {
@@ -204,30 +207,35 @@
     const clear = () => parts.forEach(p => p.style.display = 'none');
     sel.clear = clear;
 
-    let geo = null, start = null, dragging = false, moved = false;
-    const offset = () => { const a = area.getBoundingClientRect(), c = geo.canvas.getBoundingClientRect(); return { x: c.left - a.left, y: c.top - a.top }; };
-    const toX = e => {
+    let geo = /** @type {Geometry | null} */ (null), start = /** @type {number | null} */ (null),
+      dragging = false, moved = false;
+    /** @param {Geometry} geo */
+    const offset = geo => { const a = area.getBoundingClientRect(), c = geo.canvas.getBoundingClientRect(); return { x: c.left - a.left, y: c.top - a.top }; };
+    /** @param {Geometry} geo */
+    const toX = (geo, e) => {
       const c = geo.canvas.getBoundingClientRect();
       return Math.max(geo.left, Math.min(e.clientX - c.left, geo.right));
     };
-    const idxAt = x => Math.round((x - geo.left) / (geo.right - geo.left) * (data.length - 1));
+    /** @param {Geometry} geo */
+    const idxAt = (geo, x) => Math.round((x - geo.left) / (geo.right - geo.left) * (data.length - 1));
 
-    function draw(xa, xb) {
+    /** @param {Geometry} geo */
+    function draw(geo, xa, xb) {
       const n = data.length;
       if (n < 2) return;
-      const i1 = idxAt(Math.min(xa, xb)), i2 = idxAt(Math.max(xa, xb));
+      const i1 = idxAt(geo, Math.min(xa, xb)), i2 = idxAt(geo, Math.max(xa, xb));
       if (i1 === i2) return;
       const p1 = data[i1].value, p2 = data[i2].value;
       const L = geo.left + (geo.right - geo.left) * i1 / (n - 1);
       const R = geo.left + (geo.right - geo.left) * i2 / (n - 1);
-      const o = offset();
+      const o = offset(geo);
       const diff = p2 - p1, pct = p1 ? diff / p1 * 100 : 0, up = diff >= 0, cur = currency();
       const th = pageTheme(area);
       Object.assign(band.style, {
         display: 'block', left: (o.x + L) + 'px', width: Math.max(R - L, 1) + 'px', top: o.y + 'px', height: geo.height + 'px',
         background: up ? DG.upFill : DG.downFill
       });
-      [[dot1, L], [dot2, R]].forEach(([d, x]) => {
+      /** @type {[HTMLDivElement, number][]} */ ([[dot1, L], [dot2, R]]).forEach(([d, x]) => {
         const y = geo.lineY(x);
         if (y == null) { d.style.display = 'none'; return; }
         Object.assign(d.style, { display: 'block', left: (o.x + x) + 'px', top: (o.y + y) + 'px', background: up ? DG.upDot : DG.downDot, borderColor: th.bg });
@@ -259,13 +267,13 @@
       e.preventDefault();
       clear();
       try { area.setPointerCapture(e.pointerId); } catch (err) {}
-      start = toX(e); dragging = true; moved = false;
+      start = toX(geo, e); dragging = true; moved = false;
       activeClear = clear;
     }, true); // capture: the chart may stop propagation
     area.addEventListener('pointermove', e => {
-      if (!dragging) return;
-      const x = toX(e);
-      if (Math.abs(x - start) > 3) { moved = true; draw(start, x); }
+      if (!dragging || geo == null || start == null) return;
+      const x = toX(geo, e);
+      if (Math.abs(x - start) > 3) { moved = true; draw(geo, start, x); }
     });
     const end = () => {
       if (!dragging) return;

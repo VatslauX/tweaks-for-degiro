@@ -2,6 +2,7 @@
 
 ## 1.21.3 — 2026-10-31
 - **Fix**: dragging on the portfolio chart to select two dates no longer throws an error and stops working when DEGIRO redraws the chart at the same moment. The drag now resets cleanly and works again on the next try, without a reload.
+- **Fix**: on a product chart, pressing Esc while still dragging a range selection no longer leaves a stale selection that reappears — wrongly anchored at the chart's start — on the next move before you release the pointer.
 - **Tests and developer notes**: unit coverage of the shared helpers and the settings sanitizer, integration coverage of hidden sections, compact pricing data, the header dates, the period change and the status report.
 
 ## 1.21.2 — 2026-10-31
