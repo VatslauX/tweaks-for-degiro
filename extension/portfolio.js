@@ -249,9 +249,13 @@
 
     // DEGIRO's chart cancels pointerdown, which suppresses mouse* events — use pointer events
     area.addEventListener('pointerdown', e => {
+      // End any drag still open here (a failed setPointerCapture means its pointerup never
+      // reached us, and a second pointer lands while the first is down): no return below may
+      // leave `dragging` set with `geo` cleared, which pointermove would then read.
+      dragging = false;
       if (e.button !== 0 || !flags()?.chartSelect || data.length < 2) return;
       geo = cachedGeometry();
-      if (!geo) return;
+      if (!geo) return; // chart mid-render: nothing to measure against
       e.preventDefault();
       clear();
       try { area.setPointerCapture(e.pointerId); } catch (err) {}

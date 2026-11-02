@@ -147,6 +147,48 @@ test('selection stays on the chart after in-app navigation rebuilds it', async (
   for (const y of r.dots) { expect(y).toBeGreaterThan(r.chart[0]); expect(y).toBeLessThan(r.chart[1]); }
 });
 
+test('a pointerdown that cannot measure the chart does not leave a drag live', async ({ degiro }) => {
+  // The pointerup that ends a drag can be missed: setPointerCapture can throw, and then releasing
+  // outside the chart fires nothing on it. A following pointerdown that finds no line to measure
+  // must end that drag too, or the next pointermove reads the cleared geometry and throws on
+  // DEGIRO's own page (the listener is outside the scheduler's per-feature containment).
+  const { page } = await degiro({ url: URL_P });
+  const errors = [];
+  page.on('pageerror', e => errors.push(String(e)));
+  await expect(change(page)).toBeVisible();
+  await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
+
+  // A drag whose pointerup never arrives: an unknown pointerId makes setPointerCapture throw,
+  // exactly as when the capture is refused, and nothing releases the pointer afterwards.
+  const synth = (a, b) => page.evaluate(([a, b]) => {
+    const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
+    const r = area.getBoundingClientRect();
+    const ev = (type, f) => area.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: 7, pointerType: 'mouse',
+      button: type === 'pointerdown' ? 0 : -1, buttons: 1,
+      clientX: r.left + r.width * f, clientY: r.top + r.height / 2
+    }));
+    ev('pointerdown', a);
+    ev('pointermove', b);
+  }, [a, b]);
+
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  await expect.poll(() => synth(0.25, 0.75).then(() => label.isVisible())).toBe(true);
+
+  // DEGIRO swaps the canvas mid-rerender: the next pointerdown has nothing to measure
+  await page.evaluate(() => window.__blankCanvas());
+  await synth(0.3, 0.8);
+  expect(errors).toEqual([]);
+
+  // and the chart still selects once the new canvas has been drawn
+  await page.keyboard.press('Escape');
+  await expect(label).toBeHidden();
+  await page.mouse.move(5, 5);
+  await drag(page, 0.25, 0.75);
+  await expect(label).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('a chart rebuilt under the pointer still selects up to its right edge', async ({ degiro }) => {
   // DEGIRO greys the line right of the cursor while hovered; measuring the rebuilt chart then
   // would end the line (and the selection) at the cursor

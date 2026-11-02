@@ -1,7 +1,8 @@
 # Release notes
 
 ## 1.21.3 — 2026-10-31
-- **No changes to the extension itself**: this release only adds tests (unit coverage of the shared helpers and the settings sanitizer, integration coverage of hidden sections, compact pricing data, the header dates, the period change and the status report) and developer notes.
+- **Fix**: dragging on the portfolio chart to select two dates no longer throws an error and stops working when DEGIRO redraws the chart at the same moment. The drag now resets cleanly and works again on the next try, without a reload.
+- **Tests and developer notes**: unit coverage of the shared helpers and the settings sanitizer, integration coverage of hidden sections, compact pricing data, the header dates, the period change and the status report.
 
 ## 1.21.2 — 2026-10-31
 - **Faster**: open orders appear on the chart about 2 seconds sooner after a product page opens, and the portfolio change appears as soon as DEGIRO's chart data arrives.

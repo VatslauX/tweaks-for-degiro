@@ -73,6 +73,12 @@
       load(b.dataset.p);
     });
   }
+  // DEGIRO swaps the chart's canvas while it rerenders: for a moment the new canvas is blank, so
+  // nothing can be read from it. The interaction area (the same chart) stays in place.
+  window.__blankCanvas = () => {
+    const c = document.getElementById('c1');
+    c.replaceWith(c.cloneNode(false)); // same id, size and style; empty bitmap
+  };
   // In-app navigation like DEGIRO: leaving #/portfolio removes the chart; coming back builds a new one
   // (new interaction area and canvases, same size) and refetches the same data.
   const chartTpl = document.querySelector('[data-name="performance-chart"]').cloneNode(true);
