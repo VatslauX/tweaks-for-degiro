@@ -348,6 +348,21 @@
   "alarmHintNoPrice": {
     "message": "Aucun cours actuel vu pour l'instant : l'alarme garde son sens ($1)."
   },
+  "alarmDirLabel": {
+    "message": "Sens (cours actuel inconnu pour l'instant)"
+  },
+  "alarmDirAbove": {
+    "message": "Monte à"
+  },
+  "alarmDirBelow": {
+    "message": "Descend à"
+  },
+  "alarmHintAboveNoPrice": {
+    "message": "Alarme lorsque le cours monte à $1 (cours actuel inconnu)."
+  },
+  "alarmHintBelowNoPrice": {
+    "message": "Alarme lorsque le cours descend à $1 (cours actuel inconnu)."
+  },
   "alarmErrorPrice": {
     "message": "Saisissez un prix supérieur à 0."
   },

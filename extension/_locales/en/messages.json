@@ -389,6 +389,21 @@
   "alarmHintNoPrice": {
     "message": "No current price seen yet: the alarm keeps its direction ($1)."
   },
+  "alarmDirLabel": {
+    "message": "Direction (current price not known yet)"
+  },
+  "alarmDirAbove": {
+    "message": "Rises to"
+  },
+  "alarmDirBelow": {
+    "message": "Falls to"
+  },
+  "alarmHintAboveNoPrice": {
+    "message": "Alarm when the price rises to $1 (current price unknown)."
+  },
+  "alarmHintBelowNoPrice": {
+    "message": "Alarm when the price falls to $1 (current price unknown)."
+  },
   "alarmErrorPrice": {
     "message": "Enter a price above 0."
   },

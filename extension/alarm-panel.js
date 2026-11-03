@@ -110,7 +110,8 @@ const dgAlarmPanel = (() => {
 
   // ---------- panel ----------
   /** @type {null | { root: HTMLElement, id: number, h: any, edit: any, repeat: string, latest: HTMLElement, input: HTMLInputElement, hint: HTMLElement,
-   *   msg: HTMLElement, set: HTMLButtonElement, seg: HTMLButtonElement[], list: HTMLElement, listSig: string, touched: boolean, msgKind: string, saving: boolean }} */
+   *   msg: HTMLElement, set: HTMLButtonElement, seg: HTMLButtonElement[], dirWrap: HTMLElement, dirLabel: HTMLElement, dirSeg: HTMLButtonElement[], dirChoice: string | null,
+   *   list: HTMLElement, listSig: string, touched: boolean, msgKind: string, saving: boolean }} */
   let ui = null;
 
   const onKey = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') close(); };
@@ -184,6 +185,20 @@ const dgAlarmPanel = (() => {
     segWrap.append(...seg);
     const repeatLabel = el('div', `font-size:12px;color:${th.muted};`, t('alarmRepeat'));
 
+    // a NEW alarm whose current price is unknown has no previous direction to fall back on
+    // (unlike editing, see `noPrice` in reading()): offer an explicit choice instead of a dead end
+    const dirLabel = el('div', `font-size:12px;color:${th.muted};`, t('alarmDirLabel'));
+    const dirWrap = el('div', `display:grid;grid-template-columns:repeat(2,1fr);padding:3px;border-radius:20px;background:${th.line};`);
+    dirWrap.setAttribute('data-dg-alarm-dir-wrap', '');
+    const dirSeg = /** @type {HTMLButtonElement[]} */ (['above', 'below'].map(k => {
+      const b = /** @type {HTMLButtonElement} */ (el('button', '', t(k === 'above' ? 'alarmDirAbove' : 'alarmDirBelow')));
+      b.type = 'button';
+      b.setAttribute('data-dg-alarm-dir', k);
+      b.addEventListener('click', () => { if (ui) { ui.dirChoice = k; update(); } });
+      return b;
+    }));
+    dirWrap.append(...dirSeg);
+
     const set = /** @type {HTMLButtonElement} */ (el('button', `height:42px;border-radius:21px;border:0;background:${dgUi.BLUE};color:#fff;font:inherit;font-weight:600;cursor:pointer;`, t(edit ? 'alarmSave' : 'alarmSet')));
     set.type = 'button';
     set.setAttribute('data-dg-alarm-set', '');
@@ -204,10 +219,11 @@ const dgAlarmPanel = (() => {
     note.append(all);
 
     if (edit) body.append(name, sub, latest, label, hint, repeatLabel, segWrap, set, cancel, msg, note);
-    else body.append(name, sub, latest, label, hint, repeatLabel, segWrap, set, msg, listTitle, list, note);
+    else body.append(name, sub, latest, label, hint, dirLabel, dirWrap, repeatLabel, segWrap, set, msg, listTitle, list, note);
     root.append(head, body);
     document.body.append(root);
-    ui = { root, id: h.id, h, edit: edit || null, repeat: edit ? edit.repeat : 'once', latest, input, hint, msg, set, seg, list, listSig: '', touched: false, msgKind: '', saving: false };
+    ui = { root, id: h.id, h, edit: edit || null, repeat: edit ? edit.repeat : 'once', latest, input, hint, msg, set, seg,
+      dirWrap, dirLabel, dirSeg, dirChoice: null, list, listSig: '', touched: false, msgKind: '', saving: false };
     input.addEventListener('input', () => { if (ui) { ui.touched = true; if (ui.msgKind === 'result') { ui.msg.textContent = ''; ui.msgKind = ''; } } update(); });
     input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
     document.addEventListener('keydown', onKey, true);
@@ -219,26 +235,36 @@ const dgAlarmPanel = (() => {
 
   // the typed price, and which way it is from the price now (null: no valid alarm price)
   function reading() {
-    if (!ui) return { v: NaN, dir: null, now: 0 };
+    if (!ui) return { v: NaN, dir: null, now: 0, noPrice: false, noDir: false };
     const v = parseNum(ui.input.value);
     // editing from the Alarms page: the live price is DEGIRO's Favourites row; else the last price seen
     const now = priceNow(ui.id) || (ui.edit ? S.state()[ui.edit.id]?.last || 0 : 0);
     const valid = Number.isFinite(v) && v > 0;
     // editing with no price known at all (an alarm synced from another computer): it keeps its direction
     const noPrice = !!ui.edit && !now && valid;
-    return { v, now, noPrice, dir: noPrice ? ui.edit?.dir || null : valid && now ? R.direction(v, now) : null };
+    // a brand-new alarm with no current price known: there is no previous direction to fall back on
+    // (unlike noPrice above), so the direction comes from the explicit choice made in the panel
+    const noDir = !ui.edit && !now && valid;
+    const dir = noPrice ? ui.edit?.dir || null : noDir ? ui.dirChoice || null : valid && now ? R.direction(v, now) : null;
+    return { v, now, noPrice, noDir, dir };
   }
 
   function update() {
     if (!ui) return;
     const th = dgUi.theme(), { h } = ui;
-    const { v, now, dir, noPrice } = reading();
+    const { v, now, dir, noPrice, noDir } = reading();
     const money = (/** @type {number} */ n) => `${h.currency} ${fmt(n, 2, 4)}`.trim();
     ui.latest.textContent = now ? t('alarmLatest', money(now)) : '';
     if (dir && noPrice) {
       ui.hint.textContent = t('alarmHintNoPrice', `${dir === 'above' ? '↑' : '↓'} ${money(v)}`);
       ui.hint.style.color = th.muted;
       ui.hint.style.background = 'transparent';
+      ui.hint.style.display = '';
+    } else if (dir && noDir) {
+      // a direction was explicitly chosen, but there is still no current price to show a % change against
+      ui.hint.textContent = (dir === 'above' ? '↑ ' : '↓ ') + t(dir === 'above' ? 'alarmHintAboveNoPrice' : 'alarmHintBelowNoPrice', money(v));
+      ui.hint.style.color = dir === 'above' ? th.buy : th.sell;
+      ui.hint.style.background = dir === 'above' ? 'rgba(31,138,59,.10)' : 'rgba(214,36,42,.10)';
       ui.hint.style.display = '';
     } else if (dir) {
       const pct = (v / now - 1) * 100;
@@ -251,9 +277,11 @@ const dgAlarmPanel = (() => {
       ui.hint.style.display = 'none';
     }
     const typed = ui.input.value.trim() !== '';
-    // a validation message follows the input and the price; a save result stays until the next input
+    // a validation message follows the input and the price; a save result stays until the next input.
+    // While noDir is true the typed price is valid (that's what makes noDir true): the direction choice
+    // below explains why Set is still disabled, so the generic "enter a price" error would be misleading.
     if (ui.msgKind !== 'result') {
-      if (ui.touched && typed && !dir) { ui.msg.textContent = Number.isFinite(v) && v > 0 && v === now ? t('alarmErrorEqual') : t('alarmErrorPrice'); ui.msgKind = 'validation'; }
+      if (ui.touched && typed && !dir && !noDir) { ui.msg.textContent = Number.isFinite(v) && v > 0 && v === now ? t('alarmErrorEqual') : t('alarmErrorPrice'); ui.msgKind = 'validation'; }
       else { ui.msg.textContent = ''; ui.msgKind = ''; }
     }
     const can = !!dir && !ui.saving;
@@ -261,6 +289,15 @@ const dgAlarmPanel = (() => {
     ui.set.style.opacity = can ? '1' : '.5';
     ui.seg.forEach(b => {
       const on = b.getAttribute('data-dg-alarm-repeat') === ui?.repeat;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.style.cssText = `border-radius:17px;padding:7px 4px;font:inherit;font-size:12.5px;cursor:pointer;` +
+        (on ? `background:${th.bg};border:1px solid ${dgUi.BLUE};color:${th.text};font-weight:600;` : `background:transparent;border:1px solid transparent;color:${th.muted};`);
+    });
+    // the direction chooser only matters for a brand-new alarm whose current price is unknown
+    ui.dirLabel.style.display = noDir ? '' : 'none';
+    ui.dirWrap.style.display = noDir ? '' : 'none';
+    ui.dirSeg.forEach(b => {
+      const on = b.getAttribute('data-dg-alarm-dir') === ui?.dirChoice;
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
       b.style.cssText = `border-radius:17px;padding:7px 4px;font:inherit;font-size:12.5px;cursor:pointer;` +
         (on ? `background:${th.bg};border:1px solid ${dgUi.BLUE};color:${th.text};font-weight:600;` : `background:transparent;border:1px solid transparent;color:${th.muted};`);
@@ -323,7 +360,7 @@ const dgAlarmPanel = (() => {
       price: v, dir, repeat: ui.repeat, on: true, created: Date.now() });
     if (ui !== mine) return;
     ui.saving = false;
-    if (res === 'ok') { ui.input.value = ''; ui.msg.textContent = ''; ui.msgKind = ''; }
+    if (res === 'ok') { ui.input.value = ''; ui.msg.textContent = ''; ui.msgKind = ''; ui.dirChoice = null; }
     else { ui.msg.textContent = res === 'full' ? t('alarmFull', R.MAX) : t('alarmSaveError'); ui.msgKind = 'result'; }
     update();
   }

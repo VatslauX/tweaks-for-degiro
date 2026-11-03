@@ -1,5 +1,8 @@
 # Release notes
 
+## 1.21.5 — 2026-11-03
+- **Price alarm without a current price**: when DEGIRO shows no current price yet, the *Set price alarm* panel now asks for the direction (*Rises to* or *Falls to*) instead of showing an error for a valid price. *Set* is enabled once you pick one.
+
 ## 1.21.4 — 2026-11-02
 - **Fix**: dragging on the portfolio chart to select two dates no longer throws an error and stops working when DEGIRO redraws the chart at the same moment. The drag now resets cleanly and works again on the next try, without a reload.
 - **Fix**: on a product chart, pressing Esc while still dragging a range selection no longer leaves a stale selection that reappears — wrongly anchored at the chart's start — on the next move before you release the pointer.

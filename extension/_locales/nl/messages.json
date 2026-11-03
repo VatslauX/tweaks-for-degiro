@@ -348,6 +348,21 @@
   "alarmHintNoPrice": {
     "message": "Nog geen huidige koers gezien: het alarm behoudt zijn richting ($1)."
   },
+  "alarmDirLabel": {
+    "message": "Richting (huidige koers nog niet bekend)"
+  },
+  "alarmDirAbove": {
+    "message": "Stijgt naar"
+  },
+  "alarmDirBelow": {
+    "message": "Daalt naar"
+  },
+  "alarmHintAboveNoPrice": {
+    "message": "Alarm als de koers stijgt naar $1 (huidige koers onbekend)."
+  },
+  "alarmHintBelowNoPrice": {
+    "message": "Alarm als de koers daalt naar $1 (huidige koers onbekend)."
+  },
   "alarmErrorPrice": {
     "message": "Voer een prijs boven 0 in."
   },

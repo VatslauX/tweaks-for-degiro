@@ -212,6 +212,8 @@ test('sets an alarm above the current price; the order form is never touched', a
   assert.ok(panel(tab), 'panel opened');
   // price is pre-filled
   assert.match(tab.$('[data-dg-alarm-price]').value, /16[,.]92/);
+  // the current price is known: no direction chooser needed
+  assert.equal(tab.$('[data-dg-alarm-dir-wrap]')?.style.display, 'none', 'direction chooser hidden when the current price is known');
   // fill 18, pick daily, save
   fill(tab, '[data-dg-alarm-price]', '18');
   await w.advance(100);
@@ -297,6 +299,39 @@ test('an alarm set while the price cell shows a dash keeps a clean currency', as
   await w.advance(500);
   assert.equal(listOf(w).length, 1);
   assert.equal(listOf(w)[0].currency, '$');
+  noErrors(w);
+});
+
+test('new alarm: an unknown current price lets you choose a direction instead of a misleading error', async () => {
+  const { w, tab } = await setupProduct();
+  // Simulate "no live price seen yet" (e.g. transiently right after page load): unlike
+  // __MOCK_PRICE_DASH (which keeps a valid title DEGIRO can fall back to), both the display and
+  // its title fallback go blank, so priceNow() truly has nothing to read for this product.
+  tab.$$('[data-field=CurrentPrice]').forEach(e => { e.textContent = '$ —'; e.removeAttribute('title'); });
+  await w.advance(1300); // let the scheduler forget the earlier (valid) reading
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel opened');
+  assert.ok(!panel(tab).textContent.includes('Latest'), 'no Latest line: current price unknown');
+  fill(tab, '[data-dg-alarm-price]', '140');
+  await w.advance(100);
+  // a clearly valid typed price must not show the generic "enter a price" error
+  assert.ok(!tab.$('[data-dg-alarm-msg]').textContent.includes('Enter a price above 0'), 'no misleading price error for a valid price');
+  // Set stays disabled until a direction is chosen...
+  assert.ok(tab.$('[data-dg-alarm-set]').disabled, 'Set disabled until a direction is chosen');
+  // ...but a direction choice is offered instead of a permanent dead end
+  assert.notEqual(tab.$('[data-dg-alarm-dir-wrap]')?.style.display, 'none', 'direction chooser shown when the current price is unknown');
+  const above = tab.$('[data-dg-alarm-dir="above"]');
+  assert.ok(above, 'a direction choice is offered when the current price is unknown');
+  above.click();
+  await w.advance(100);
+  assert.ok(!tab.$('[data-dg-alarm-set]').disabled, 'Set enabled once a direction is chosen');
+  tab.$('[data-dg-alarm-set]').click();
+  await w.advance(500);
+  const stored = listOf(w);
+  assert.equal(stored.length, 1, 'alarm created');
+  assert.equal(stored[0].price, 140);
+  assert.equal(stored[0].dir, 'above');
   noErrors(w);
 });
 
