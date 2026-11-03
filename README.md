@@ -8,6 +8,8 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 
 > **Unofficial.** Not affiliated with, endorsed or supported by DEGIRO or flatexDEGIRO Bank. DEGIRO is a trademark of its owner.
 
+![Demo](.github/assets/demo.gif)
+
 ## Features
 
 **Bid/ask spread**

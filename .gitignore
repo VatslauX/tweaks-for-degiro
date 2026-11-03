@@ -7,3 +7,4 @@ playwright-report/
 docs/features-backlog.md
 /coverage-badge.svg
 .coverage-tmp-*/
+/scripts/screenshot-mask.js
