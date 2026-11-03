@@ -1,0 +1,45 @@
+name: Coverage badge
+
+on:
+  push:
+    branches: [main]
+
+# write is scoped to this workflow only: it pushes one SVG to the orphan `badges` branch, never to
+# main. test.yml and release.yml keep their own separate, narrower permissions.
+permissions:
+  contents: write
+
+jobs:
+  badge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # unit + integration only (no Playwright/Chromium needed): scripts/coverage-badge.js runs
+      # node --test itself and writes ./coverage-badge.svg locally, no network call
+      - run: node scripts/coverage-badge.js
+      - name: Publish to the badges branch
+        run: |
+          mv coverage-badge.svg /tmp/coverage-badge.svg
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
+            git fetch origin badges
+            git checkout badges
+          else
+            git checkout --orphan badges
+          fi
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          mv /tmp/coverage-badge.svg coverage-badge.svg
+          git add coverage-badge.svg
+          if git diff --cached --quiet; then
+            echo "coverage unchanged, nothing to publish"
+          else
+            git commit -m "chore: update coverage badge"
+            git push origin HEAD:badges
+          fi
