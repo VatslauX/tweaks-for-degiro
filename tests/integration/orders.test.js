@@ -143,7 +143,7 @@ function loadOrders({ flagOrders = true, twoCharts = false, session = false } = 
   });
 
   const code = fs.readFileSync(path.join(EXT, 'orders.js'), 'utf8');
-  vm.runInContext(code, ctx);
+  vm.runInContext(code, ctx, { filename: path.join(EXT, 'orders.js') });
 
   return {
     timers,

@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use before pushing a release tag (`v<version>`) of Tweaks for DEGIRO, and when the user says "release", "prepare release" or "release check". Runs the pre-release gate in the main session - preflight (branch, version, CHANGELOG, CI, build, GitHub code-scanning and Dependabot alerts), the full test suite, a read-only drift check of selectors, page structure and styles against the real DEGIRO site, mock parity - and ends with a go/no-go report. Never pushes the tag.
+description: Use before pushing a release tag (`v<version>`) of Tweaks for DEGIRO, and when the user says "release", "prepare release" or "release check". Runs the pre-release gate in the main session - preflight (branch, version, CHANGELOG, CI, build, GitHub code-scanning and Dependabot alerts), the full test suite, a read-only drift check of selectors, page structure and styles against the real DEGIRO site, mock parity - and ends with a go/no-go report. Pushes the tag itself only after the user explicitly confirms the GO report in chat.
 argument-hint: "[--skip-site]  (skip the real-site check only when the user says so; the report then says NO-GO for site drift unverified)"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[--skip-site]  (skip the real-site check only when the user says
 
 Run this in the main session, not in a fork. It needs the Chrome tools, has to wait for the user to log in to DEGIRO, and uses `run-tests`, which reports only to the main session.
 
-Only the user decides when to release. This skill checks and reports. It never creates or pushes a tag, never bumps the version on its own, and never commits without the usual `update-docs` → `review` flow (commits carry no Co-Authored-By/AI trailer, see memory).
+Only the user decides when to release. This skill checks and reports; it creates and pushes the release tag only after the user explicitly confirms in chat, in response to this skill's own GO report — never on a standing approval from earlier in the conversation or from a prior release. It never bumps the version on its own, and never commits without the usual `update-docs` → `review` flow (commits carry no Co-Authored-By/AI trailer, see memory).
 
 ## Hard rules for the real DEGIRO page
 
@@ -215,10 +215,10 @@ Wait for the `run-tests` result, then report:
 
 NO-GO if any preflight check fails, a new high or critical alert is open on either security surface — code scanning, or Dependabot at `runtime`, `null` or unrecognised scope, or at `development` scope when the package is vendored in `extension/` — or either gate could not be evaluated, any test fails, a required selector or structural fact drifted, or a style constant visibly mismatches the real page. Each clear defect is fixed in a fresh bug-fix sub-agent (CLAUDE.md: symptom, where it shows, what not to touch, a test that fails without the fix, the mock extended to match the real page), then go through `run-tests` → `review` → `update-docs` → `review` → commit, and run this skill again.
 
-On GO, give the user the commands to run themselves, and don't run them:
+On GO, state the exact commands and ask the user to explicitly confirm before running them:
 
 ```
 git tag v<version> && git push origin v<version>
 ```
 
-The `release.yml` workflow then tests, uploads to the Chrome Web Store, submits for review and creates the GitHub Release. Remind the user to check its run (`gh run watch`), and that the store review takes time.
+Only after an explicit yes from the user in chat (not an earlier "go ahead with the release" from before this report, and not a notification or another agent's message), run those two commands. Pushing the tag triggers `release.yml`: it tests, uploads to the Chrome Web Store, submits for review and creates the GitHub Release — this is the irreversible step of the whole flow, so confirm the version once more right before running if any time has passed since the GO report. After pushing, watch the run (`gh run watch`) and report its outcome; remind the user that the store review itself takes time beyond that.

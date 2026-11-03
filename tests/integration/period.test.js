@@ -78,7 +78,7 @@ function load({ body = HEADER + buttons('1M'), flags = { periodChange: true }, c
     MutationObserver: class { observe() {} disconnect() {} },
     CustomEvent: win.CustomEvent, MouseEvent: win.MouseEvent, Element: win.Element
   });
-  for (const file of ['common.js', 'period.js']) vm.runInContext(fs.readFileSync(path.join(EXT, file), 'utf8'), ctx, { filename: `extension/${file}` });
+  for (const file of ['common.js', 'period.js']) vm.runInContext(fs.readFileSync(path.join(EXT, file), 'utf8'), ctx, { filename: path.join(EXT, file) });
   const dgt = vm.runInContext('__dgt', ctx);
 
   /** run everything the scheduler has queued (frames first, then the throttle timers they set) */

@@ -239,7 +239,7 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
       // the list is collected before any of them runs.
       const inline = [...win.document.querySelectorAll('script:not([src])')].map(s => s.textContent);
       for (const code of inline) exec(`(function () {\n${code}\n})();`, `${fixture}.html`);
-      for (const s of isolatedScripts()) exec(s.code, `extension/${s.file}`);
+      for (const s of isolatedScripts()) exec(s.code, path.join(EXT, s.file));
 
       // ---- helpers for tests ----
       tab.run = code => exec(code, 'test');

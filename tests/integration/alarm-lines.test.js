@@ -168,7 +168,7 @@ function loadAlarmLines({ alarmLinesClick = true, alarmLines = true, productId =
     },
   });
 
-  vm.runInContext(fs.readFileSync(path.join(EXT, 'alarm-lines.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(path.join(EXT, 'alarm-lines.js'), 'utf8'), ctx, { filename: path.join(EXT, 'alarm-lines.js') });
   featureConfig.run();
 
   return { doc, win, container };

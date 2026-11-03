@@ -12,11 +12,12 @@ const vm = require('vm');
 // names. Without `chrome` its first storage read throws and is swallowed, and with a non-http
 // location it starts no timers — nothing is left running.
 const sandbox = { location: { protocol: 'file:' }, setTimeout, clearTimeout, setInterval, clearInterval, console };
-const source = fs.readFileSync(path.join(__dirname, '../../extension/flags.js'), 'utf8');
+const FLAGS_JS = path.join(__dirname, '../../extension/flags.js');
+const source = fs.readFileSync(FLAGS_JS, 'utf8');
 // its top-level names are const/function, not globals: the script's last expression hands them over
 const picked = 'DG_DEFAULTS, DG_PAGE_FLAGS, DG_TX_COLUMNS, DG_ORDER_COLUMNS, DG_MAX_TITLES, DG_MAX_TITLE_LEN, dgSanitize, dgOnSettings, dgSettings';
 const { DG_DEFAULTS, DG_PAGE_FLAGS, DG_TX_COLUMNS, DG_ORDER_COLUMNS, DG_MAX_TITLES, DG_MAX_TITLE_LEN, dgSanitize, dgOnSettings, dgSettings } =
-  vm.runInNewContext(`${source}\n;({ ${picked} });`, sandbox, { filename: 'extension/flags.js' });
+  vm.runInNewContext(`${source}\n;({ ${picked} });`, sandbox, { filename: FLAGS_JS });
 
 // values made inside the sandbox have that realm's prototypes: compare them as plain data
 const plain = v => JSON.parse(JSON.stringify(v));

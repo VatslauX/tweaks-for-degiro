@@ -1,5 +1,7 @@
 # Tweaks for DEGIRO (unofficial)
 
+[![Test](https://github.com/VatslauX/tweaks-for-degiro/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/VatslauX/tweaks-for-degiro/actions/workflows/test.yml)
+
 A small Chrome extension that adds the features missing from the DEGIRO web trader (trader.degiro.nl). The extra elements are styled to match DEGIRO's own fonts and colours.
 
 > **Unofficial.** Not affiliated with, endorsed or supported by DEGIRO or flatexDEGIRO Bank. DEGIRO is a trademark of its owner.

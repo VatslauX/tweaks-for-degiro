@@ -12,6 +12,7 @@ Unofficial Manifest V3 Chrome extension for the DEGIRO web trader (`https://trad
 npm test                   # typecheck, lint, unit, integration, e2e (CI and humans)
 npm run test:report        # structured JSON test results for agents; accepts a scope
 npm run test:report -- tests/e2e/x.spec.js:42   # one spec/file, -g "<test name>", or a stage (unit, e2e, ...)
+npm run test:coverage      # unit+integration coverage of extension/; only files they actually load (chart-select.js and portfolio.js need e2e, so they're absent, not 0%)
 npm run typecheck
 npm run lint
 npm run build              # dist/tweaks-for-degiro-<manifest version>.zip
