@@ -8,6 +8,7 @@
     "test:integration": "node --test tests/integration/*.test.js",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"extension/**\" --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=85 tests/unit/*.test.js tests/integration/*.test.js",
     "badge:coverage": "node scripts/coverage-badge.js",
+    "badge:malware": "node scripts/malware-badge.js",
     "test:e2e": "playwright test",
     "test:report": "node scripts/test-report.js",
     "build": "node scripts/build.js",

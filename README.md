@@ -2,6 +2,7 @@
 
 [![Test](https://github.com/VatslauX/tweaks-for-degiro/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/VatslauX/tweaks-for-degiro/actions/workflows/test.yml)
 [![Coverage](https://raw.githubusercontent.com/VatslauX/tweaks-for-degiro/badges/coverage-badge.svg)](https://github.com/VatslauX/tweaks-for-degiro/actions/workflows/coverage-badge.yml)
+[![Malware checks](https://raw.githubusercontent.com/VatslauX/tweaks-for-degiro/badges/malware-badge.svg)](https://github.com/VatslauX/tweaks-for-degiro/actions/workflows/malware-badge.yml)
 
 A small Chrome extension that adds the features missing from the DEGIRO web trader (trader.degiro.nl). The extra elements are styled to match DEGIRO's own fonts and colours.
 

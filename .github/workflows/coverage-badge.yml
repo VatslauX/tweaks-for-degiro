@@ -28,18 +28,31 @@ jobs:
           mv coverage-badge.svg /tmp/coverage-badge.svg
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
-            git fetch origin badges
-            git checkout badges
-          else
-            git checkout --orphan badges
-          fi
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          mv /tmp/coverage-badge.svg coverage-badge.svg
-          git add coverage-badge.svg
-          if git diff --cached --quiet; then
-            echo "coverage unchanged, nothing to publish"
-          else
+          # retries: malware-badge.yml also pushes to `badges` on every push to main, so a
+          # non-fast-forward rejection here is an expected race, not an error - re-fetch
+          # and retry rather than failing the job
+          for attempt in 1 2 3 4 5; do
+            if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
+              git fetch origin badges
+              git checkout -B badges origin/badges
+            else
+              git checkout --orphan badges
+              find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+            fi
+            cp /tmp/coverage-badge.svg coverage-badge.svg
+            git add coverage-badge.svg
+            if git diff --cached --quiet; then
+              echo "coverage unchanged, nothing to publish"
+              break
+            fi
             git commit -m "chore: update coverage badge"
-            git push origin HEAD:badges
-          fi
+            if git push origin HEAD:badges; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then
+              echo "failed to publish coverage badge after 5 attempts" >&2
+              exit 1
+            fi
+            echo "push rejected (attempt $attempt/5), retrying"
+            sleep $((attempt * 3))
+          done
