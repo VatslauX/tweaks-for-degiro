@@ -2,6 +2,7 @@
 
 ## 1.21.5 — 2026-11-03
 - **Price alarm without a current price**: when DEGIRO shows no current price yet, the *Set price alarm* panel now asks for the direction (*Rises to* or *Falls to*) instead of showing an error for a valid price. *Set* is enabled once you pick one.
+- **DEGIRO font**: the extension's chart range-selection tooltip, portfolio period change, order badges and alarm badges now use Roboto (DEGIRO's own font), replacing a stale Inter reference.
 
 ## 1.21.4 — 2026-11-02
 - **Fix**: dragging on the portfolio chart to select two dates no longer throws an error and stops working when DEGIRO redraws the chart at the same moment. The drag now resets cleanly and works again on the next try, without a reload.

@@ -11,6 +11,7 @@ test('badges are buttons: labelled, focusable, Enter and Space open the order', 
   await expect(badge(page)).toHaveAttribute('role', 'button');
   await expect(badge(page)).toHaveAttribute('tabindex', '0');
   await expect(badge(page)).toHaveAttribute('aria-label', 'Adjust buy order 100 at 15,50');
+  expect(await badge(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe('Roboto, Helvetica, HelveticaNeue, sans-serif'); // matches DEGIRO's own font, not the stale Inter stack
   await badge(page).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#limit')).toHaveValue('15.5');

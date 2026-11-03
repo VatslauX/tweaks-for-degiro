@@ -12,6 +12,7 @@ test('shows the change for the selected period next to the total', async ({ degi
   await expect(change(page)).toContainText('1Y');
   await expect(change(page)).toContainText(fmtPct((s[0].value - s[s.length - 1].value) / s[s.length - 1].value * 100));
   expect(await page.$eval('#dg-portfolio-change', el => el.parentElement.getAttribute('data-name'))).toBe('performance-chart-value');
+  expect(await change(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe('Roboto, Helvetica, HelveticaNeue, sans-serif'); // matches DEGIRO's own font, not the stale Inter stack
 });
 
 test('follows the period switcher', async ({ degiro }) => {

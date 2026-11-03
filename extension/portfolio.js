@@ -8,7 +8,7 @@
   const ENDPOINT = '/portfolio-metrics/secure/api/v1/portfolio/value';
   const LINE = [0, 159, 223]; // DEGIRO blue used for the line
   const DG = {
-    font: 'Inter, Helvetica, HelveticaNeue, sans-serif', text: '#0F171A', muted: '#65757B',
+    font: 'Roboto, Helvetica, HelveticaNeue, sans-serif', text: '#0F171A', muted: '#65757B',
     upDot: '#078307', downDot: '#E40101', upText: '#1E8302', downText: '#E40101',
     upFill: 'rgba(7,131,7,.08)', downFill: 'rgba(228,1,1,.08)', edge: 'rgba(101,117,123,.7)'
   };

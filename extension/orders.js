@@ -199,7 +199,7 @@
       d.textContent = o.text;
       d.style.cssText =
         `background:${th.bg};border:1px solid ${o.col};color:${o.col};border-radius:2px;` +
-        `font-family:Inter,Helvetica,HelveticaNeue,sans-serif;font-size:11px;line-height:14px;font-weight:400;padding:0 4px;white-space:nowrap;` +
+        `font-family:Roboto,Helvetica,HelveticaNeue,sans-serif;font-size:11px;line-height:14px;font-weight:400;padding:0 4px;white-space:nowrap;` +
         (clickable && o.order ? 'pointer-events:auto;cursor:pointer;transition:background .1s,color .1s;' : '');
       if (clickable && o.order) {
         d.title = t('badgeEdit');

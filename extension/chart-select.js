@@ -3,7 +3,7 @@
 (() => {
   // DEGIRO palette and fonts
   const DG = {
-    font: 'Inter, Helvetica, HelveticaNeue, sans-serif',
+    font: 'Roboto, Helvetica, HelveticaNeue, sans-serif',
     text: '#0F171A', muted: '#65757B',
     upDot: '#078307', downDot: '#E40101',   // chart markers
     upText: '#1E8302', downText: '#E40101', // change text (+0,26 (+1,58%))

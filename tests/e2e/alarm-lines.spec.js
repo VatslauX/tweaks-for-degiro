@@ -19,7 +19,8 @@ const drawn = page => page.evaluate(() => {
   const badges = [...c.container.querySelectorAll('[data-dg-alarm-badge]')].map(d => {
     const b = d.getBoundingClientRect();
     const bg = getComputedStyle(d).backgroundColor;
-    return { text: d.textContent, y: Math.round((b.top + b.bottom) / 2 - cr.top), bell: !!d.querySelector('svg path'), bg, right: Math.round(cr.right - b.right) };
+    const fontFamily = getComputedStyle(d).fontFamily;
+    return { text: d.textContent, y: Math.round((b.top + b.bottom) / 2 - cr.top), bell: !!d.querySelector('svg path'), bg, fontFamily, right: Math.round(cr.right - b.right) };
   }).sort((a, b) => a.y - b.y);
   return { badges, right };
 });
@@ -33,6 +34,7 @@ test('gold badges at the switched-on alarms\' prices, each with a bell and the p
   for (const b of d.badges) {
     expect(b.bg).toBe('rgb(224, 161, 0)'); // #e0a100
     expect(b.bell).toBe(true);
+    expect(b.fontFamily).toBe('Roboto, Helvetica, HelveticaNeue, sans-serif'); // matches DEGIRO's own font, not the stale Inter stack
     expect(Math.abs(b.right - d.right)).toBeLessThanOrEqual(1);
   }
   // each badge sits at its price's y on the axis

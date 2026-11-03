@@ -49,7 +49,7 @@
     d.style.cssText =
       `position:absolute;right:${right}px;transform:translateY(-50%);` +
       'display:flex;align-items:center;gap:3px;background:' + GOLD + ';color:#fff;font-size:11px;font-weight:600;' +
-      'padding:1px 6px;border-radius:3px;white-space:nowrap;font-family:Inter,Helvetica,HelveticaNeue,sans-serif;line-height:14px;';
+      'padding:1px 6px;border-radius:3px;white-space:nowrap;font-family:Roboto,Helvetica,HelveticaNeue,sans-serif;line-height:14px;';
     // the bell, in the namespace of the chart's own <svg>
     const ns = chart.container.querySelector('svg')?.namespaceURI;
     if (ns) {

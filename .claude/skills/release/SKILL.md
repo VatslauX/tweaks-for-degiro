@@ -155,10 +155,10 @@ Extend the probe when a feature relies on more DEGIRO DOM than this covers (read
 Compare the real computed values (normalised to upper-case hex) with every hard-coded colour and font in `extension/`:
 
 ```
-grep -nE "#[0-9A-Fa-f]{6}\b|font-family|Inter" extension/*.js extension/*.css | grep -v options
+grep -nE "#[0-9A-Fa-f]{6}\b|font-family|Roboto" extension/*.js extension/*.css | grep -v options
 ```
 
-Make one table: constant, `file:line`, what it imitates, the real value, match yes/no. At least: muted label grey (`#798A90`, `#65757B`), up/down green and red (`#1E8302`, `#078307`, `#E3282B`, `#E40101`), DEGIRO blue (`#009FDF`, `#0095D2`), text (`#0F171A`), line (`#D6DFE3`), the font stack (`Inter, Helvetica, HelveticaNeue, sans-serif`) and font sizes. Two constants for the same role with different values (for example two blues) are a finding: say which one the real page uses.
+Make one table: constant, `file:line`, what it imitates, the real value, match yes/no. At least: muted label grey (`#798A90`, `#65757B`), up/down green and red (`#1E8302`, `#078307`, `#E3282B`, `#E40101`), DEGIRO blue (`#009FDF`, `#0095D2`), text (`#0F171A`), line (`#D6DFE3`), the font stack (`Roboto, Helvetica, HelveticaNeue, sans-serif`) and font sizes. Two constants for the same role with different values (for example two blues) are a finding: say which one the real page uses.
 
 Also look at the extension's own elements next to DEGIRO's, if the user has the release candidate loaded (step 6): take one screenshot of the product header and one of the Orders table and check that font, size, colour and alignment match the surrounding DEGIRO text.
 
