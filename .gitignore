@@ -5,3 +5,5 @@ playwright-report/
 .idea/
 .claude/worktrees/
 docs/features-backlog.md
+/coverage-badge.svg
+.coverage-tmp-*/
