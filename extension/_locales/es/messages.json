@@ -1,0 +1,513 @@
+{
+  "extDescription": {
+    "message": "Diferencial compra/venta, variación % de un rango, tus órdenes en el gráfico y filtros de órdenes para DEGIRO. No afiliado a DEGIRO."
+  },
+  "optVersion": {
+    "message": "Versión $1"
+  },
+  "optOnThisPage": {
+    "message": "En esta página"
+  },
+  "optPricing": {
+    "message": "Precios"
+  },
+  "optChart": {
+    "message": "Gráfico"
+  },
+  "optOrders": {
+    "message": "Órdenes"
+  },
+  "optPageCleanup": {
+    "message": "Limpieza de la página"
+  },
+  "optSpread": {
+    "message": "Diferencial compra/venta"
+  },
+  "optSpreadHelp": {
+    "message": "Fila Spread en Información del producto, con color según su tamaño."
+  },
+  "optHeaderSpread": {
+    "message": "Spread en la cabecera"
+  },
+  "optHeaderSpreadHelp": {
+    "message": "Spread actual en % junto al precio, p. ej. «Spread 0,08%»."
+  },
+  "optExDividend": {
+    "message": "Fecha ex-dividendo en la cabecera"
+  },
+  "optExDividendHelp": {
+    "message": "Tras el spread cuando se conoce; haz clic para ir a Dividendos."
+  },
+  "optEarnings": {
+    "message": "Fecha de resultados en la cabecera"
+  },
+  "optEarningsHelp": {
+    "message": "Tras la fecha ex-dividendo cuando se conoce; haz clic para ir a Resultados."
+  },
+  "optCompact": {
+    "message": "Información del producto compacta"
+  },
+  "optCompactHelp": {
+    "message": "Menos espacio entre las filas de Información del producto."
+  },
+  "optPeriodChange": {
+    "message": "Variación en el periodo elegido"
+  },
+  "optPeriodChangeHelp": {
+    "message": "Junto a la variación diaria en productos y junto al total en el gráfico de la cartera."
+  },
+  "optChartSelect": {
+    "message": "Selección de rango"
+  },
+  "optChartSelectHelp": {
+    "message": "Arrastra sobre un gráfico de producto o de cartera para ver la variación entre dos puntos."
+  },
+  "optOrdersChart": {
+    "message": "Órdenes pendientes en el gráfico"
+  },
+  "optOrdersChartHelp": {
+    "message": "Línea discontinua y etiqueta en cada precio de orden."
+  },
+  "optOrdersClick": {
+    "message": "Clic en la etiqueta para ajustar"
+  },
+  "optOrdersClickHelp": {
+    "message": "Abre el formulario Ajustar orden de DEGIRO para esa orden."
+  },
+  "optAdjustClose": {
+    "message": "Clic fuera o Esc cierra Ajustar orden"
+  },
+  "optAdjustCloseHelp": {
+    "message": "Igual que pulsar Cancelar o ×. Los cambios no se guardan."
+  },
+  "optOrdersFilter": {
+    "message": "Filtros y totales en Órdenes"
+  },
+  "optOrdersFilterHelp": {
+    "message": "Filtra las órdenes pendientes por operación, divisa y producto; totales de compra/venta por divisa; elige qué columnas mostrar."
+  },
+  "optOrdersSort": {
+    "message": "Recordar el orden de clasificación en Órdenes"
+  },
+  "optOrdersSortHelp": {
+    "message": "Mantiene la tabla de órdenes pendientes ordenada como la dejaste, tras recargar y navegar."
+  },
+  "optTransactionsFilter": {
+    "message": "Filtros y totales en Transacciones"
+  },
+  "optTransactionsFilterHelp": {
+    "message": "Filtra por acción, divisa y producto; totales de compra, venta y neto por divisa, más comisiones; elige qué columnas mostrar. Cubre la página mostrada."
+  },
+  "optNavLinks": {
+    "message": "Órdenes, Transacciones y Alarmas en la barra lateral"
+  },
+  "optNavLinksHelp": {
+    "message": "Enlaces bajo Productos en el menú izquierdo de DEGIRO. Alarmas solo aparece mientras Alarmas de precio esté activado."
+  },
+  "optPriceAlarms": {
+    "message": "Alarmas de precio"
+  },
+  "optPriceAlarmsHelp": {
+    "message": "Botón de alarma en los productos de tus Favoritos, una página Alarmas en el menú izquierdo y un aviso cuando se alcanza un precio. Solo se comprueba mientras hay abierta una página de Favoritos o de producto."
+  },
+  "optAlarmLines": {
+    "message": "Alarmas en el gráfico"
+  },
+  "optAlarmLinesHelp": {
+    "message": "Una insignia dorada en el precio de cada alarma activada en el gráfico del producto."
+  },
+  "optAlarmLinesClick": {
+    "message": "Click badge to edit"
+  },
+  "optAlarmLinesClickHelp": {
+    "message": "Opens the alarm editor for that price."
+  },
+  "navOrders": {
+    "message": "Órdenes",
+    "description": "Sidebar link, DEGIRO's own wording"
+  },
+  "navTransactions": {
+    "message": "Transacciones"
+  },
+  "navAlarms": {
+    "message": "Alarmas"
+  },
+  "optHideSections": {
+    "message": "Ocultar secciones"
+  },
+  "optHideSectionsHelp": {
+    "message": "Oculta secciones de DEGIRO según su título."
+  },
+  "optHiddenTitles": {
+    "message": "Títulos de las secciones a ocultar, uno por línea (título exacto, sin distinguir mayúsculas)"
+  },
+  "optFeedback": {
+    "message": "Enviar comentarios o informar de un problema",
+    "description": "Link in Settings: opens a new issue on the project's GitHub page"
+  },
+  "optDisclaimer": {
+    "message": "Extensión no oficial — no afiliada a DEGIRO ni a flatexDEGIRO Bank, ni respaldada o apoyada por ellos. DEGIRO es una marca de su propietario."
+  },
+  "optLiveHint": {
+    "message": "Los cambios se aplican al instante en las pestañas abiertas de DEGIRO."
+  },
+  "optSaved": {
+    "message": "Guardado"
+  },
+  "optSaveFailed": {
+    "message": "No se pudo guardar: $1"
+  },
+  "optTooMany": {
+    "message": "Demasiados títulos (máx. $1)"
+  },
+  "optTooLong": {
+    "message": "Cada título puede tener como máximo $1 caracteres"
+  },
+  "featPortfolio": {
+    "message": "Gráfico de la cartera"
+  },
+  "statusOk": {
+    "message": "Funciona"
+  },
+  "statusLoading": {
+    "message": "Cargando…"
+  },
+  "statusIdle": {
+    "message": "No en esta página"
+  },
+  "statusError": {
+    "message": "Error"
+  },
+  "statusMissing": {
+    "message": "No encontrado — puede que DEGIRO haya cambiado su página"
+  },
+  "spread": {
+    "message": "Spread"
+  },
+  "spreadValueTitle": {
+    "message": "Compra $1 / Venta $2"
+  },
+  "spreadHeaderTitle": {
+    "message": "Diferencial compra/venta actual"
+  },
+  "exDivLabel": {
+    "message": "Ex-div."
+  },
+  "exDivTitle": {
+    "message": "Fecha ex-dividendo — ir a Dividendos"
+  },
+  "exDivTitlePast": {
+    "message": "Fecha ex-dividendo (pasada) — ir a Dividendos"
+  },
+  "earningsLabel": {
+    "message": "Resultados"
+  },
+  "earningsTitle": {
+    "message": "Próxima fecha de resultados — ir a Resultados"
+  },
+  "earningsTitlePast": {
+    "message": "Fecha de resultados (pasada) — ir a Resultados"
+  },
+  "ordersAction": {
+    "message": "Operación"
+  },
+  "ordersAll": {
+    "message": "Todas"
+  },
+  "ordersBuy": {
+    "message": "Compra"
+  },
+  "ordersSell": {
+    "message": "Venta"
+  },
+  "ordersCurrency": {
+    "message": "Divisa"
+  },
+  "ordersProduct": {
+    "message": "Producto"
+  },
+  "ordersAllProducts": {
+    "message": "Todos los productos"
+  },
+  "ordersSelected": {
+    "message": "$1 seleccionados"
+  },
+  "ordersClear": {
+    "message": "Borrar filtros"
+  },
+  "ordersTotalBuy": {
+    "message": "Total compra"
+  },
+  "ordersTotalSell": {
+    "message": "Total venta"
+  },
+  "ordersCount": {
+    "message": "$1 de $2 órdenes"
+  },
+  "txNet": {
+    "message": "Neto (compra − venta)"
+  },
+  "txFees": {
+    "message": "Comisiones"
+  },
+  "txCount": {
+    "message": "$1 de $2 transacciones"
+  },
+  "txPageOnly": {
+    "message": "solo esta página"
+  },
+  "columns": {
+    "message": "Columnas"
+  },
+  "allColumns": {
+    "message": "Todas las columnas"
+  },
+  "columnsHidden": {
+    "message": "$1 ocultas"
+  },
+  "columnsReset": {
+    "message": "Restablecer"
+  },
+  "badgeBuy": {
+    "message": "COMPRA"
+  },
+  "badgeSell": {
+    "message": "VENTA"
+  },
+  "badgeEdit": {
+    "message": "Ajustar orden"
+  },
+  "badgeNotFound": {
+    "message": "Orden no encontrada en la lista de órdenes de DEGIRO — ábrela e inténtalo de nuevo"
+  },
+  "periodTitle": {
+    "message": "Variación en el periodo elegido ($1), del primer al último punto del gráfico"
+  },
+  "portfolioTitle": {
+    "message": "Variación del valor de la cartera en el periodo elegido. Incluye depósitos y retiradas, así que no es la rentabilidad."
+  },
+  "badgeAria": {
+    "message": "Ajustar orden: $1 $2 a $3",
+    "description": "Accessible name of an order badge: $1 = buy/sell, $2 = quantity, $3 = price"
+  },
+  "badgeMerged": {
+    "message": "$1 órdenes",
+    "description": "Badge on the chart replacing several order badges, $1 = number of orders"
+  },
+  "bannerRose": {
+    "message": "$1 ha subido a $2"
+  },
+  "bannerFell": {
+    "message": "$1 ha bajado a $2"
+  },
+  "bannerAlarm": {
+    "message": "alarma $1"
+  },
+  "bannerOnceOff": {
+    "message": "esta alarma está ahora desactivada"
+  },
+  "bannerDaily": {
+    "message": "vuelve a saltar mañana como pronto"
+  },
+  "bannerEachAbove": {
+    "message": "vuelve a saltar cuando el precio baje de nuevo de $1"
+  },
+  "bannerEachBelow": {
+    "message": "vuelve a saltar cuando el precio suba de nuevo por encima de $1"
+  },
+  "bannerOpen": {
+    "message": "Abrir producto"
+  },
+  "bannerAlarms": {
+    "message": "Alarmas"
+  },
+  "bannerClose": {
+    "message": "Cerrar"
+  },
+  "alarmButton": {
+    "message": "Alarma"
+  },
+  "alarmButtonAria": {
+    "message": "Alarma, activas: $1"
+  },
+  "alarmPanelTitle": {
+    "message": "Crear alarma de precio"
+  },
+  "alarmLatest": {
+    "message": "Último $1"
+  },
+  "alarmPriceLabel": {
+    "message": "Precio de la alarma"
+  },
+  "alarmHintAbove": {
+    "message": "Alarma cuando el precio suba a $1 ($2)"
+  },
+  "alarmHintBelow": {
+    "message": "Alarma cuando el precio baje a $1 ($2)"
+  },
+  "alarmHintNoPrice": {
+    "message": "Aún no se ha visto un precio actual: la alarma mantiene su dirección ($1)."
+  },
+  "alarmDirLabel": {
+    "message": "Dirección (precio actual aún desconocido)"
+  },
+  "alarmDirAbove": {
+    "message": "Sube a"
+  },
+  "alarmDirBelow": {
+    "message": "Baja a"
+  },
+  "alarmHintAboveNoPrice": {
+    "message": "Alarma cuando el precio suba a $1 (precio actual desconocido)."
+  },
+  "alarmHintBelowNoPrice": {
+    "message": "Alarma cuando el precio baje a $1 (precio actual desconocido)."
+  },
+  "alarmErrorPrice": {
+    "message": "Introduce un precio superior a 0."
+  },
+  "alarmErrorEqual": {
+    "message": "Es el precio actual. Introduce un precio mayor o menor."
+  },
+  "alarmRepeat": {
+    "message": "Repetir"
+  },
+  "alarmOnce": {
+    "message": "Una vez"
+  },
+  "alarmDaily": {
+    "message": "Una vez al día"
+  },
+  "alarmEach": {
+    "message": "Cada vez"
+  },
+  "alarmSet": {
+    "message": "Crear alarma"
+  },
+  "alarmFull": {
+    "message": "Tienes $1 alarmas, el máximo permitido. Elimina una primero."
+  },
+  "alarmSaveError": {
+    "message": "No se pudo guardar la alarma."
+  },
+  "alarmForProduct": {
+    "message": "Alarmas de $1"
+  },
+  "alarmAll": {
+    "message": "Todas las alarmas ›"
+  },
+  "alarmCheckedNote": {
+    "message": "Se comprueba mientras Favoritos o la página de este producto esté abierta en una pestaña de DEGIRO."
+  },
+  "alarmOnAria": {
+    "message": "Alarma $1 activada"
+  },
+  "alarmDelete": {
+    "message": "Eliminar alarma"
+  },
+  "alarmPageTitle": {
+    "message": "Alarmas de precio"
+  },
+  "alarmCount": {
+    "message": "$1 alarmas · $2 activas"
+  },
+  "alarmFilterAll": {
+    "message": "Todas"
+  },
+  "alarmFilterOn": {
+    "message": "Activas"
+  },
+  "alarmFilterOff": {
+    "message": "Inactivas"
+  },
+  "alarmFilterFired": {
+    "message": "Disparadas hoy"
+  },
+  "alarmColProduct": {
+    "message": "Producto"
+  },
+  "alarmColAlarm": {
+    "message": "Alarma"
+  },
+  "alarmColRepeat": {
+    "message": "Repetición"
+  },
+  "alarmColLatest": {
+    "message": "Último"
+  },
+  "alarmColDistance": {
+    "message": "Distancia"
+  },
+  "alarmColStatus": {
+    "message": "Estado"
+  },
+  "alarmColOn": {
+    "message": "Activa"
+  },
+  "alarmStatusWaiting": {
+    "message": "En espera"
+  },
+  "alarmStatusFired": {
+    "message": "Disparada $1"
+  },
+  "alarmStatusFiredOff": {
+    "message": "Disparada $1 · desactivada"
+  },
+  "alarmStatusNotInList": {
+    "message": "No está en la lista actual"
+  },
+  "alarmStatusNoTrading": {
+    "message": "Sin negociación ahora"
+  },
+  "alarmTipAria": {
+    "message": "Acerca de los estados"
+  },
+  "alarmStatusFiredName": {
+    "message": "Disparada"
+  },
+  "alarmStatusFiredOffName": {
+    "message": "Disparada, desactivada"
+  },
+  "alarmTipWaiting": {
+    "message": "el precio está en directo, pero aún no ha alcanzado el precio de la alarma."
+  },
+  "alarmTipFired": {
+    "message": "el precio alcanzó hoy el precio de la alarma (se muestra la hora)."
+  },
+  "alarmTipFiredOff": {
+    "message": "el precio alcanzó el precio de la alarma; una alarma de Una vez se desactiva sola tras saltar."
+  },
+  "alarmTipNotInList": {
+    "message": "el producto no está en la lista de Favoritos que DEGIRO tiene abierta, así que no se puede comprobar su precio."
+  },
+  "alarmTipNoTrading": {
+    "message": "el producto está en la lista pero ahora no tiene precio, por ejemplo antes de que abra el mercado."
+  },
+  "alarmSeen": {
+    "message": "visto $1"
+  },
+  "alarmEmpty": {
+    "message": "Aún no hay alarmas. Abre un producto de tus Favoritos y pulsa Alarma."
+  },
+  "alarmEdit": {
+    "message": "Editar"
+  },
+  "alarmEditAria": {
+    "message": "Editar alarma $1"
+  },
+  "alarmEditTitle": {
+    "message": "Editar alarma de precio"
+  },
+  "alarmSave": {
+    "message": "Guardar"
+  },
+  "alarmCancel": {
+    "message": "Cancelar"
+  },
+  "alarmBuyAria": {
+    "message": "Buy $1"
+  },
+  "alarmSellAria": {
+    "message": "Sell $1"
+  }
+}

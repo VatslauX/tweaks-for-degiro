@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DEGIRO portfolio mock</title>
+  <style>
+    body { font-family: Roboto, sans-serif; margin: 0; }
+    [data-name="performance-chart"] { width: 900px; padding: 16px; }
+    .top { display: flex; justify-content: space-between; }
+    [data-name="performance-chart-interaction-area"] { position: relative; height: 200px; }
+    canvas { position: absolute; left: 0; top: 0; }
+    [data-name="performance-period-switcher"] button { background: transparent; border: 0; }
+    [data-name="performance-period-switcher"] button.on { background: rgb(15, 23, 26); color: #fff; }
+  </style>
+</head>
+<body>
+<!-- Mimics the portfolio value chart on trader.degiro.nl (canvas-based line chart). -->
+<div data-name="app-layout">
+  <div data-name="performance-chart">
+    <div class="top">
+      <div data-name="performance-chart-value"><span id="total" data-name="performance-chart-amount">€ 0,00</span><button data-name="tooltipButton">i</button></div>
+      <button data-name="chartHideButton">–</button>
+    </div>
+    <div data-name="performance-chart-interaction-area">
+      <div data-name="line-chart">
+        <canvas id="c1" width="900" height="200" style="width:900px;height:200px;z-index:1"></canvas>
+        <canvas id="c2" width="900" height="200" style="width:900px;height:200px;z-index:2"></canvas>
+      </div>
+    </div>
+    <div data-name="performance-period-switcher">
+      <button data-p="ONE_MONTH">1 M</button><button data-p="THREE_MONTHS">3 M</button><button data-p="YEAR_TO_DATE">YTD</button><button data-p="ONE_YEAR" class="on">1 Y</button>
+    </div>
+  </div>
+</div>
+<script>
+  // Draw like DEGIRO: DEGIRO-blue line, equally spaced points, light fill.
+  const PAD = 7;
+  let cursorX = null;
+  window.addEventListener('pointermove', e => { cursorX = e.clientX; if (window.__points && document.getElementById('c1')) draw(window.__points); });
+  function draw(points) {
+    const c = document.getElementById('c1'), ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+    const vals = points.map(p => p.value), min = Math.min(...vals), max = Math.max(...vals);
+    const X = i => PAD + i * (c.width - 2 * PAD) / (points.length - 1);
+    const Y = v => 10 + (max - v) / (max - min || 1) * (c.height - 20);
+    window.__X = X; window.__Y = Y;
+    ctx.fillStyle = 'rgb(239, 249, 253)';
+    ctx.beginPath(); ctx.moveTo(X(0), c.height);
+    points.forEach((p, i) => ctx.lineTo(X(i), Y(p.value)));
+    ctx.lineTo(X(points.length - 1), c.height); ctx.closePath(); ctx.fill();
+    // while hovered, DEGIRO greys the line right of the cursor
+    const area = c.closest('[data-name="performance-chart-interaction-area"]');
+    const cut = cursorX != null && area.matches(':hover') ? cursorX - c.getBoundingClientRect().left : c.width;
+    [[0, cut, 'rgb(0, 159, 223)'], [cut, c.width, 'rgb(190, 196, 198)']].forEach(([x0, x1, color]) => {
+      if (x1 <= x0) return;
+      ctx.save(); ctx.beginPath(); ctx.rect(x0, 0, x1 - x0, c.height); ctx.clip();
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(X(i), Y(p.value)) : ctx.moveTo(X(i), Y(p.value))); ctx.stroke();
+      ctx.restore();
+    });
+    document.getElementById('total').textContent = '€ ' + points[points.length - 1].value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  async function load(period) {
+    // same request shape as DEGIRO (returns newest first)
+    const r = await fetch(`/portfolio-metrics/secure/api/v1/portfolio/value?period=${period}&intAccount=42&sessionId=TESTSID`);
+    const list = await r.json();
+    window.__points = list.slice().reverse();
+    draw(window.__points);
+  }
+  function wire() {
+    document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(b => b.onclick = () => {
+      document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(x => x.classList.toggle('on', x === b));
+      load(b.dataset.p);
+    });
+  }
+  // DEGIRO swaps the chart's canvas while it rerenders: for a moment the new canvas is blank, so
+  // nothing can be read from it. The interaction area (the same chart) stays in place.
+  window.__blankCanvas = () => {
+    const c = document.getElementById('c1');
+    c.replaceWith(c.cloneNode(false)); // same id, size and style; empty bitmap
+  };
+  // In-app navigation like DEGIRO: leaving #/portfolio removes the chart; coming back builds a new one
+  // (new interaction area and canvases, same size) and refetches the same data.
+  const chartTpl = document.querySelector('[data-name="performance-chart"]').cloneNode(true);
+  window.addEventListener('hashchange', () => {
+    const old = document.querySelector('[data-name="performance-chart"]');
+    if (!location.hash.startsWith('#/portfolio')) { old?.remove(); return; }
+    if (old) return;
+    document.querySelector('[data-name="app-layout"]').append(chartTpl.cloneNode(true));
+    wire();
+    load('ONE_YEAR');
+  });
+  wire();
+  load('ONE_YEAR');
+</script>
+</body>
+</html>

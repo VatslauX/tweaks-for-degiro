@@ -1,0 +1,46 @@
+# Dependabot keeps the SHA-pinned GitHub Actions and the dev dependencies current.
+# The actions in .github/workflows/ are pinned to commit SHAs (supply-chain hardening,
+# code-scanning rule ai-scan/cwe-829): the release job holds a Chrome Web Store OIDC
+# token, so a mutable tag there is a path to publishing a malicious build. Dependabot
+# rewrites the SHA and the `# vX.Y.Z` comment together, so pinning stays maintainable.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      # Minor and patch bumps travel together; a major gets its own PR, so one
+      # breaking action cannot hold back routine pin refreshes.
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # The extension ships no runtime dependencies; these are test and lint tools only.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Same split: eslint and typescript majors change lint rules and type
+      # diagnostics, so they need their own PR rather than blocking a patch batch.
+      dev-dependencies:
+        dependency-type: "development"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Pinned exactly, every update ignored: the live DEGIRO product chart reports
+      # "Created with Highstock 4.2.1" (read from its SVG <desc> on 2026-11-02), and
+      # the product fixture loads this package at that same version to mirror the page
+      # (it serves the highcharts.js build rather than highstock.js; the live chart's
+      # x-axis was measured as non-ordinal, matching the fixture's plain datetime axis)
+      # (.claude/rules/test-fixtures.md). Any bump, patch included, moves the mock
+      # away from the version the real page runs. Re-check the page's version before
+      # changing this; it is a mock-parity decision, not a dependency bump.
+      - dependency-name: "highcharts"

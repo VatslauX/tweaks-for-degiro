@@ -1,0 +1,9 @@
+node_modules
+dist/
+test-results/
+playwright-report/
+.idea/
+.claude/worktrees/
+docs/features-backlog.md
+/coverage-badge.svg
+.coverage-tmp-*/

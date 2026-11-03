@@ -1,0 +1,331 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DEGIRO mock</title>
+  <style>
+    body { font-family: Roboto, sans-serif; margin: 0; }
+    .cols { display: flex; gap: 40px; }
+    .row { display: flex; justify-content: space-between; width: 300px; }
+    /* DEGIRO's Pricing data columns: flex column with a 12px gap between rows */
+    .col { display: flex; flex-direction: column; gap: 12px; }
+    #unrelated { display: flex; flex-direction: column; gap: 12px; }
+    /* Pricing data lists are grids with a 12px row gap; text size is set on the inner span */
+    dl { display: grid; row-gap: 12px; margin: 0; }
+    dt, dd { font-size: 14px; margin: 0; }
+    dt > span { font-size: 12px; font-weight: 400; line-height: 18px; }
+    dd > span { font-size: 12px; font-weight: 500; line-height: 18px; }
+    #chart { width: 900px; height: 320px; }
+    #periods button { background: transparent; border: 0; }
+    #periods button:hover { background: rgb(230, 235, 237); }
+    #periods button.on { background: rgb(15, 23, 26); color: #fff; }
+    aside { position: fixed; right: 0; top: 0; width: 360px; height: 100%; background: #fff; border-left: 1px solid #ccc; }
+  
+    /* like DEGIRO's: a full-height column (logo, primary nav, bottom nav) that doesn't scroll or shrink */
+    body { padding-left: 72px; } [data-name=sideNavigation] { position: fixed; left: 0; right: auto; top: 0; width: 72px; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; overflow-y: visible; border: 0; background: #fff; }
+    [data-name=sideNavigation] nav { flex: none; display: flex; flex-direction: column; gap: 8px; } [data-name=sideNavigation] .logo { height: 68px; flex: none; }
+    [data-name=sideNavigation] a { display: flex; flex-direction: column; align-items: center; color: rgb(214, 221, 224); }
+    [data-name=sideNavigation] a.current { color: rgb(0, 149, 210); } [data-name=sideNavigation] svg { width: 24px; height: 24px; } [data-name=sideNavigation] svg path { fill: currentColor; }
+  </style>
+  <script src="/mock/highcharts.js"></script>
+</head>
+<body>
+<!-- Mimics the parts of trader.degiro.nl the extension relies on. -->
+<div data-name="app-layout">
+  <!-- DEGIRO's left sidebar: one wrapper per item; the current item's link has one extra (hashed) class -->
+  <aside data-name="sideNavigation" aria-label="Side menu navigation"><a class="logo" href="#/" aria-label="DEGIRO"></a><nav aria-label="primary">
+    <div><div class="navCell"><a data-name="marketsMenuItem" class="navItem" href="#/markets"><i role="img" data-name="icon" data-type="area_graph_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Market</span></a></div></div>
+    <div><div class="navCell"><a data-name="favouriteProductsMenuItem" class="navItem" href="#/favourites"><i role="img" data-name="icon" data-type="star_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Favourites</span></a></div></div>
+    <div><div class="navCell"><a data-name="portfolioMenuItem" class="navItem" href="#/portfolio/assets"><i role="img" data-name="icon" data-type="wallet_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Portfolio</span></a></div></div>
+    <div><div class="navCell"><a data-name="accountActivityMenuItem" class="navItem" href="#/inbox"><i role="img" data-name="icon" data-type="mail" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Inbox</span></a></div></div>
+    <div><div class="navCell"><a data-name="productsMenuItem" class="navItem" href="#/products?productType=1"><i role="img" data-name="icon" data-type="products_outline" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor"></path></svg></i><span>Products</span></a></div></div>
+  </nav><nav aria-label="secondary">
+    <div><a class="navItem" href="#/profile"><span>Profile</span></a></div>
+    <div><a class="navItem" href="#/settings"><span>Settings</span></a></div>
+    <div><a class="navItem" href="#/theme"><span>Theme</span></a></div>
+    <div><a class="navItem" href="#/logout"><span>Log off</span></a></div>
+  </nav></aside>
+<script>
+// like DEGIRO: hovering Products adds a transient class to its link and renders a flyout of links inside the item's cell
+(() => {
+  const css = document.createElement('style');
+  css.textContent = '[data-name=sideNavigation] a.flyoutOpen { background: #eee; } .flyout { position: absolute; left: 72px; background: #fff; } .flyout a { flex-direction: row; }';
+  document.head.append(css);
+  const a = document.querySelector('[data-name=productsMenuItem]');
+  const cell = a.parentElement;
+  cell.addEventListener('mouseenter', () => {
+    a.classList.add('flyoutOpen');
+    if (cell.querySelector('.flyout')) return;
+    const f = document.createElement('div'); f.className = 'flyout';
+    ['Shares', 'Trackers (ETFs)', 'Crypto'].forEach(n => { const l = document.createElement('a'); l.className = 'flyoutLink'; l.href = '#/products?productType=' + n; l.textContent = n; f.append(l); });
+    cell.append(f);
+  });
+  cell.addEventListener('mouseleave', () => { a.classList.remove('flyoutOpen'); cell.querySelector('.flyout')?.remove(); });
+})();
+</script>
+
+  <main id="mainContent">
+    <h1 id="product">Mock ETF</h1>
+    <div id="priceRow" style="display:flex;flex-wrap:wrap;align-items:baseline"><!-- like DEGIRO: a flex parent without gap holds the price line -->
+    <div id="priceHeader" style="display:flex;align-items:baseline;gap:6px">
+      <div><span data-id="123" data-field="CurrentPrice" title="16,92">€16,92</span></div>
+      <span id="dayChange"><h4 style="display:inline;margin:0"><span data-field="AbsoluteDifference">+0,10</span></h4><h4 style="display:inline;margin:0"><span data-field="RelativeDifference">(+0,59%)</span></h4></span>
+    </div>
+    </div>
+    <div id="favWidget" hidden><svg data-name="icon-starFilled-20" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l3 6z"></path></svg></div>
+    <div id="productHeader">
+      <span data-id="123" data-name="productBriefInfo">MOCK</span> • <span data-id="123" data-name="productBriefInfo">Euronext Amsterdam</span>
+      <span data-id="123" data-name="productName" title="Mock ETF" hidden>Mock ETF</span>
+      <div id="headerActions" style="display:flex;gap:8px;align-items:center">
+        <button type="button" data-name="productActionButton" aria-label="note" title="note"><svg data-name="icon-note-20" viewBox="0 0 24 24" width="20" height="20"><path d="M5 5h14v14H5z"></path></svg></button>
+        <button type="button" aria-label="Favourites" id="favStar"><svg id="favIcon" class="favIconCopy" data-name="icon-starFilled-20" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"></path></svg></button>
+        <button type="button" data-name="productDetailsShareButton" aria-label="share" title="share"><svg data-name="icon-share-20" viewBox="0 0 24 24" width="20" height="20"><path d="M6 12h12"></path></svg></button>
+        <div id="tradeButtons" style="display:inline-grid;grid-template-columns:100px 100px;gap:4px"><button type="button" class="trade buy" id="buyBtn">Buy</button><button type="button" class="trade sell" id="sellBtn">Sell</button></div>
+      </div>
+    </div>
+    <!-- DEGIRO keeps a second, compact copy of the product header (sticky); it is not laid out until the page scrolls -->
+    <div id="stickyHeader" style="display:none">
+      <span data-id="123" data-name="productBriefInfo">MOCK</span> • <span data-id="123" data-name="productBriefInfo">Euronext Amsterdam</span>
+      <span data-id="123" data-name="productName" title="Mock ETF" hidden>Mock ETF</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" data-name="productActionButton" aria-label="note" title="note"><svg data-name="icon-note-20" viewBox="0 0 24 24" width="20" height="20"><path d="M5 5h14v14H5z"></path></svg></button>
+        <button type="button" aria-label="Favourites" id="stickyStar"><svg class="favIconCopy" data-name="icon-starFilled-20" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"></path></svg></button>
+        <div style="display:inline-grid;grid-template-columns:100px 100px;gap:4px"><button type="button" class="trade buy" id="stickyBuy">Buy</button><button type="button" class="trade sell" id="stickySell">Sell</button></div>
+      </div>
+    </div>
+    <div id="chart"></div>
+    <div id="periods"><button>YTD</button><button>1 D</button><button>1 W</button><button>1 M</button><button class="on">6 M</button></div>
+
+    <section id="pricing">
+      <h3>Pricing data</h3>
+      <dl id="pricingDl">
+        <div class="cols">
+          <div class="col" id="bidCol">
+            <div class="row"><dt><span>Latest</span></dt><dd><span>€ 16,92</span></dd></div>
+            <div class="row"><dt><span>Bid</span></dt><dd><span data-field="BidPrice">€ 16,90</span></dd></div>
+          </div>
+          <div class="col" id="askCol">
+            <div class="row" id="timeRow"><dd><span><time data-field="CombinedLastDateTime" datetime="2026-10-21T18:55:00Z">21/10/2026 20:55</time></span></dd></div>
+            <div class="row"><dt><span>Ask</span></dt><dd><span data-field="AskPrice">€ 16,94</span></dd></div>
+          </div>
+        </div>
+        <hr>
+        <div class="row" id="volRow"><dt><span>Volume</span></dt><dd><span>28,2K</span></dd></div>
+        <div class="row"><dt><span>Volume 10D Day Average</span></dt><dd><span>—</span></dd></div>
+      </dl>
+      <dl id="symbolDl">
+        <div class="row"><dt><span>Symbol | ISIN</span></dt><dd><span>MOCK | XX0000000000</span></dd></div>
+        <div class="row"><dt><span>Exchange</span></dt><dd><span>Tradegate AG</span></dd></div>
+      </dl>
+    </section>
+    <section id="elsewhere"><dl id="unrelatedDl"><div><dt>A</dt><dd>1</dd></div><div><dt>B</dt><dd>2</dd></div></dl></section>
+
+    <div id="spacer" style="height:1500px"></div>
+    <section id="divSection"><div id="divWidget"><div><h3 id="dividends-widget-title">Dividends</h3></div>
+      <div><div>Ex-Dividend</div><time data-field="exDividendDate">12/11/2099</time></div>
+      <div><div>Payment</div><time data-field="paymentDate">30/11/2099</time></div></div>
+      <div id="earnWidget"><div><h3 id="earnings-widget-title">Earnings</h3></div>
+      <div><div>Next</div><time data-field="dateTime" datetime="2099-02-02T21:00:00.000Z">02/02/2099</time></div></div></section>
+    <div id="cashWrap"><div><section id="cash" data-name="cashFundCompensations"><div><h3>Cash compensation</h3></div><p>cash table</p></section></div></div>
+    <div id="otherWrap"><section id="other"><h3>Other section</h3><p>other</p></section></div>
+
+    <div id="unrelated"><span>a</span><span>b</span></div>
+    <button id="outside">Somewhere else</button>
+  </main>
+
+  <!-- bottom orders panel -->
+  <div id="ordersPanel">
+    <button data-name="panelToggleButton" data-value="closed" aria-label="Expand panel" id="toggle">toggle</button>
+    <table><tbody id="orderRows"></tbody></table>
+  </div>
+
+  <div id="asideHost"></div>
+</div>
+
+<!-- confirmation dialogs render outside the main layout -->
+<div id="portal"></div>
+
+<script>
+  window.__log = [];
+  // product header: favourite star, Buy/Sell (logged, never pressed by the extension), live price
+  const starIcons = () => document.querySelectorAll('.favIconCopy');
+  if (window.__MOCK_NOT_FAVOURITE) starIcons().forEach(i => i.setAttribute('data-name', 'icon-star-20'));
+  const toggleStar = () => {
+    const on = document.getElementById('favIcon').getAttribute('data-name') !== 'icon-starFilled-20';
+    starIcons().forEach(i => i.setAttribute('data-name', on ? 'icon-starFilled-20' : 'icon-star-20'));
+  };
+  document.getElementById('favStar').onclick = toggleStar;
+  document.getElementById('stickyStar').onclick = toggleStar;
+  document.getElementById('buyBtn').onclick = document.getElementById('stickyBuy').onclick = () => window.__log.push('BUY');
+  document.getElementById('sellBtn').onclick = document.getElementById('stickySell').onclick = () => window.__log.push('SELL');
+  // as DEGIRO does on scroll: the full header is not laid out any more, the compact copy is
+  window.__stickyHeader = on => {
+    document.getElementById('productHeader').style.display = on ? 'none' : '';
+    document.getElementById('stickyHeader').style.display = on ? '' : 'none';
+  };
+  window.__setPrice = (id, v) => document.querySelectorAll(`[data-field=CurrentPrice][data-id="${id}"]`).forEach(e => {
+    const s = v.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 8 }); e.title = s; e.textContent = '€' + s;
+  });
+  // market closed: the price cells show the currency and a dash, the title keeps the last price
+  if (window.__MOCK_PRICE_DASH) document.querySelectorAll('[data-field=CurrentPrice]').forEach(e => { e.textContent = '$ \u2014'; });
+  // DEGIRO's Place order panel has its own Buy/Sell pair and product name (Review Focus 2)
+  if (window.__MOCK_ORDER_PANEL) {
+    const p = document.createElement('div');
+    p.id = 'mockOrderPanel';
+    p.innerHTML = '<span data-id="123" data-name="productName" title="Mock ETF">Mock ETF</span><div><button type="button">Buy</button><button type="button">Sell</button></div>';
+    document.body.append(p);
+  }
+  const ORDERS = window.__MOCK_ORDERS || [];
+
+  // ---- session info appears in DEGIRO's own request URLs (tests can turn this off)
+  if (!window.__MOCK_NO_URL_SESSION) fetch('/product-notes-service/secure/notes?productId=123&intAccount=42&sessionId=TESTSID').catch(() => {});
+
+  // ---- real layout (tests opt in): every product widget in one mainPageSection, chart included,
+  // widgets are divs with a data-name, not sections
+  if (window.__MOCK_MAIN_SECTION) {
+    const main = document.querySelector('main');
+    const sec = document.createElement('section');
+    sec.setAttribute('data-name', 'mainPageSection');
+    const from = document.getElementById('chart');
+    main.insertBefore(sec, from);
+    for (let n = from; n && n.id !== 'unrelated';) { const next = n.nextSibling; sec.appendChild(n); n = next; }
+    const NAMES = { pricing: 'productPricesInfo', elsewhere: 'companyRatios', divSection: 'dividends', cash: 'cashFundCompensations', other: 'companyInformation' };
+    sec.querySelectorAll('section').forEach(old => {
+      const d = document.createElement('div');
+      d.id = old.id; d.setAttribute('data-name', NAMES[old.id] || 'widget');
+      d.append(...old.childNodes); old.replaceWith(d);
+    });
+  }
+
+  // ---- orders panel (expand/minimise). Like DEGIRO: state in data-value, localised aria-label
+  // and side letter (tests can set __MOCK_PANEL_LABELS / __MOCK_SIDES), per-order ids in data-id
+  // (__MOCK_NO_HOOKS: plain cells only)
+  const toggle = document.getElementById('toggle');
+  const rows = document.getElementById('orderRows');
+  const [EXPAND, MINIMISE] = window.__MOCK_PANEL_LABELS || ['Expand panel', 'Minimize panel'];
+  const SIDES = window.__MOCK_SIDES || { B: 'B', S: 'S' };
+  toggle.setAttribute('aria-label', EXPAND);
+  function renderRows() {
+    rows.innerHTML = '';
+    if (window.__MOBILE ? !drawerOpen : toggle.getAttribute('data-value') !== 'opened') return;
+    ORDERS.forEach((o, i) => {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-name', 'openOrder');
+      const fmtPrice = '€ ' + String(o.price).replace('.', ',');
+      const fmtQty = o.size >= 1000 ? o.size.toLocaleString('nl-NL') : String(o.size);
+      const id = 'o' + i; // the same ids as the mock /update answer
+      [[SIDES[o.buysell], 'data-name', 'buySellBadge'], [fmtQty, 'data-field', 'quantity'], [o.shownName || o.product, 'data-name', 'productName'], [fmtPrice, 'data-field', 'price']].forEach(([t, attr, hook]) => {
+        const td = document.createElement('td');
+        if (window.__MOCK_NO_HOOKS) td.textContent = t;
+        else {
+          const span = document.createElement('span');
+          span.textContent = t; span.setAttribute(attr, hook);
+          if (hook === 'buySellBadge') span.setAttribute('data-action', o.buysell === 'S' ? 'SELL' : 'BUY');
+          else span.setAttribute('data-id', id);
+          td.appendChild(span);
+        }
+        tr.appendChild(td);
+      });
+      const td = document.createElement('td');
+      const edit = document.createElement('button');
+      edit.setAttribute('data-name', 'orderEditButton'); edit.setAttribute('aria-label', 'Adjust order');
+      edit.onclick = () => { window.__log.push('edit:' + i); openAdjust(o); };
+      const del = document.createElement('button');
+      del.setAttribute('data-name', 'orderDeleteButton'); del.setAttribute('aria-label', 'Delete order?');
+      del.onclick = () => window.__log.push('DELETE:' + i);
+      td.append(edit, del); tr.appendChild(td);
+      rows.appendChild(tr);
+    });
+  }
+  // narrow (mobile) layout: no bottom panel toggle; orders live in the "Account overview" drawer,
+  // and closing the drawer also closes an open Adjust order form
+  let drawerOpen = false;
+  if (window.__MOBILE) {
+    toggle.remove();
+    const d = document.createElement('button');
+    d.setAttribute('data-name', 'totalPortfolioToggle'); d.id = 'drawerBtn'; d.textContent = '€ 10.000,00';
+    d.onclick = () => {
+      drawerOpen = !drawerOpen;
+      window.__log.push(drawerOpen ? 'drawer:open' : 'drawer:close');
+      if (!drawerOpen) document.getElementById('asideHost').innerHTML = '';
+      renderRows();
+    };
+    document.querySelector('main').prepend(d);
+  }
+  toggle.onclick = () => {
+    const open = toggle.getAttribute('data-value') !== 'opened';
+    toggle.setAttribute('data-value', open ? 'opened' : 'closed');
+    toggle.setAttribute('aria-label', open ? MINIMISE : EXPAND);
+    window.__log.push(open ? 'panel:expand' : 'panel:minimise');
+    renderRows();
+  };
+
+  // ---- Adjust order side panel
+  function openAdjust(o) {
+    const host = document.getElementById('asideHost');
+    host.innerHTML = '';
+    const aside = document.createElement('aside');
+    aside.setAttribute('data-name', 'sideInformationPanel');
+    aside.innerHTML = `
+      <div data-name="orderDetails">
+        <header><div><div>Adjust order</div></div>
+          <button data-name="actionButton" aria-label="Close" id="cross">×</button></header>
+        <div data-name="productBriefInfo"><button data-name="actionButton" aria-label="More" id="more">…</button></div>
+        <div>Qty ${o.size} · Limit <input id="limit" value="${o.price}"></div>
+        <button type="button" id="cancel">Cancel</button>
+        <button type="submit" id="confirm">Confirm</button>
+      </div>`;
+    aside.querySelector('#cross').onclick = () => { window.__log.push('cross'); host.innerHTML = ''; };
+    aside.querySelector('#cancel').onclick = () => { window.__log.push('cancel'); host.innerHTML = ''; };
+    aside.querySelector('#confirm').onclick = () => { window.__log.push('CONFIRM'); };
+    aside.querySelector('#more').onclick = () => { window.__log.push('MORE'); };
+    host.appendChild(aside);
+  }
+  window.__openAdjust = openAdjust;
+  window.__openDialog = () => {
+    document.getElementById('portal').innerHTML = '<div role="dialog"><button id="dialogBtn">OK</button></div>';
+  };
+
+  // ---- Highcharts 4 chart like DEGIRO's
+  const DAY = 864e5, start = Date.UTC(new Date().getFullYear(), 0, 1); // daily data since 1 January this year
+  const data = [];
+  const N = Math.max(200, Math.floor((Date.now() - start) / DAY) + 1);
+  for (let i = 0; i < N; i++) data.push([start + i * DAY, +(15 + 2 * Math.sin(i / 12) + i * 0.01).toFixed(3)]);
+  window.__chartData = data;
+  // 1W like DEGIRO: intraday points over the last ~3 trading days only (span ≈ 3 days, not 7)
+  const week = [], wStart = data[data.length - 1][0] - 3 * DAY;
+  for (let i = 0; i <= 3 * 48; i++) week.push([wStart + i * DAY / 48, +(16 + Math.sin(i / 10) + i * 0.004).toFixed(3)]);
+  window.__weekData = week;
+  window.__chart = new Highcharts.Chart({
+    chart: { renderTo: 'chart', type: 'area', animation: false, marginLeft: 0, spacingLeft: 0 },
+    title: { text: null }, legend: { enabled: false }, credits: { enabled: false },
+    xAxis: { type: 'datetime' },
+    yAxis: { title: { text: null }, opposite: true, min: 12, max: 22 },
+    plotOptions: { series: { animation: false } },
+    series: [{ name: 'MOCK', data: data.slice(-182) }] // 6M selected
+  });
+  // opt-in live ticker like DEGIRO's: window.__MOCK_TICK_MS (set with an init script) makes the quote texts
+  // change and the last chart point move that often (the chart redraws). Off by default.
+  if (window.__MOCK_TICK_MS) {
+    let k = 0;
+    setInterval(() => {
+      k++;
+      const bid = 16.9 + (k % 5) * 0.01, ask = bid + 0.04, f = n => '€ ' + n.toFixed(2).replace('.', ',');
+      document.querySelectorAll('[data-field=BidPrice]').forEach(e => { e.textContent = f(bid); });
+      document.querySelectorAll('[data-field=AskPrice]').forEach(e => { e.textContent = f(ask); });
+      document.querySelectorAll('[data-field=CurrentPrice]').forEach(e => { e.textContent = f(bid + 0.02); e.title = f(bid + 0.02).replace('€ ', ''); });
+      const s = window.__chart.series[0];
+      s.data[s.data.length - 1].update(+(bid + 0.02).toFixed(3));
+      window.__ticks = k;
+    }, window.__MOCK_TICK_MS);
+  }
+  // period buttons swap the chart data like DEGIRO does
+  const SLICE = { 'YTD': N, '1 D': 2, '1 W': 7, '1 M': 30, '6 M': 182 };
+  document.querySelectorAll('#periods button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#periods button').forEach(x => x.classList.toggle('on', x === b));
+    // like DEGIRO: the button changes at once, new chart data arrives a bit later
+    setTimeout(() => window.__chart.series[0].setData(b.textContent === '1 W' ? week : data.slice(-SLICE[b.textContent])), window.__DATA_DELAY ?? 0);
+  });
+</script>
+</body>
+</html>
