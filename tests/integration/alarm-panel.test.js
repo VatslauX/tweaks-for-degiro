@@ -922,6 +922,118 @@ test('Alarms page: keyboard focus on Edit survives a price tick', async () => {
   noErrors(w);
 });
 
+// ============================================================
+// EDIT ALARM (chart badge, product page)
+// ============================================================
+// alarm-lines.js (page world) dispatches this same event on a chart badge click; simulate it here
+// directly since this file only loads the isolated-world scripts (see alarm-lines.test.js for the
+// page-world side: that it dispatches dg-alarm-edit with the right price).
+const clickBadge = (tab, price) => tab.document.dispatchEvent(new tab.window.CustomEvent('dg-alarm-edit', { detail: { price } }));
+
+test('product page: clicking the chart badge opens the Edit panel and it survives the scheduler tick', async () => {
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupProduct([a]);
+  clickBadge(tab, 18);
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel open');
+  assert.ok(panel(tab).textContent.includes('Edit price alarm'), 'panel title says Edit');
+  assert.match(tab.$('[data-dg-alarm-price]').value, /18/, 'prefilled with the alarm price');
+  // the alarmButton feature runs every 1000ms; this is the bug: it used to force-close here because
+  // page.isAlarms() is false on a product page
+  await w.advance(1300);
+  assert.ok(panel(tab), 'panel still open after a scheduler tick on its own product page');
+  await w.advance(1300);
+  assert.ok(panel(tab), 'panel still open after a second scheduler tick');
+  noErrors(w);
+});
+
+test('product page: Edit panel (chart badge) closes when navigating to a different product', async () => {
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupProduct([a]);
+  clickBadge(tab, 18);
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel open');
+  await tab.go('/products/999/overview');
+  await w.advance(200);
+  assert.equal(panel(tab), null, 'panel closed after navigating to another product');
+  noErrors(w);
+});
+
+test('product page: Edit panel (chart badge) closes when navigating off the product entirely', async () => {
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupProduct([a]);
+  clickBadge(tab, 18);
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel open');
+  await tab.go('/favourites');
+  await w.advance(200);
+  assert.equal(panel(tab), null, 'panel closed after leaving the product page');
+  noErrors(w);
+});
+
+test('product page: Edit panel (chart badge) closes when the alarm is deleted', async () => {
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupProduct([a]);
+  clickBadge(tab, 18);
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel open');
+  await w.set('sync', { dgAlarms: [] });
+  await w.advance(300);
+  assert.equal(panel(tab), null, 'panel closed when alarm deleted');
+  noErrors(w);
+});
+
+test('product page: Edit panel (chart badge) stays open when the product is un-favourited', async () => {
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupProduct([a]);
+  clickBadge(tab, 18);
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel open');
+  // un-favourite while the Edit panel is open and still on its origin product page (the star
+  // toggles here by firing only 'click', standing in for any non-mousedown trigger — keyboard
+  // activation, or the star's attribute changing on its own, e.g. DEGIRO re-rendering the header
+  // or another tab syncing the favourite; a real outside mousedown already closes the panel via
+  // onDown, regardless of this fix). The older close-on-unfavourite branch used to force-close
+  // any open ui unconditionally, including this Edit panel.
+  tab.$('#favStar').click();
+  await w.advance(1300);
+  assert.ok(panel(tab), 'Edit panel still open after un-favouriting its own product');
+  // the origin/alarm-deleted checks at the top of run() must still close the panel while
+  // un-favourited (seen.fav is now false, so the scan-skip path at the top of run() -- not the
+  // header search below it -- is what has to catch this)
+  await w.set('sync', { dgAlarms: [] });
+  await w.advance(1300);
+  assert.equal(panel(tab), null, 'panel closed once its alarm is deleted, even while un-favourited');
+  noErrors(w);
+});
+
+test('product page: Edit panel (chart badge) still closes navigating away after un-favouriting', async () => {
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupProduct([a]);
+  clickBadge(tab, 18);
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel open');
+  tab.$('#favStar').click();
+  await w.advance(1300);
+  assert.ok(panel(tab), 'panel still open after un-favouriting');
+  await tab.go('/products/999/overview');
+  await w.advance(1300);
+  assert.equal(panel(tab), null, 'panel closed after navigating to another product while un-favourited');
+  noErrors(w);
+});
+
+test('Alarms page Edit flow still closes on navigating to a product page (origin check holds both ways)', async () => {
+  const a = alarm({ price: 18 });
+  const { w, tab } = await setupAlarmsPage([a]);
+  editBtn(tab, a.id).click();
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel open on the Alarms page');
+  await tab.go('/products/123/overview');
+  await w.advance(1300);
+  assert.equal(panel(tab), null, 'panel closed after leaving the Alarms page for a product page');
+  noErrors(w);
+});
+
 // ---------- Status "?" hint (Alarms page) ----------
 // The hover look, its colours and the bubble's place on the screen stay in Playwright.
 const tipBtn = tab => tab.$('[data-dg-alarms-page] thead [data-dg-alarm-tip]');

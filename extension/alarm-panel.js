@@ -109,10 +109,20 @@ const dgAlarmPanel = (() => {
   }
 
   // ---------- panel ----------
-  /** @type {null | { root: HTMLElement, id: number, h: any, edit: any, repeat: string, latest: HTMLElement, input: HTMLInputElement, hint: HTMLElement,
+  /** @type {null | { root: HTMLElement, id: number, h: any, edit: any, editOrigin: 'alarms' | number | null, repeat: string, latest: HTMLElement, input: HTMLInputElement, hint: HTMLElement,
    *   msg: HTMLElement, set: HTMLButtonElement, seg: HTMLButtonElement[], dirWrap: HTMLElement, dirLabel: HTMLElement, dirSeg: HTMLButtonElement[], dirChoice: string | null,
    *   list: HTMLElement, listSig: string, touched: boolean, msgKind: string, saving: boolean }} */
   let ui = null;
+
+  // where an Edit panel was opened from: the Alarms page, or a specific product page (its chart
+  // badge). The scheduler below uses this, instead of assuming the Alarms page, to close the panel
+  // only once its own origin page is left (null when open() runs from neither, a defensive default
+  // that closes the panel on the very next tick rather than leaving it open with no invariant at all).
+  function editOrigin() {
+    if (page.isAlarms()) return 'alarms';
+    if (page.isProduct()) return page.productId();
+    return null;
+  }
 
   const onKey = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') close(); };
   const onDown = (/** @type {MouseEvent} */ e) => {
@@ -222,7 +232,7 @@ const dgAlarmPanel = (() => {
     else body.append(name, sub, latest, label, hint, dirLabel, dirWrap, repeatLabel, segWrap, set, msg, listTitle, list, note);
     root.append(head, body);
     document.body.append(root);
-    ui = { root, id: h.id, h, edit: edit || null, repeat: edit ? edit.repeat : 'once', latest, input, hint, msg, set, seg,
+    ui = { root, id: h.id, h, edit: edit || null, editOrigin: edit ? editOrigin() : null, repeat: edit ? edit.repeat : 'once', latest, input, hint, msg, set, seg,
       dirWrap, dirLabel, dirSeg, dirChoice: null, list, listSig: '', touched: false, msgKind: '', saving: false };
     input.addEventListener('input', () => { if (ui) { ui.touched = true; if (ui.msgKind === 'result') { ui.msg.textContent = ''; ui.msgKind = ''; } } update(); });
     input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
@@ -380,8 +390,12 @@ const dgAlarmPanel = (() => {
     every: 1000, // the star can change by attribute only, which the scheduler doesn't observe
     enabled: () => dgSettings.priceAlarms,
     run() {
-      // an Edit panel (opened on the Alarms page) lives until it is closed, the page is left or its alarm is gone
-      if (ui?.edit && (!page.isAlarms() || (S.ready() && !S.list().some(a => a.id === ui?.edit?.id)))) close();
+      // an Edit panel lives until it is closed, its alarm is gone, or its origin page is left: the Alarms
+      // page when opened from there, or the specific product page when opened from its chart badge
+      if (ui?.edit) {
+        const onOrigin = ui.editOrigin === 'alarms' ? page.isAlarms() : page.isProduct() && page.productId() === ui.editOrigin;
+        if (!onOrigin || (S.ready() && !S.list().some(a => a.id === ui?.edit?.id))) close();
+      }
       if (!page.isProduct()) { removeAll(true); if (ui) update(); return 'idle'; }
       const pid = page.productId();
       if (ui && ui.id !== pid) close();
@@ -409,7 +423,7 @@ const dgAlarmPanel = (() => {
       seen = h;
       if (!h || !h.fav) {
         current = null;
-        close();
+        if (!ui?.edit) close();
         document.querySelectorAll(`[${BTN}]`).forEach(b => b.remove());
         lastKey = [pid, !!h?.copies.some(c => c.hdr.querySelector(SEL.favouriteStarOn)), false, S.list().filter(a => a.productId === pid && a.on).length].join('|');
         return h ? 'idle' : 'missing';

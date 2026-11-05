@@ -1,5 +1,8 @@
 # Release notes
 
+## Unreleased
+- **Fix**: the *Edit price alarm* panel opened from a gold alarm badge on the product chart no longer closes by itself a second later. It stays open on that product page until you close it, save, or leave the page.
+
 ## 1.21.5 — 2026-11-03
 - **Price alarm without a current price**: when DEGIRO shows no current price yet, the *Set price alarm* panel now asks for the direction (*Rises to* or *Falls to*) instead of showing an error for a valid price. *Set* is enabled once you pick one.
 - **DEGIRO font**: the extension's chart range-selection tooltip, portfolio period change, order badges and alarm badges now use Roboto (DEGIRO's own font), replacing a stale Inter reference.
