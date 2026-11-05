@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased
+## 1.21.6 — 2026-11-05
 - **Fix**: the *Edit price alarm* panel opened from a gold alarm badge on the product chart no longer closes by itself a second later. It stays open on that product page until you close it, save, or leave the page.
 
 ## 1.21.5 — 2026-11-03
