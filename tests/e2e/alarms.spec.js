@@ -537,8 +537,21 @@ test('the Status cell shows a coloured pill: waiting, fired, off, not in list, n
   await setPrice(page, 456, null); // market closed: the Last price cell shows a dash
   await expect(rows(page)).toHaveCount(5);
   const pill = id => page.locator(`tr[data-dg-alarm-id="${id}"] [data-dg-alarm-status] span`);
-  const colour = async id => pill(id).evaluate(el => getComputedStyle(el).color);
-  const bg = async id => pill(id).evaluate(el => getComputedStyle(el).backgroundColor);
+  // alarms-page.js rebuilds the whole table (replaceChildren) on every price/state change, so the
+  // pill <span> can be torn down and recreated between resolving the locator and reading its style;
+  // a plain, single evaluate() can then read getComputedStyle on an already-detached node, which
+  // Chromium reports as ''. Poll instead (re-resolving the locator fresh on every attempt) so a
+  // mid-flight rebuild just means one more attempt, not a flaky read.
+  const style = async (id, prop) => {
+    let value = '';
+    await expect.poll(async () => {
+      value = await pill(id).evaluate((el, p) => getComputedStyle(el)[p], prop).catch(() => '');
+      return value;
+    }).not.toBe('');
+    return value;
+  };
+  const colour = id => style(id, 'color');
+  const bg = id => style(id, 'backgroundColor');
   await expect(pill(waiting.id)).toHaveText('Waiting');
   const waitColour = await colour(waiting.id);
   expect(waitColour).toBe(BLUE_RGB);
