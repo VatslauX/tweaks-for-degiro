@@ -11,3 +11,15 @@ test('fixture renders three holdings sections with real hooks', async ({ degiro 
   await expect(page.locator('h3[data-name=lox]')).toHaveText('Structured products');
   await expect(page.locator('[data-name=productName]')).toHaveCount(6); // 3 + 2 + 1 rows
 });
+
+test('enabling the feature hides the native tables and renders a merged header', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await expect(page.locator('h3[data-name=stock] ~ * table')).toBeHidden();
+  await expect(page.locator('h3[data-name=etf] ~ * table')).toBeHidden();
+  await expect(page.locator('h3[data-name=lox] ~ * table')).toBeHidden();
+  await expect(page.locator('[data-dg-portfolio-table] thead th')).toHaveText(
+    ['Product', 'Type', 'Qty', 'Price', 'Curr.', 'Value', 'BEP', 'P/L €', 'P/L %', 'Unrealised P/L €', 'Total P/L€']
+  ); // default-hidden columns (Symbol | ISIN, Exchange, Last, Delay) absent
+});

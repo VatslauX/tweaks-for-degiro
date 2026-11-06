@@ -42,6 +42,7 @@
         "adjust-close.js",
         "ui.js",
         "orders-table.js",
+        "portfolio-table.js",
         "alarm-rules.js",
         "alarms.js",
         "alarm-panel.js",
