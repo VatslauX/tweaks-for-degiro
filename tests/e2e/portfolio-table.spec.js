@@ -161,6 +161,20 @@ test('persist on: a hidden column survives reload; persist off: it resets to def
   await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
 });
 
+// The merged pager sits as a sibling right after the merged table (like columnsToolbar()'s own bar
+// sits as a sibling right before it) — a <div> is not valid direct <table> content, and the existing
+// architecture already keeps toolbar elements as siblings rather than nesting them inside the table.
+test('merged Next page advances the etf section\'s native pager and re-collects rows', async ({ degiro, settings }) => {
+  const opt = await settings(); await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  const { page } = await degiro({ url: URL_P });
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6); // 3 stock + 2 etf(page1) + 1 lox
+  await page.locator('[data-dg-portfolio-table] + [data-name=pagination] button[aria-label="Next page"]').click();
+  // stock's own Next is disabled (1 page) and lox's own Next is disabled (1 page) — neither receives
+  // a click; only etf (2 pages) advances.
+  await expect(page.locator('h3[data-name=etf] ~ * [data-name=pagination] button', { hasText: '2' })).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(5); // 3 stock + 1 etf(page2) + 1 lox
+});
+
 // Review Focus (binding): a malformed or stale persisted value must fall back to the default rather
 // than throwing or rendering an empty table. sanitizePortfolioSort() isn't exported (orders-table.js's
 // own sanitizeSort isn't either, and has no dedicated unit test) — covered here the same way

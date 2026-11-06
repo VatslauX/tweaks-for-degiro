@@ -340,6 +340,78 @@
     bar.replaceChildren(...(cols.length ? [columnPicker(cols, th)] : []));
   }
 
+  // Merged pagination: forwards a click to every section's own already-rendered native Previous/Next
+  // button (matched by aria-label, like Buy/Sell forwarding above matches by data-action) — never
+  // recreates DEGIRO's own pagination logic or fetches another page itself. A section whose own
+  // button is already disabled receives no click, so a section on its last page never loses or
+  // duplicates rows.
+  /** @param {string} sel @param {string} label @returns {HTMLButtonElement | null} */
+  function nativePageButton(sel, label) {
+    return /** @type {HTMLButtonElement | null} */ (document.querySelector(`${sel} ~ * [data-name=pagination] button[aria-label="${label}"]`));
+  }
+
+  // Whether a section's own native Previous/Next button can still be clicked — checked the same,
+  // more robust way orders-table.js's morePages() does (plain `disabled` is this fixture's own
+  // confirmed mechanism; aria-disabled is a defensive extra for the real page).
+  /** @param {HTMLButtonElement | null} btn @returns {boolean} */
+  const canClick = btn => !!btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true';
+
+  // A section "can advance" in a direction while its own native button for that direction isn't disabled.
+  /** @param {'next' | 'prev'} dir @returns {boolean} */
+  function anySectionCanAdvance(dir) {
+    const label = dir === 'next' ? 'Next page' : 'Previous page';
+    return Object.values(SEL.portfolioSection).some(sel => canClick(nativePageButton(sel, label)));
+  }
+
+  // For every section whose own native Previous/Next button (matched by aria-label) is not disabled,
+  // clicks it, then re-collects rows once. Never blocks waiting for DEGIRO's re-render to settle: the
+  // fixture's own re-render is synchronous, and the scheduler's existing mutation-driven reruns pick
+  // up any further (real, asynchronous) DOM changes on their own, the same way live price ticks do.
+  /** @param {'next' | 'prev'} dir */
+  function advancePage(dir) {
+    const label = dir === 'next' ? 'Next page' : 'Previous page';
+    Object.values(SEL.portfolioSection).forEach(sel => {
+      const btn = nativePageButton(sel, label);
+      if (canClick(btn)) /** @type {HTMLButtonElement} */ (btn).click();
+    });
+    renderRows(collectRows());
+    renderPagination();
+  }
+
+  /** @type {HTMLElement | null} */
+  let pager = null; // merged Previous/Next control; a sibling after the merged table, like
+  // columnsToolbar()'s own bar is a sibling before it — a <div> is not valid direct <table> content.
+
+  // Builds the merged pager once (own()-marked, like columnsToolbar()) with its own Previous/Next
+  // buttons, reusing the `pagination`/aria-label names the native pagers use for consistency.
+  function paginationBar() {
+    if (!pager) {
+      pager = /** @type {HTMLElement} */ (own(document.createElement('div')));
+      pager.setAttribute('data-name', 'pagination');
+      pager.style.cssText = 'display:flex;gap:8px;align-items:center;margin:4px 0 8px;padding:0 16px;font-family:inherit;';
+      /** @type {['prev' | 'next', string, string][]} */
+      const buttons = [['prev', 'Previous page', '‹'], ['next', 'Next page', '›']];
+      buttons.forEach(([dir, label, glyph]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', label);
+        btn.textContent = glyph;
+        btn.addEventListener('click', () => advancePage(dir));
+        /** @type {HTMLElement} */ (pager).append(btn);
+      });
+    }
+    return pager;
+  }
+
+  // Disables the merged Previous/Next button only once every section's own button in that direction
+  // is disabled (lockstep): while any section still has a page to go that way, the merged button
+  // stays enabled, so a click there still advances that section.
+  function renderPagination() {
+    const bar = paginationBar();
+    /** @type {HTMLButtonElement} */ (bar.querySelector('[aria-label="Previous page"]')).disabled = !anySectionCanAdvance('prev');
+    /** @type {HTMLButtonElement} */ (bar.querySelector('[aria-label="Next page"]')).disabled = !anySectionCanAdvance('next');
+  }
+
   // Close the Columns picker on an outside click — mirrors filterPanel's own mousedown listener in
   // orders-table.js (capture-phase, so it runs before the click that opened/changed it). The toolbar
   // holds nothing else, so there's no "swallowed click on a sibling chip" case to guard against there.
@@ -372,9 +444,13 @@
     hideNativeTables();
     const merged = portfolioTable();
     const bar = columnsToolbar();
-    if (bar.nextElementSibling !== merged || stock.previousElementSibling !== bar) stock.before(bar, merged);
+    const pag = paginationBar();
+    if (bar.nextElementSibling !== merged || merged.nextElementSibling !== pag || stock.previousElementSibling !== pag) {
+      stock.before(bar, merged, pag);
+    }
     renderRows(collectRows());
     renderToolbar();
+    renderPagination();
     return 'ok';
   }
 
@@ -386,6 +462,8 @@
     toolbar = null;
     openColumns = false;
     portfolioColumns.apply(null, []);
+    pager?.remove();
+    pager = null;
   }
 
   feature({ name: 'portfolioTable', enabled: () => !!dgSettings.portfolioMergedTable, run, stop });
