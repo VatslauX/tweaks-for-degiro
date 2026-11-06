@@ -239,3 +239,39 @@ test('own(): marks our own element so the scheduler ignores its changes', () => 
   assert.equal(el.hasAttribute(OWN), true);
   assert.equal(OWN, 'data-dg-own');
 });
+
+// ── Portfolio holdings tables (stock/etf/lox sections) ──────────────────────────────────────
+
+test('SEL.portfolioSection and SEL.portfolioProduct find a holdings row (markup from tests/fixtures/portfolio.html)', () => {
+  setBody(`<div class="holdings">
+    <section data-holdings="stock">
+      <h3 data-name="stock">Shares</h3>
+      <div class="tableWrap">
+        <table>
+          <tbody>
+            <tr>
+              <td><span data-name="productName" data-id="332108">Mock Software SE</span></td>
+              <td><span data-field="productInfo.symbol">SWD</span></td>
+              <td><span data-field="productInfo.exchange.hiqAbbr">TDG</span></td>
+              <td><span data-field="size">15</span></td>
+              <td><span data-field="price">128,40</span></td>
+              <td><span data-field="productInfo.currency">EUR</span></td>
+              <td><span data-field="value">1.926,00</span></td>
+              <td><span data-field="breakEvenPrice">110,00</span></td>
+              <td><span data-field="todayPl">+18,40</span></td>
+              <td><span data-field="change">+1,45%</span></td>
+              <td><span data-field="unrealizedRelativePl">+16,73%</span></td>
+              <td><span data-field="totalPl">+276,00</span></td>
+              <td><time data-field="lastUpdate" data-id="332108">16:32:10</time></td>
+              <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>`);
+  const row = document.querySelector(`${SEL.portfolioSection.stock} ~ * table tbody tr`);
+  assert.ok(row, 'the stock section heading leads to its table row');
+  assert.equal(row.querySelector(SEL.portfolioProduct).dataset.id, '332108');
+  assert.equal(document.querySelector(SEL.portfolioSection.etf), null, 'no etf section on this page');
+});

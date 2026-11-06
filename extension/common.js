@@ -116,7 +116,12 @@
     perfChart: '[data-name="performance-chart"]',
     perfValue: '[data-name="performance-chart-value"]',
     perfAmount: '[data-name="performance-chart-amount"]',
-    perfArea: '[data-name="performance-chart-interaction-area"]'
+    perfArea: '[data-name="performance-chart-interaction-area"]',
+    // portfolio holdings tables: one <h3> per section; its table is the next sibling wrapper.
+    // The row's product id lives on this span (kept separate from productName above: this one
+    // also carries data-id and is never hideable).
+    portfolioSection: Object.freeze({ stock: 'h3[data-name=stock]', etf: 'h3[data-name=etf]', lox: 'h3[data-name=lox]' }),
+    portfolioProduct: '[data-name=productName]'
   });
   const LABELS = Object.freeze({
     bid: /^(bid|bied|geld|achat|compra|denaro)$/i,
