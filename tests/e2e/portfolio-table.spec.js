@@ -31,9 +31,12 @@ test('enabling the feature hides the native tables and renders a merged header',
   await expect(page.locator('h3[data-name=stock] ~ * table')).toBeHidden();
   await expect(page.locator('h3[data-name=etf] ~ * table')).toBeHidden();
   await expect(page.locator('h3[data-name=lox] ~ * table')).toBeHidden();
-  await expect(page.locator('[data-dg-portfolio-table] thead th')).toHaveText(
-    ['Product', 'Type', 'Qty', 'Price', 'Curr.', 'Value', 'BEP', 'P/L €', 'P/L %', 'Unrealised P/L €', 'Total P/L€']
-  ); // default-hidden columns (Symbol | ISIN, Exchange, Last, Delay) absent
+  // every column is in the DOM (Columns dropdown needs them all, see the "columns:" test below);
+  // the default-hidden ones (Symbol | ISIN, Exchange, Last, Delay) are hidden with CSS, like Orders'
+  // own columns feature, so only the visible headers are asserted here.
+  const heads = () => page.$$eval('[data-dg-portfolio-table] thead th',
+    ths => ths.filter(th => getComputedStyle(th).display !== 'none').map(th => th.textContent));
+  await expect.poll(heads).toEqual(['Product', 'Type', 'Qty', 'Price', 'Curr.', 'Value', 'BEP', 'P/L €', 'P/L %', 'Unrealised P/L €', 'Total P/L€', '']);
 });
 
 test('off the Portfolio page, the feature reports idle, not missing', async ({ degiro, settings }) => {
@@ -71,6 +74,18 @@ test('default sort is Type ascending; clicking Product header sorts and toggles 
   await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
   await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
   await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'descending');
+});
+
+test('columns: Symbol, Exchange, Last, Delay hidden by default; Product and Type never offered', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await expect(page.locator('[data-dg-columns]')).toHaveText('4 hidden ▾');
+  await page.locator('[data-dg-columns]').click();
+  const items = await page.locator('[role=listbox] label').allTextContents();
+  expect(items).not.toContain('Product');
+  expect(items).not.toContain('Type');
+  expect(items).toContain('Symbol | ISIN');
 });
 
 test('a blank numeric cell sorts last in both ascending and descending order', async ({ degiro, settings }) => {

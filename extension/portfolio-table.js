@@ -2,7 +2,7 @@
 // table per section, see SEL.portfolioSection in common.js) into a single table, hiding DEGIRO's own
 // three.
 (() => {
-  const { SEL, page, own, feature, parseNum } = __dgt; // common.js
+  const { SEL, page, own, feature, parseNum, t } = __dgt; // common.js
 
   // Column hooks sit on each row's body cells (data-field / data-name), never the <th> (the header
   // text is localised) — same pattern, and same file-local placement, as ORDERS_HOOKS in
@@ -39,6 +39,12 @@
   /**
    * @typedef {{ id: string, type: 'stock'|'etf'|'lox', cells: Record<string,string>, nativeRow: Element }} Row
    */
+  // Column/Columns are dgUi.columnsSetting()'s own types (declared in ui.js); JSDoc typedefs inside an
+  // IIFE don't cross files, so they're redeclared here too — same as DgPageFlags across common.js/
+  // common-isolated.js/alarm-lines.js.
+  /** @typedef {{ key: string, index: number, label: string }} Column
+   * @typedef {{ find: (table: Element) => Column[], hidden: () => string[], save: (keys: string[]) => void,
+   *   defaults: string[], apply: (table: Element | null, indexes: number[]) => void }} Columns */
 
   // Parses a `[data-field=foo]` / `[data-name="a.b"]` hook selector into its [attribute, value] pair,
   // so a built cell can carry the very same attribute its source hook reads — later tasks' Columns
@@ -52,25 +58,23 @@
 
   /** @type {HTMLTableElement | null} */
   let table = null; // the merged table: built once, kept (not recreated) while the feature stays on
-  /** @type {string | null} */
-  let headKey = null; // last hidden-columns list the header was built from
 
   /** @typedef {{ col: string, dir: 'ascending' | 'descending' }} SortState */
   // In-memory only (not persisted): every page load starts back at Type ascending.
   let sortState = /** @type {SortState} */ ({ col: 'type', dir: 'ascending' });
 
-  // The header row, built once per hidden-columns setting: a <button> per <th>, like orders.html's
-  // sortable headers (orders-table.js's ORDERS_SORT_SCOPE pattern). Each <th> carries data-dg-col so
-  // the click listener and syncSortAttrs below can find it again without depending on column order.
-  /** @param {HTMLTableElement} t */
-  function renderHead(t) {
-    const hidden = dgSettings.portfolioHiddenColumns || DG_DEFAULTS.portfolioHiddenColumns;
-    const key = JSON.stringify(hidden);
-    if (key !== headKey) {
-      headKey = key;
-      const thead = /** @type {Element} */ (t.querySelector('thead'));
+  // The header row is built once: every column (hideable or not) gets a <th>, plus one trailing blank
+  // <th> for the Buy/Sell actions column (matching DEGIRO's own trailing blank header on its native
+  // tables) — dgUi.columnsSetting()'s columnHooks() needs the <thead>/<tbody> column counts to match
+  // (see Task 7), so hiding a column is done with CSS (dgUi.columnsSetting's own `apply`, called from
+  // renderToolbar below), never by leaving it out of the DOM. Each <th> carries data-dg-col so the
+  // click listener and syncSortAttrs below can find it again without depending on column order.
+  /** @param {HTMLTableElement} tbl */
+  function renderHead(tbl) {
+    const thead = /** @type {Element} */ (tbl.querySelector('thead'));
+    if (!thead.querySelector('tr')) {
       const tr = document.createElement('tr');
-      COLUMN_ORDER.filter(k => !hidden.includes(k)).forEach(k => {
+      COLUMN_ORDER.forEach(k => {
         const th = document.createElement('th');
         th.setAttribute('data-dg-col', k);
         const btn = document.createElement('button');
@@ -79,17 +83,18 @@
         th.append(btn);
         tr.append(th);
       });
+      tr.append(document.createElement('th')); // Buy/Sell column: no header label
       thead.replaceChildren(tr);
     }
-    syncSortAttrs(t);
+    syncSortAttrs(tbl);
   }
 
   // aria-sort reflects the in-memory sortState on every render (cheap attribute writes the scheduler
   // never observes: attributeFilter only watches data-dg-tweaks/data-dg-alarm-lines), independently of
   // whether the header itself was just rebuilt.
-  /** @param {HTMLTableElement} t */
-  function syncSortAttrs(t) {
-    t.querySelectorAll('thead th[data-dg-col]').forEach(th => {
+  /** @param {HTMLTableElement} tbl */
+  function syncSortAttrs(tbl) {
+    tbl.querySelectorAll('thead th[data-dg-col]').forEach(th => {
       th.setAttribute('aria-sort', th.getAttribute('data-dg-col') === sortState.col ? sortState.dir : 'none');
     });
   }
@@ -169,14 +174,12 @@
   // carries the same data-field/data-name hook its value came from.
   /** @param {Row[]} rows */
   function renderRows(rows) {
-    const t = portfolioTable();
+    const tbl = portfolioTable();
     const sorted = applySort(rows, sortState);
-    const hidden = dgSettings.portfolioHiddenColumns || DG_DEFAULTS.portfolioHiddenColumns;
-    const shown = COLUMN_ORDER.filter(k => !hidden.includes(k));
     const frag = document.createDocumentFragment();
     sorted.forEach(row => {
       const tr = document.createElement('tr');
-      shown.forEach(k => {
+      COLUMN_ORDER.forEach(k => {
         const td = document.createElement('td');
         if (k === 'product') td.setAttribute('data-name', 'productName');
         else if (k === 'type') td.setAttribute('data-dg-type', row.type);
@@ -204,8 +207,72 @@
       tr.append(actions);
       frag.append(tr);
     });
-    /** @type {Element} */ (t.querySelector('tbody')).replaceChildren(frag);
+    /** @type {Element} */ (tbl.querySelector('tbody')).replaceChildren(frag);
   }
+
+  // "Columns ▾" dropdown: dgUi.columnsSetting() + dgUi.picker, the exact pair Orders/Transactions use
+  // (moved into ui.js so this file can reuse them — see ui.js and the ledger ruling for Task 7).
+  // Product and Type are never offered: DG_PORTFOLIO_COLUMNS already excludes both.
+  const portfolioColumns = dgUi.columnsSetting({
+    key: 'portfolioHiddenColumns', keys: DG_PORTFOLIO_COLUMNS, hooks: PORTFOLIO_HOOKS,
+    styleId: 'dg-portfolio-columns', scope: '[data-dg-portfolio-table]'
+  });
+
+  let openColumns = false; // whether the Columns picker dropdown is open
+  /** @type {HTMLElement | null} */
+  let toolbar = null; // small bar above the merged table, holding only the Columns picker for now
+
+  function columnsToolbar() {
+    if (!toolbar) {
+      toolbar = /** @type {HTMLElement} */ (own(document.createElement('div')));
+      toolbar.id = 'dg-portfolio-toolbar';
+    }
+    return toolbar;
+  }
+
+  // checked = shown; Reset brings back the default hidden columns — same semantics as orders-table.js's
+  // own columnPicker (it has no other filters around it here, so no Reset-sibling chips to match).
+  /** @param {Column[]} cols @param {ReturnType<typeof dgUi.theme>} th */
+  function columnPicker(cols, th) {
+    const hidden = portfolioColumns.hidden();
+    const n = cols.filter(col => hidden.includes(col.key)).length;
+    const items = cols.map(col => ({
+      text: col.label,
+      checked: !hidden.includes(col.key),
+      change: on => portfolioColumns.save(on ? portfolioColumns.hidden().filter(k => k !== col.key) : [...portfolioColumns.hidden(), col.key])
+    }));
+    const reset = dgUi.chip(t('columnsReset'), false, () => { portfolioColumns.save(portfolioColumns.defaults); renderToolbar(); }, th);
+    reset.dataset.dgColumnsReset = '';
+    reset.style.marginTop = '4px';
+    return dgUi.picker({ kind: 'columns', label: n ? t('columnsHidden', n) : t('allColumns'), active: n > 0, items, th, footer: reset,
+      open: openColumns, onToggle: () => { openColumns = !openColumns; renderToolbar(); }, onChange: () => renderToolbar() });
+  }
+
+  // Rebuilds the toolbar (just the Columns picker for now) and re-applies the hiding style. Called
+  // every run() tick, and immediately again from the picker's own toggle/checkbox handlers — like
+  // filterPanel's render() in orders-table.js, this does not wait for the next scheduler tick.
+  function renderToolbar() {
+    if (!table) return;
+    const bar = columnsToolbar();
+    const th = dgUi.theme();
+    const cols = portfolioColumns.find(table);
+    portfolioColumns.apply(table, cols.filter(c => portfolioColumns.hidden().includes(c.key)).map(c => c.index));
+    const key = JSON.stringify([cols, portfolioColumns.hidden(), openColumns, th.bg, th.text]);
+    if (bar.isConnected && bar.dataset.key === key) return;
+    bar.dataset.key = key;
+    bar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0 4px;padding:0 16px;font-family:inherit;';
+    bar.replaceChildren(...(cols.length ? [columnPicker(cols, th)] : []));
+  }
+
+  // Close the Columns picker on an outside click — mirrors filterPanel's own mousedown listener in
+  // orders-table.js (capture-phase, so it runs before the click that opened/changed it). The toolbar
+  // holds nothing else, so there's no "swallowed click on a sibling chip" case to guard against there.
+  document.addEventListener('mousedown', e => {
+    const target = /** @type {Element} */ (e.target);
+    if (!openColumns || !dgSettings.portfolioMergedTable || target.closest?.('#dg-portfolio-toolbar [role=listbox], #dg-portfolio-toolbar [data-dg-columns]')) return;
+    openColumns = false;
+    renderToolbar();
+  }, true);
 
   // A header-button click toggles sortState (same column: flip direction; a new column: ascending)
   // and re-renders immediately, like filterPanel's own chip clicks in orders-table.js — it does not
@@ -228,8 +295,10 @@
     if (!stock) return page.isPortfolio() ? 'missing' : 'idle';
     hideNativeTables();
     const merged = portfolioTable();
-    if (stock.previousElementSibling !== merged) stock.before(merged);
+    const bar = columnsToolbar();
+    if (bar.nextElementSibling !== merged || stock.previousElementSibling !== bar) stock.before(bar, merged);
     renderRows(collectRows());
+    renderToolbar();
     return 'ok';
   }
 
@@ -237,7 +306,10 @@
     document.getElementById('dg-portfolio-hide-native')?.remove();
     table?.remove();
     table = null;
-    headKey = null;
+    toolbar?.remove();
+    toolbar = null;
+    openColumns = false;
+    portfolioColumns.apply(null, []);
   }
 
   feature({ name: 'portfolioTable', enabled: () => !!dgSettings.portfolioMergedTable, run, stop });

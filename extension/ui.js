@@ -1,6 +1,7 @@
 // Shared UI for the isolated-world scripts (Orders/Transactions filters, price alarms): DEGIRO-style
 // chips, a dropdown of checkboxes, outline icons and the page's light/dark colours. DOM only.
 const dgUi = (() => {
+  const { own, SEL } = __dgt;
   const BLUE = '#0095D2'; // DEGIRO blue
   const BELL = 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0';
   const QUESTION = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6M12 16.8v.2';
@@ -173,5 +174,66 @@ const dgUi = (() => {
     return span;
   }
 
-  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, TRASH, theme, chip, picker, toggle, icon, pill });
+  // ---------- columns (Orders, Transactions, the merged Portfolio table) ----------
+  // DEGIRO's header texts are localised: each column is found by the hook in its body cells. Product
+  // is never offered. Only the caller's own table (`scope`) counts: the style below hides by that selector.
+  /** @typedef {{ key: string, index: number, label: string }} Column
+   * @typedef {{ find: (table: Element) => Column[], hidden: () => string[], save: (keys: string[]) => void,
+   *   defaults: string[], apply: (table: Element | null, indexes: number[]) => void }} Columns */
+  /** @returns {{ index: Record<string, number>, heads: Element[], product: number } | null} */
+  function columnHooks(table, scope, hooks) {
+    if (!table?.matches(scope)) return null;
+    const cells = [...(table.querySelector('tbody tr')?.children || [])];
+    const heads = [...(table.querySelector('thead tr')?.children || [])];
+    if (!cells.length || heads.length !== cells.length) return null; // colspans: nth-child would hit the wrong cells
+    const at = sel => cells.findIndex(td => td.matches(sel) || td.querySelector(sel));
+    /** @type {Record<string, number>} */
+    const index = {};
+    for (const [k, sel] of Object.entries(hooks)) index[k] = at(sel);
+    return { index, heads, product: at(SEL.orderProduct) };
+  }
+
+  /**
+   * One columns setting: the picker's list, the hiding style, the saved choice.
+   * @param {{ key: string, keys: string[], scope: string, styleId: string, hooks: Record<string, string>,
+   *   derive?: (i: Record<string, number>) => void }} c
+   * @returns {Columns}
+   */
+  function columnsSetting(c) {
+    return {
+      find: table => {
+        const found = columnHooks(table, c.scope, c.hooks);
+        if (!found) return [];
+        const { index: i, heads, product } = found;
+        c.derive?.(i);
+        // offered under DEGIRO's own (localised) header; a column without one isn't offered
+        return c.keys.filter(k => i[k] >= 0 && i[k] !== product)
+          .map(k => ({ key: k, index: i[k], label: heads[i[k]].textContent.trim() }))
+          .filter(col => col.label);
+      },
+      hidden: () => dgSettings[c.key],
+      defaults: DG_DEFAULTS[c.key],
+      // one owned style element hides the chosen columns, so DEGIRO's re-rendered rows are hidden at
+      // once. It also fits the other columns to their content and gives Product the rest: DEGIRO pins
+      // Product at 320px and spreads the spare width over the other columns, truncating long names.
+      apply: (table, indexes) => {
+        let style = document.getElementById(c.styleId);
+        const product = columnHooks(table, c.scope, {})?.product ?? -1;
+        if (!indexes.length && product < 0) { style?.remove(); return; }
+        const T = c.scope;
+        let css = indexes.length ? indexes.map(n => `${T} tr > :nth-child(${n + 1})`).join(',\n') + ' { display: none !important; }' : '';
+        if (product >= 0) css += `\n${T} tr > * { width: 1px !important; white-space: nowrap; }\n${T} tr > :nth-child(${product + 1}) { width: auto !important; max-width: none !important; }`;
+        if (!style) { style = own(document.createElement('style')); style.id = c.styleId; document.head.append(style); }
+        if (style.textContent !== css) style.textContent = css;
+      },
+      // shown at once, then saved (chrome.storage.sync: other tabs and devices follow)
+      save: keys => {
+        const list = c.keys.filter(k => keys.includes(k));
+        dgSettings[c.key] = list;
+        try { chrome.storage.sync.set({ [c.key]: list }).catch(() => {}); } catch (e) {}
+      }
+    };
+  }
+
+  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, TRASH, theme, chip, picker, toggle, icon, pill, columnHooks, columnsSetting });
 })();

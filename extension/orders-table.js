@@ -116,67 +116,15 @@
     .some(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true');
 
   // ---------- columns (both pages) ----------
-
-  // DEGIRO's header texts are localised: each column is found by the hook in its body cells. Product
-  // is never offered. Only DEGIRO's table (`scope`) counts: the style below hides by that selector.
-  /** @returns {{ index: Record<string, number>, heads: Element[], product: number } | null} */
-  function columnHooks(table, scope, hooks) {
-    if (!table?.matches(scope)) return null;
-    const cells = [...(table.querySelector('tbody tr')?.children || [])];
-    const heads = [...(table.querySelector('thead tr')?.children || [])];
-    if (!cells.length || heads.length !== cells.length) return null; // colspans: nth-child would hit the wrong cells
-    const at = sel => cells.findIndex(td => td.matches(sel) || td.querySelector(sel));
-    /** @type {Record<string, number>} */
-    const index = {};
-    for (const [k, sel] of Object.entries(hooks)) index[k] = at(sel);
-    return { index, heads, product: at(SEL.orderProduct) };
-  }
-
-  /**
-   * One columns setting: the picker's list, the hiding style, the saved choice.
-   * @param {{ key: string, keys: string[], scope: string, styleId: string, hooks: Record<string, string>,
-   *   derive?: (i: Record<string, number>) => void }} c
-   * @returns {Columns}
-   */
-  function columnsSetting(c) {
-    return {
-      find: table => {
-        const found = columnHooks(table, c.scope, c.hooks);
-        if (!found) return [];
-        const { index: i, heads, product } = found;
-        c.derive?.(i);
-        // offered under DEGIRO's own (localised) header; a column without one isn't offered
-        return c.keys.filter(k => i[k] >= 0 && i[k] !== product)
-          .map(k => ({ key: k, index: i[k], label: heads[i[k]].textContent.trim() }))
-          .filter(col => col.label);
-      },
-      hidden: () => dgSettings[c.key],
-      defaults: DG_DEFAULTS[c.key],
-      // one owned style element hides the chosen columns, so DEGIRO's re-rendered rows are hidden at
-      // once. It also fits the other columns to their content and gives Product the rest: DEGIRO pins
-      // Product at 320px and spreads the spare width over the other columns, truncating long names.
-      apply: (table, indexes) => {
-        let style = document.getElementById(c.styleId);
-        const product = columnHooks(table, c.scope, {})?.product ?? -1;
-        if (!indexes.length && product < 0) { style?.remove(); return; }
-        const T = c.scope;
-        let css = indexes.length ? indexes.map(n => `${T} tr > :nth-child(${n + 1})`).join(',\n') + ' { display: none !important; }' : '';
-        if (product >= 0) css += `\n${T} tr > * { width: 1px !important; white-space: nowrap; }\n${T} tr > :nth-child(${product + 1}) { width: auto !important; max-width: none !important; }`;
-        if (!style) { style = own(document.createElement('style')); style.id = c.styleId; document.head.append(style); }
-        if (style.textContent !== css) style.textContent = css;
-      },
-      // shown at once, then saved (chrome.storage.sync: other tabs and devices follow)
-      save: keys => {
-        const list = c.keys.filter(k => keys.includes(k));
-        dgSettings[c.key] = list;
-        try { chrome.storage.sync.set({ [c.key]: list }).catch(() => {}); } catch (e) {}
-      }
-    };
-  }
+  // columnsSetting()/columnHooks() live in ui.js as dgUi.columnsSetting/dgUi.columnHooks: this file's
+  // whole body is an unassigned IIFE (not a global), so a function defined here would stay invisible
+  // to portfolio-table.js, which needs the exact same one for the merged table's Columns dropdown.
+  // The Column/Columns typedefs above are redeclared from ui.js (JSDoc typedefs inside an IIFE don't
+  // cross files), the same way DgPageFlags is duplicated across common.js/common-isolated.js/alarm-lines.js.
 
   // Transactions: the columns without a hook (Venue, Qty, Exchange Rate, AutoFX Fee) are found by
   // their place between two that have one, only when the gap fits exactly
-  const txColumns = columnsSetting({
+  const txColumns = dgUi.columnsSetting({
     key: 'txHiddenColumns', keys: DG_TX_COLUMNS, styleId: 'dg-tx-columns',
     scope: `${SEL.transactions} table:has(${SEL.txValue})`,
     hooks: { date: SEL.rowDate, symbolIsin: SEL.symbolIsin, exchange: SEL.exchangeAbbr, action: SEL.buySellBadge,
@@ -195,7 +143,7 @@
   const ORDERS_HOOKS = { product: SEL.orderProduct, date: SEL.rowDate, symbolIsin: SEL.symbolIsin,
     exchange: SEL.exchangeAbbr, action: SEL.buySellBadge, qty: SEL.orderQtyColumn, limit: SEL.orderLimit,
     stopPrice: SEL.orderStop, value: SEL.orderValue, outstanding: SEL.orderOutstanding, executed: SEL.orderExecuted };
-  const ordersColumns = columnsSetting({
+  const ordersColumns = dgUi.columnsSetting({
     key: 'ordersHiddenColumns', keys: DG_ORDER_COLUMNS, styleId: 'dg-orders-columns',
     scope: `${SEL.openOrders} table:has(${SEL.orderValue})`,
     hooks: ORDERS_HOOKS
@@ -470,7 +418,7 @@
     const btn = /** @type {Element} */ (e.target).closest?.('thead button');
     if (!btn) return;
     const table = ordersTable();
-    const found = table && columnHooks(table, ORDERS_SORT_SCOPE, ORDERS_HOOKS);
+    const found = table && dgUi.columnHooks(table, ORDERS_SORT_SCOPE, ORDERS_HOOKS);
     if (!found) return;
     const key = Object.keys(ORDERS_HOOKS).find(k => sortButtonAt(found.heads, found.index[k]) === btn);
     if (!key) return;
@@ -485,7 +433,7 @@
     if (!sortMounted) { sortMounted = true; sortPendingKey = null; sortUserDone = false; sortAttempts = 0; }
     const table = ordersTable();
     if (!table) return 'missing';
-    const found = columnHooks(table, ORDERS_SORT_SCOPE, ORDERS_HOOKS);
+    const found = dgUi.columnHooks(table, ORDERS_SORT_SCOPE, ORDERS_HOOKS);
     if (!found) return 'ok';
 
     if (sortPendingKey) {
