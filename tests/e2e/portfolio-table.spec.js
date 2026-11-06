@@ -42,3 +42,20 @@ test('off the Portfolio page, the feature reports idle, not missing', async ({ d
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
   await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable).toBe('idle');
 });
+
+test('merged table shows all rows from all three sections and tracks a live update', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+  await page.evaluate(() => { document.querySelector('h3[data-name=stock] ~ * [data-field=value]').textContent = '9.999,99'; });
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr').first().locator('[data-field=value]')).toHaveText('9.999,99');
+});
+
+test('clicking a merged row\'s Buy button clicks the real hidden Buy button', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await page.locator('[data-dg-portfolio-table] tbody tr').first().locator('button[data-action=buy]').click();
+  await expect(page.locator('h3[data-name=stock] ~ * table tbody tr').first()).toHaveAttribute('data-dg-last-clicked', 'buy');
+});

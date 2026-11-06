@@ -223,6 +223,10 @@
     section.rows.slice(start, start + section.pageSize).forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = holdingsRowHtml(r);
+      // lets e2e tests confirm a forwarded click reached this real (possibly hidden) button
+      tr.querySelectorAll('button[data-action]').forEach(b => b.addEventListener('click', () => {
+        tr.setAttribute('data-dg-last-clicked', b.dataset.action);
+      }));
       tbody.appendChild(tr);
     });
 

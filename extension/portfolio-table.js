@@ -7,9 +7,7 @@
   // Column hooks sit on each row's body cells (data-field / data-name), never the <th> (the header
   // text is localised) — same pattern, and same file-local placement, as ORDERS_HOOKS in
   // orders-table.js. `product`'s hook is the separate SEL.portfolioProduct (never hideable, also
-  // carries the row's data-id), so it has no entry here. Consumed starting in the next task
-  // (row collection); unused within this file for now.
-  // eslint-disable-next-line no-unused-vars
+  // carries the row's data-id), so it has no entry here.
   const PORTFOLIO_HOOKS = {
     symbolIsin: '[data-field="productInfo.symbol"]',
     exchange: '[data-field="productInfo.exchange.hiqAbbr"]',
@@ -34,6 +32,20 @@
     price: 'Price', currency: 'Curr.', value: 'Value', bep: 'BEP', plEuro: 'P/L €', plPercent: 'P/L %',
     unrealisedPl: 'Unrealised P/L €', totalPl: 'Total P/L€', last: 'Last', delay: 'Delay'
   };
+
+  /**
+   * @typedef {{ id: string, type: 'stock'|'etf'|'lox', cells: Record<string,string>, nativeRow: Element }} Row
+   */
+
+  // Parses a `[data-field=foo]` / `[data-name="a.b"]` hook selector into its [attribute, value] pair,
+  // so a built cell can carry the very same attribute its source hook reads — later tasks' Columns
+  // dropdown and sort logic then locate merged cells with PORTFOLIO_HOOKS the same way they locate
+  // native ones.
+  /** @param {string} sel @returns {[string, string] | null} */
+  function hookAttr(sel) {
+    const m = /^\[([\w-]+)=(?:"([^"]*)"|([^\]]+))\]$/.exec(sel);
+    return m ? [m[1], /** @type {string} */ (m[2] ?? m[3])] : null;
+  }
 
   /** @type {HTMLTableElement | null} */
   let table = null; // the merged table: built once, kept (not recreated) while the feature stays on
@@ -79,6 +91,77 @@
     document.head.append(style);
   }
 
+  // Every current <tr> under each of the three native sections (the same `${sel} ~ * table` each
+  // section's table is found by in hideNativeTables's style), tagged with which section it came from
+  // and a reference to that <tr> — Buy/Sell forwarding below, and later tasks (sort, pagination), use
+  // it. Reads fresh every call: DEGIRO may have re-rendered a row (a live price/value update, a page
+  // change) since the last one, and this never mutates what it reads.
+  /** @returns {Row[]} */
+  function collectRows() {
+    /** @type {Row[]} */
+    const rows = [];
+    for (const [type, sel] of Object.entries(SEL.portfolioSection)) {
+      const h3 = document.querySelector(sel);
+      const nativeTable = document.querySelector(`${sel} ~ * table`);
+      if (!h3 || !nativeTable) continue;
+      const typeLabel = h3.textContent.trim(); // DEGIRO's own section heading: language-independent
+      nativeTable.querySelectorAll('tbody tr').forEach(tr => {
+        const product = tr.querySelector(SEL.portfolioProduct);
+        if (!product) return;
+        /** @type {Record<string, string>} */
+        const cells = { product: product.textContent.trim(), type: typeLabel };
+        Object.keys(PORTFOLIO_HOOKS).forEach(key => {
+          cells[key] = tr.querySelector(PORTFOLIO_HOOKS[key])?.textContent.trim() || '';
+        });
+        rows.push({ id: product.getAttribute('data-id') || '', type: /** @type {Row['type']} */ (type), cells, nativeRow: tr });
+      });
+    }
+    return rows;
+  }
+
+  // Clears and rebuilds the merged table's <tbody> from collectRows()'s output. Called every run()
+  // tick, so it is idempotent and always reflects the current DOM, including DEGIRO's own live price
+  // updates to the hidden native rows. Each row's Type cell carries data-dg-type; every other cell
+  // carries the same data-field/data-name hook its value came from.
+  /** @param {Row[]} rows */
+  function renderRows(rows) {
+    const t = portfolioTable();
+    const hidden = dgSettings.portfolioHiddenColumns || DG_DEFAULTS.portfolioHiddenColumns;
+    const shown = COLUMN_ORDER.filter(k => !hidden.includes(k));
+    const frag = document.createDocumentFragment();
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+      shown.forEach(k => {
+        const td = document.createElement('td');
+        if (k === 'product') td.setAttribute('data-name', 'productName');
+        else if (k === 'type') td.setAttribute('data-dg-type', row.type);
+        else {
+          const attr = hookAttr(PORTFOLIO_HOOKS[k]);
+          if (attr) td.setAttribute(attr[0], attr[1]);
+        }
+        td.textContent = row.cells[k] || '';
+        tr.append(td);
+      });
+      // Buy/Sell: forwards a click to the real, already-rendered DEGIRO button for this row — never
+      // creates or dispatches a new order action itself (extension-security.md: never place, change,
+      // or cancel orders).
+      const actions = document.createElement('td');
+      ['buy', 'sell'].forEach(action => {
+        const native = row.nativeRow.querySelector(`button[data-action=${action}]`);
+        if (!native) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('data-action', action);
+        btn.textContent = native.textContent;
+        btn.addEventListener('click', () => { /** @type {HTMLElement | null} */ (row.nativeRow.querySelector(`button[data-action=${action}]`))?.click(); });
+        actions.append(btn);
+      });
+      tr.append(actions);
+      frag.append(tr);
+    });
+    /** @type {Element} */ (t.querySelector('tbody')).replaceChildren(frag);
+  }
+
   function run() {
     const stock = document.querySelector(SEL.portfolioSection.stock);
     // 'missing' only on the Portfolio page itself (DEGIRO may still be loading, or has changed its
@@ -87,6 +170,7 @@
     hideNativeTables();
     const merged = portfolioTable();
     if (stock.previousElementSibling !== merged) stock.before(merged);
+    renderRows(collectRows());
     return 'ok';
   }
 
