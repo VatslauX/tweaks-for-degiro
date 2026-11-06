@@ -9,11 +9,11 @@
   // orders-table.js. `product`'s hook is the separate SEL.portfolioProduct (never hideable, also
   // carries the row's data-id), so it has no entry here.
   const PORTFOLIO_HOOKS = {
-    symbolIsin: '[data-field="productInfo.symbol"]',
-    exchange: '[data-field="productInfo.exchange.hiqAbbr"]',
+    symbolIsin: '[data-name=symbolIsin]',
+    exchange: '[data-name=exchangeAbbr]',
     qty: '[data-field=size]',
     price: '[data-field=price]',
-    currency: '[data-field="productInfo.currency"]',
+    currency: '[data-field=currency]',
     value: '[data-field=value]',
     bep: '[data-field=breakEvenPrice]',
     plEuro: '[data-field=todayPl]',

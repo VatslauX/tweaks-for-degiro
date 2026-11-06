@@ -196,11 +196,11 @@
   // the Product cell, before the name, as on the live page (there is no separate actions column).
   function holdingsRowHtml(r) {
     return `<td><button type="button" data-action="buy" class="holdingsAction"><span class="holdingsActionLabel">Buy</span></button><button type="button" data-action="sell" class="holdingsAction"><span class="holdingsActionLabel">Sell</span></button><span data-name="productName" data-id="${r.id}" class="holdingsName">${r.name}</span></td>
-      <td><span data-field="productInfo.symbol">${r.symbol}</span></td>
-      <td><span data-field="productInfo.exchange.hiqAbbr">${r.exchange}</span></td>
+      <td><span data-name="symbolIsin">${r.symbol}</span></td>
+      <td><span data-name="exchangeAbbr">${r.exchange}</span></td>
       <td><span data-field="size">${r.qty}</span></td>
       <td><span data-field="price">${r.price}</span></td>
-      <td><span data-field="productInfo.currency">${r.currency}</span></td>
+      <td data-field="currency">${r.currency}</td>
       <td><span data-field="value">${r.value}</span></td>
       <td><span data-field="breakEvenPrice">${r.bep}</span></td>
       <td><span data-field="todayPl">${r.todayPl}</span></td>
