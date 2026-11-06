@@ -17,6 +17,9 @@
   "optOrders": {
     "message": "Ordini"
   },
+  "optPortfolio": {
+    "message": "Portafoglio"
+  },
   "optPageCleanup": {
     "message": "Pulizia della pagina"
   },
@@ -73,6 +76,18 @@
   },
   "optOrdersClickHelp": {
     "message": "Apre il modulo DEGIRO per modificare quell'ordine."
+  },
+  "optPortfolioMerge": {
+    "message": "Unisci le posizioni in un'unica tabella"
+  },
+  "optPortfolioMergeHelp": {
+    "message": "Combina Azioni, Trackers (ETF) e Prodotti strutturati in un'unica tabella ordinabile nella pagina Portafoglio."
+  },
+  "optPortfolioPersist": {
+    "message": "Ricorda ordinamento e colonne della tabella Portafoglio"
+  },
+  "optPortfolioPersistHelp": {
+    "message": "Mantiene la colonna di ordinamento scelta e le colonne nascoste dopo ricaricamenti e navigazione."
   },
   "optAdjustClose": {
     "message": "Clic fuori o Esc chiude Modifica ordine"

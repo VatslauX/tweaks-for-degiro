@@ -17,6 +17,9 @@
   "optOrders": {
     "message": "Orders"
   },
+  "optPortfolio": {
+    "message": "Portefeuille"
+  },
   "optPageCleanup": {
     "message": "Pagina opschonen"
   },
@@ -73,6 +76,18 @@
   },
   "optOrdersClickHelp": {
     "message": "Opent het DEGIRO-formulier Order aanpassen voor die order."
+  },
+  "optPortfolioMerge": {
+    "message": "Posities samenvoegen in één tabel"
+  },
+  "optPortfolioMergeHelp": {
+    "message": "Combineert Aandelen, Trackers (ETF's) en Gestructureerde producten in één sorteerbare tabel op de Portefeuillepagina."
+  },
+  "optPortfolioPersist": {
+    "message": "Sortering & kolommen van de Portefeuilletabel onthouden"
+  },
+  "optPortfolioPersistHelp": {
+    "message": "Houdt de gekozen sorteerkolom en verborgen kolommen vast na herladen en navigeren."
   },
   "optAdjustClose": {
     "message": "Klik buiten het formulier of Esc sluit Order aanpassen"

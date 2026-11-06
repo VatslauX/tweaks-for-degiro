@@ -23,6 +23,10 @@
     "message": "Orders",
     "description": "Settings section"
   },
+  "optPortfolio": {
+    "message": "Portfolio",
+    "description": "Settings section"
+  },
   "optPageCleanup": {
     "message": "Page cleanup",
     "description": "Settings section"
@@ -90,6 +94,20 @@
   "optOrdersClickHelp": {
     "message": "Opens DEGIRO's Adjust order form for that order.",
     "description": "Adjust order = DEGIRO's form name"
+  },
+  "optPortfolioMerge": {
+    "message": "Merge holdings into one table",
+    "description": "Feature name"
+  },
+  "optPortfolioMergeHelp": {
+    "message": "Combines Shares, Trackers (ETFs) and Structured products into a single sortable table on the Portfolio page."
+  },
+  "optPortfolioPersist": {
+    "message": "Remember Portfolio table sort & columns",
+    "description": "Feature name"
+  },
+  "optPortfolioPersistHelp": {
+    "message": "Keeps your chosen sort column and hidden columns across reloads and navigation."
   },
   "optAdjustClose": {
     "message": "Click outside or Esc closes Adjust order",

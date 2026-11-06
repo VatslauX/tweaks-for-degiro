@@ -1,7 +1,7 @@
 // e2e: the Portfolio page's holdings fixture (tests/fixtures/portfolio.html) carries the real DOM
 // hooks for the merged holdings table feature's selectors (checked live, see the plan's Global
 // Constraints). This file grows task-by-task as that feature is built.
-const { test, expect } = require('./fixtures');
+const { test, expect, setFlag } = require('./fixtures');
 const URL_P = 'https://trader.degiro.nl/trader/?mock=portfolio#/portfolio';
 const URL_O = 'https://trader.degiro.nl/trader/?mock=orders#/orders/open';
 
@@ -188,4 +188,12 @@ test('a stale saved sort column falls back to the default sort, and the table st
   const { page } = await degiro({ url: URL_P });
   await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
   await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+});
+
+test('portfolio merge toggles are present and save', async ({ settings }) => {
+  const opt = await settings();
+  await setFlag(opt, 'portfolioMergedTable', true);
+  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('portfolioMergedTable'))).toEqual({ portfolioMergedTable: true });
+  await setFlag(opt, 'portfolioMergedPersist', true);
+  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('portfolioMergedPersist'))).toEqual({ portfolioMergedPersist: true });
 });

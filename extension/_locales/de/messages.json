@@ -17,6 +17,9 @@
   "optOrders": {
     "message": "Orders"
   },
+  "optPortfolio": {
+    "message": "Portfolio"
+  },
   "optPageCleanup": {
     "message": "Seite aufräumen"
   },
@@ -73,6 +76,18 @@
   },
   "optOrdersClickHelp": {
     "message": "Öffnet das DEGIRO-Formular „Order anpassen“ für diese Order."
+  },
+  "optPortfolioMerge": {
+    "message": "Bestände in einer Tabelle zusammenführen"
+  },
+  "optPortfolioMergeHelp": {
+    "message": "Fasst Aktien, Trackers (ETFs) und Strukturierte Produkte in einer einzigen sortierbaren Tabelle auf der Portfolio-Seite zusammen."
+  },
+  "optPortfolioPersist": {
+    "message": "Sortierung & Spalten der Portfolio-Tabelle merken"
+  },
+  "optPortfolioPersistHelp": {
+    "message": "Behält die gewählte Sortierspalte und ausgeblendeten Spalten bei, auch nach Neuladen und Navigation."
   },
   "optAdjustClose": {
     "message": "Klick daneben oder Esc schließt Order anpassen"

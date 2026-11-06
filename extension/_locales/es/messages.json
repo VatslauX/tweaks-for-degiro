@@ -17,6 +17,9 @@
   "optOrders": {
     "message": "Órdenes"
   },
+  "optPortfolio": {
+    "message": "Cartera"
+  },
   "optPageCleanup": {
     "message": "Limpieza de la página"
   },
@@ -73,6 +76,18 @@
   },
   "optOrdersClickHelp": {
     "message": "Abre el formulario Ajustar orden de DEGIRO para esa orden."
+  },
+  "optPortfolioMerge": {
+    "message": "Combinar las posiciones en una sola tabla"
+  },
+  "optPortfolioMergeHelp": {
+    "message": "Combina Acciones, Trackers (ETF) y Productos estructurados en una única tabla ordenable en la página Cartera."
+  },
+  "optPortfolioPersist": {
+    "message": "Recordar el orden y las columnas de la tabla Cartera"
+  },
+  "optPortfolioPersistHelp": {
+    "message": "Mantiene la columna de orden elegida y las columnas ocultas tras recargar y navegar."
   },
   "optAdjustClose": {
     "message": "Clic fuera o Esc cierra Ajustar orden"

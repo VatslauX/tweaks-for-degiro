@@ -17,6 +17,9 @@
   "optOrders": {
     "message": "Ordres"
   },
+  "optPortfolio": {
+    "message": "Portefeuille"
+  },
   "optPageCleanup": {
     "message": "Nettoyage de la page"
   },
@@ -73,6 +76,18 @@
   },
   "optOrdersClickHelp": {
     "message": "Ouvre le formulaire DEGIRO de modification de cet ordre."
+  },
+  "optPortfolioMerge": {
+    "message": "Fusionner les positions dans un seul tableau"
+  },
+  "optPortfolioMergeHelp": {
+    "message": "Combine Actions, Trackers (ETF) et Produits structurés dans un seul tableau triable sur la page Portefeuille."
+  },
+  "optPortfolioPersist": {
+    "message": "Mémoriser le tri et les colonnes du tableau Portefeuille"
+  },
+  "optPortfolioPersistHelp": {
+    "message": "Garde la colonne de tri choisie et les colonnes masquées après rechargement et navigation."
   },
   "optAdjustClose": {
     "message": "Un clic à côté ou Échap ferme Modifier un ordre de bourse"
