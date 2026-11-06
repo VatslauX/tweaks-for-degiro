@@ -1,29 +1,30 @@
 // Portfolio: merge the Shares / Trackers (ETFs) / Structured products holdings tables (one <h3> +
 // table per section, see SEL.portfolioSection in common.js) into a single table, hiding DEGIRO's own
-// three. Column hooks sit on each row's body cells (data-field / data-name), never the <th> (the
-// header text is localised) — same pattern as ORDERS_HOOKS in orders-table.js. `product`'s hook is
-// the separate SEL.portfolioProduct (never hideable, also carries the row's data-id), so it has no
-// entry here. Declared at top level, not inside this file's own IIFE below: nothing in this task uses
-// it yet (Task 5+ will, later in this same file), and eslint's no-unused-vars only exempts top-level
-// declarations (the same reason flags.js's DG_* constants sit at top level, not inside an IIFE).
-const PORTFOLIO_HOOKS = {
-  symbolIsin: '[data-field="productInfo.symbol"]',
-  exchange: '[data-field="productInfo.exchange.hiqAbbr"]',
-  qty: '[data-field=size]',
-  price: '[data-field=price]',
-  currency: '[data-field="productInfo.currency"]',
-  value: '[data-field=value]',
-  bep: '[data-field=breakEvenPrice]',
-  plEuro: '[data-field=todayPl]',
-  plPercent: '[data-field=change]',
-  unrealisedPl: '[data-field=unrealizedRelativePl]',
-  totalPl: '[data-field=totalPl]',
-  last: '[data-field=lastUpdate]',
-  delay: '[data-name=feedQuality]'
-};
-
+// three.
 (() => {
   const { SEL, page, own, feature } = __dgt; // common.js
+
+  // Column hooks sit on each row's body cells (data-field / data-name), never the <th> (the header
+  // text is localised) — same pattern, and same file-local placement, as ORDERS_HOOKS in
+  // orders-table.js. `product`'s hook is the separate SEL.portfolioProduct (never hideable, also
+  // carries the row's data-id), so it has no entry here. Consumed starting in the next task
+  // (row collection); unused within this file for now.
+  // eslint-disable-next-line no-unused-vars
+  const PORTFOLIO_HOOKS = {
+    symbolIsin: '[data-field="productInfo.symbol"]',
+    exchange: '[data-field="productInfo.exchange.hiqAbbr"]',
+    qty: '[data-field=size]',
+    price: '[data-field=price]',
+    currency: '[data-field="productInfo.currency"]',
+    value: '[data-field=value]',
+    bep: '[data-field=breakEvenPrice]',
+    plEuro: '[data-field=todayPl]',
+    plPercent: '[data-field=change]',
+    unrealisedPl: '[data-field=unrealizedRelativePl]',
+    totalPl: '[data-field=totalPl]',
+    last: '[data-field=lastUpdate]',
+    delay: '[data-name=feedQuality]'
+  };
 
   // Merged table column order (Product and Type are never hideable) and their display labels.
   const COLUMN_ORDER = ['product', 'type', 'symbolIsin', 'exchange', 'qty', 'price', 'currency', 'value',

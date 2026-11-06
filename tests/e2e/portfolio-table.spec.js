@@ -3,6 +3,18 @@
 // Constraints). This file grows task-by-task as that feature is built.
 const { test, expect } = require('./fixtures');
 const URL_P = 'https://trader.degiro.nl/trader/?mock=portfolio#/portfolio';
+const URL_O = 'https://trader.degiro.nl/trader/?mock=orders#/orders/open';
+
+// Raw per-feature status (status.js's message reply), not the popup's rendered list: options.js's
+// own FEATURES map (extension/options.js) doesn't offer portfolioTable as a popup row yet, but the
+// scheduler still tracks and reports its status like any other feature.
+async function rawStatus(page, opt) {
+  await page.bringToFront();
+  return opt.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return chrome.tabs.sendMessage(tab.id, { type: 'dg-status' });
+  });
+}
 
 test('fixture renders three holdings sections with real hooks', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_P });
@@ -22,4 +34,11 @@ test('enabling the feature hides the native tables and renders a merged header',
   await expect(page.locator('[data-dg-portfolio-table] thead th')).toHaveText(
     ['Product', 'Type', 'Qty', 'Price', 'Curr.', 'Value', 'BEP', 'P/L €', 'P/L %', 'Unrealised P/L €', 'Total P/L€']
   ); // default-hidden columns (Symbol | ISIN, Exchange, Last, Delay) absent
+});
+
+test('off the Portfolio page, the feature reports idle, not missing', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_O }); // no h3[data-name=stock] here, and never will be
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable).toBe('idle');
 });
