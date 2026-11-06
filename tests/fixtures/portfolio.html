@@ -11,6 +11,9 @@
     canvas { position: absolute; left: 0; top: 0; }
     [data-name="performance-period-switcher"] button { background: transparent; border: 0; }
     [data-name="performance-period-switcher"] button.on { background: rgb(15, 23, 26); color: #fff; }
+    td, th { padding: 4px 8px; text-align: left; white-space: nowrap; box-sizing: border-box; }
+    .holdings table { width: 100%; }
+    .holdings [data-name=pagination] button[aria-current=true] { font-weight: 700; }
   </style>
 </head>
 <body>
@@ -30,6 +33,65 @@
     <div data-name="performance-period-switcher">
       <button data-p="ONE_MONTH">1 M</button><button data-p="THREE_MONTHS">3 M</button><button data-p="YEAR_TO_DATE">YTD</button><button data-p="ONE_YEAR" class="on">1 Y</button>
     </div>
+  </div>
+  <!-- DEGIRO's three holdings tables. Each heading's closest sibling wrapper holds that section's
+       own table and pagination control — the extension locates a section via its h3, then the
+       wrapper via the ~ sibling combinator, exactly as the live page is structured. -->
+  <div class="holdings">
+    <section data-holdings="stock">
+      <h3 data-name="stock">Shares</h3>
+      <div class="tableWrap">
+        <table>
+          <thead><tr>
+            <th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
+            <th>Value</th><th>Break Even Price</th><th>Today's P&amp;L</th><th>Today's P&amp;L %</th>
+            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div data-name="pagination" data-page="1">
+          <button type="button" aria-label="Previous page">&lsaquo;</button>
+          <button type="button" aria-current="true">1</button>
+          <button type="button" aria-label="Next page">&rsaquo;</button>
+        </div>
+      </div>
+    </section>
+    <section data-holdings="etf">
+      <h3 data-name="etf">Trackers (ETFs)</h3>
+      <div class="tableWrap">
+        <table>
+          <thead><tr>
+            <th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
+            <th>Value</th><th>Break Even Price</th><th>Today's P&amp;L</th><th>Today's P&amp;L %</th>
+            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div data-name="pagination" data-page="1">
+          <button type="button" aria-label="Previous page">&lsaquo;</button>
+          <button type="button" aria-current="true">1</button>
+          <button type="button" aria-label="Next page">&rsaquo;</button>
+        </div>
+      </div>
+    </section>
+    <section data-holdings="lox">
+      <h3 data-name="lox">Structured products</h3>
+      <div class="tableWrap">
+        <table>
+          <thead><tr>
+            <th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
+            <th>Value</th><th>Break Even Price</th><th>Today's P&amp;L</th><th>Today's P&amp;L %</th>
+            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div data-name="pagination" data-page="1">
+          <button type="button" aria-label="Previous page">&lsaquo;</button>
+          <button type="button" aria-current="true">1</button>
+          <button type="button" aria-label="Next page">&rsaquo;</button>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 <script>
@@ -86,12 +148,108 @@
     const old = document.querySelector('[data-name="performance-chart"]');
     if (!location.hash.startsWith('#/portfolio')) { old?.remove(); return; }
     if (old) return;
-    document.querySelector('[data-name="app-layout"]').append(chartTpl.cloneNode(true));
+    document.querySelector('[data-name="app-layout"]').prepend(chartTpl.cloneNode(true)); // keep it above the holdings tables, its original position
     wire();
     load('ONE_YEAR');
   });
   wire();
   load('ONE_YEAR');
+</script>
+<script>
+  // Holdings rows per section. etf has 3 rows split 2 + 1 across two pages so pagination has
+  // something real to drive (see the Portfolio merge plan's Task 9). stock and lox fit on one page.
+  window.__PORTFOLIO = window.__PORTFOLIO || {
+    stock: {
+      pageSize: 3,
+      rows: [
+        { id: 332108, name: 'Mock Software SE', symbol: 'SWD', exchange: 'TDG', qty: 15, price: '128,40', currency: 'EUR', value: '1.926,00', bep: '110,00', todayPl: '+18,40', plPct: '+1,45%', unrealised: '+16,73%', totalPl: '+276,00', last: '16:32:10' },
+        { id: 332109, name: 'Mock Pharma NV', symbol: 'PHM', exchange: 'AEX', qty: 40, price: '22,15', currency: 'EUR', value: '886,00', bep: '19,80', todayPl: '+9,40', plPct: '+1,07%', unrealised: '+11,87%', totalPl: '+94,00', last: '16:32:10' },
+        { id: 332110, name: 'Mock Retail Corp', symbol: 'RTL', exchange: 'NDQ', qty: 8, price: '64,05', currency: 'USD', value: '512,40', bep: '70,00', todayPl: '-3,20', plPct: '-0,62%', unrealised: '-8,50%', totalPl: '-43,60', last: '16:32:10' }
+      ]
+    },
+    etf: {
+      pageSize: 2,
+      rows: [
+        { id: 441201, name: 'Mock Bond ETF EUR', symbol: 'BND', exchange: 'TDG', qty: 1000, price: '2,52', currency: 'EUR', value: '2.520,00', bep: '2,50', todayPl: '+2,00', plPct: '+0,08%', unrealised: '+0,80%', totalPl: '+20,00', last: '16:32:05' },
+        { id: 441202, name: 'Mock S&P 500 ETF USD', symbol: 'SPX', exchange: 'NDQ', qty: 100, price: '131,20', currency: 'USD', value: '13.120,00', bep: '130,00', todayPl: '+40,00', plPct: '+0,31%', unrealised: '+0,92%', totalPl: '+120,00', last: '16:32:05' },
+        { id: 441203, name: 'Mock Chips ETF EUR', symbol: 'CHP', exchange: 'TDG', qty: 200, price: '14,80', currency: 'EUR', value: '2.960,00', bep: '14,00', todayPl: '+30,00', plPct: '+1,03%', unrealised: '+5,71%', totalPl: '+160,00', last: '16:32:05' }
+      ]
+    },
+    lox: {
+      pageSize: 1,
+      rows: [
+        { id: 551301, name: 'Mock Turbo Long AEX', symbol: 'TRB', exchange: 'AEX', qty: 50, price: '4,32', currency: 'EUR', value: '216,00', bep: '4,00', todayPl: '+6,00', plPct: '+1,41%', unrealised: '+8,00%', totalPl: '+16,00', last: '16:31:50' }
+      ]
+    }
+  };
+
+  // real hooks (checked live against trader.degiro.nl, see the plan's Global Constraints): the
+  // product name span carries the row's data-id; every other column hook sits on the body cell,
+  // never on the <th>. The Delay indicator has no header hook, only this body button.
+  function holdingsRowHtml(r) {
+    return `<td><span data-name="productName" data-id="${r.id}">${r.name}</span></td>
+      <td><span data-field="productInfo.symbol">${r.symbol}</span></td>
+      <td><span data-field="productInfo.exchange.hiqAbbr">${r.exchange}</span></td>
+      <td><span data-field="size">${r.qty}</span></td>
+      <td><span data-field="price">${r.price}</span></td>
+      <td><span data-field="productInfo.currency">${r.currency}</span></td>
+      <td><span data-field="value">${r.value}</span></td>
+      <td><span data-field="breakEvenPrice">${r.bep}</span></td>
+      <td><span data-field="todayPl">${r.todayPl}</span></td>
+      <td><span data-field="change">${r.plPct}</span></td>
+      <td><span data-field="unrealizedRelativePl">${r.unrealised}</span></td>
+      <td><span data-field="totalPl">${r.totalPl}</span></td>
+      <td><time data-field="lastUpdate" data-id="${r.id}">${r.last}</time></td>
+      <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>
+      <td><button type="button" data-action="buy">Buy</button><button type="button" data-action="sell">Sell</button></td>`;
+  }
+
+  // Renders the current page's rows and the pager, mirroring orders.html's render()-on-every-change
+  // style. Matches the live page's own pagination shape exactly (see the plan's Global Constraints):
+  // Previous, a single numbered button showing the current page (not one button per page), Next.
+  // Previous/Next are disabled once there's no further page in that direction — the exact attribute
+  // DEGIRO itself uses here is unverified live (see the plan), so this fixture picks the ordinary
+  // HTML `disabled` state, same as transactions.html's pager.
+  function renderHoldings(type) {
+    const section = window.__PORTFOLIO[type];
+    const container = document.querySelector(`[data-holdings=${type}]`);
+    const pagination = container.querySelector('[data-name=pagination]');
+    const page = Number(pagination.dataset.page || '1');
+    const pages = Math.max(1, Math.ceil(section.rows.length / section.pageSize));
+    const start = (page - 1) * section.pageSize;
+
+    const tbody = container.querySelector('tbody');
+    tbody.innerHTML = '';
+    section.rows.slice(start, start + section.pageSize).forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = holdingsRowHtml(r);
+      tbody.appendChild(tr);
+    });
+
+    pagination.querySelector('[aria-current=true]').textContent = String(page);
+    pagination.querySelector('[aria-label="Previous page"]').disabled = page <= 1;
+    pagination.querySelector('[aria-label="Next page"]').disabled = page >= pages;
+  }
+
+  ['stock', 'etf', 'lox'].forEach(type => {
+    const pagination = document.querySelector(`[data-holdings=${type}] [data-name=pagination]`);
+    pagination.querySelector('[aria-label="Previous page"]').addEventListener('click', () => {
+      const page = Number(pagination.dataset.page || '1');
+      if (page <= 1) return;
+      pagination.dataset.page = String(page - 1);
+      renderHoldings(type);
+    });
+    pagination.querySelector('[aria-label="Next page"]').addEventListener('click', () => {
+      const section = window.__PORTFOLIO[type];
+      const page = Number(pagination.dataset.page || '1');
+      const pages = Math.max(1, Math.ceil(section.rows.length / section.pageSize));
+      if (page >= pages) return;
+      pagination.dataset.page = String(page + 1);
+      renderHoldings(type);
+    });
+    renderHoldings(type);
+  });
+  window.__rerenderHoldings = renderHoldings; // DEGIRO re-renders rows on live price/value updates
 </script>
 </body>
 </html>
