@@ -107,3 +107,58 @@ test('a blank numeric cell sorts last in both ascending and descending order', a
   await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Value' })).toHaveAttribute('aria-sort', 'descending');
   await expect(lastProduct()).toHaveText('Mock Software SE');
 });
+
+test('persist on: a sort change survives reload; persist off: it resets to default', async ({ degiro, settings }) => {
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
+  const { page } = await degiro({ url: URL_P });
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
+  await page.reload();
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
+
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: false }));
+  await page.reload();
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
+
+  // Binding: switching persist off never deletes the stored sort — switching it on again later
+  // restores it, without the user having to re-sort.
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: true }));
+  await page.reload();
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
+});
+
+test('persist on: a hidden column survives reload; persist off: it resets to default, and restores when persist is on again', async ({ degiro, settings }) => {
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
+  const { page } = await degiro({ url: URL_P });
+  await page.locator('[data-dg-columns]').click();
+  await page.locator('[role=listbox] label', { hasText: 'Qty' }).click(); // hide one more column (4 hidden by default)
+  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
+  await page.reload();
+  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
+
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: false }));
+  await page.reload();
+  await expect(page.locator('[data-dg-columns]')).toHaveText('4 hidden ▾'); // back to DG_DEFAULTS, Qty shown again
+
+  // Binding: switching persist off never deletes the stored choice — switching it on again later
+  // restores it.
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: true }));
+  await page.reload();
+  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
+});
+
+// Review Focus (binding): a malformed or stale persisted value must fall back to the default rather
+// than throwing or rendering an empty table. sanitizePortfolioSort() isn't exported (orders-table.js's
+// own sanitizeSort isn't either, and has no dedicated unit test) — covered here the same way
+// sanitizeSort's correctness is covered today, through e2e behaviour.
+test('a stale saved sort column falls back to the default sort, and the table still renders', async ({ degiro, settings }) => {
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({
+    portfolioMergedTable: true, portfolioMergedPersist: true,
+    dgPortfolioSort: { col: 'noLongerAColumn', dir: 'ascending' }
+  }));
+  const { page } = await degiro({ url: URL_P });
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+});

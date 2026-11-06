@@ -2,7 +2,7 @@
 // table per section, see SEL.portfolioSection in common.js) into a single table, hiding DEGIRO's own
 // three.
 (() => {
-  const { SEL, page, own, feature, parseNum, t } = __dgt; // common.js
+  const { SEL, page, own, feature, schedule, parseNum, t } = __dgt; // common.js
 
   // Column hooks sit on each row's body cells (data-field / data-name), never the <th> (the header
   // text is localised) — same pattern, and same file-local placement, as ORDERS_HOOKS in
@@ -60,8 +60,52 @@
   let table = null; // the merged table: built once, kept (not recreated) while the feature stays on
 
   /** @typedef {{ col: string, dir: 'ascending' | 'descending' }} SortState */
-  // In-memory only (not persisted): every page load starts back at Type ascending.
-  let sortState = /** @type {SortState} */ ({ col: 'type', dir: 'ascending' });
+  const DEFAULT_SORT = /** @type {SortState} */ ({ col: 'type', dir: 'ascending' });
+  // Starts at the default every page load; the chrome.storage.sync.get below may replace it once,
+  // if portfolioMergedPersist is on and a stored value is there and valid.
+  let sortState = DEFAULT_SORT;
+
+  // Mirrors sanitizeSort() in orders-table.js: rejects a col outside this table's own columns, or a
+  // dir that isn't a real aria-sort value, so a stale (older version, now-renamed/removed column) or
+  // corrupted stored value falls back to the default sort rather than throwing or sorting by nothing.
+  /** @param {unknown} v @returns {SortState | null} */
+  function sanitizePortfolioSort(v) {
+    const col = /** @type {any} */ (v)?.col, dir = /** @type {any} */ (v)?.dir;
+    if (!v || typeof v !== 'object' || !COLUMN_ORDER.includes(col)) return null;
+    return dir === 'ascending' || dir === 'descending' ? { col, dir } : null;
+  }
+
+  // Remembers the sort across reloads — the storage plumbing mirrors dgOrdersSort in orders-table.js
+  // exactly (read once + chrome.storage.onChanged, both resilient to a missing/erroring chrome.*), but
+  // this table is entirely built and sorted by us (applySort/renderRows above), so "restoring" a saved
+  // sort is just setting sortState and letting the next render pick it up — there is nothing to click
+  // to make DEGIRO re-sort anything, unlike Orders' own native table.
+  //
+  // Gated by portfolioMergedPersist (Task 3): off, a stored value is never read into sortState (and
+  // saveSort() below never writes one) — the saved value itself is left alone in chrome.storage.sync,
+  // so turning the toggle on again later (and reloading) restores it.
+  let dgPortfolioSort = /** @type {SortState | null} */ (null);
+  try {
+    chrome.storage.sync.get({ dgPortfolioSort: null }, r => {
+      dgPortfolioSort = sanitizePortfolioSort(r?.dgPortfolioSort);
+      if (dgSettings.portfolioMergedPersist && dgPortfolioSort) sortState = dgPortfolioSort;
+      schedule();
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'sync' || !changes.dgPortfolioSort) return;
+      dgPortfolioSort = sanitizePortfolioSort(changes.dgPortfolioSort.newValue);
+      if (dgSettings.portfolioMergedPersist && dgPortfolioSort) sortState = dgPortfolioSort;
+      schedule();
+    });
+  } catch (e) {}
+
+  /** @param {string} col @param {'ascending' | 'descending'} dir */
+  function saveSort(col, dir) {
+    sortState = { col, dir };
+    if (!dgSettings.portfolioMergedPersist) return; // never write while the toggle is off
+    dgPortfolioSort = sortState;
+    try { chrome.storage.sync.set({ dgPortfolioSort: sortState }).catch(() => {}); } catch (e) {}
+  }
 
   // The header row is built once: every column (hideable or not) gets a <th>, plus one trailing blank
   // <th> for the Buy/Sell actions column (matching DEGIRO's own trailing blank header on its native
@@ -218,6 +262,19 @@
     styleId: 'dg-portfolio-columns', scope: '[data-dg-portfolio-table]'
   });
 
+  // Gated by portfolioMergedPersist the same way sortState is above: portfolioColumns.hidden() reads
+  // dgSettings.portfolioHiddenColumns directly, which flags.js keeps populated from chrome.storage.sync
+  // regardless of this toggle, so reading it here (rather than through dgUi.columnsSetting itself,
+  // which Orders/Transactions also use with no opt-out) is what makes the toggle apply. Off, every
+  // column starts shown/hidden exactly as DG_DEFAULTS.portfolioHiddenColumns says, ignoring (but never
+  // deleting) whatever is actually stored; on, the stored choice is read normally.
+  const hiddenColumns = () => dgSettings.portfolioMergedPersist ? portfolioColumns.hidden() : DG_DEFAULTS.portfolioHiddenColumns;
+  // portfolioColumns.save() both updates dgSettings in memory and writes chrome.storage.sync; off, a
+  // column checkbox has no effect (hiddenColumns() above ignores it either way) and nothing is written,
+  // so re-enabling persist later picks the last-saved value straight back up.
+  /** @param {string[]} keys */
+  const saveColumns = keys => { if (dgSettings.portfolioMergedPersist) portfolioColumns.save(keys); };
+
   let openColumns = false; // whether the Columns picker dropdown is open
   /** @type {HTMLElement | null} */
   let toolbar = null; // small bar above the merged table, holding only the Columns picker for now
@@ -234,14 +291,14 @@
   // own columnPicker (it has no other filters around it here, so no Reset-sibling chips to match).
   /** @param {Column[]} cols @param {ReturnType<typeof dgUi.theme>} th */
   function columnPicker(cols, th) {
-    const hidden = portfolioColumns.hidden();
+    const hidden = hiddenColumns();
     const n = cols.filter(col => hidden.includes(col.key)).length;
     const items = cols.map(col => ({
       text: col.label,
       checked: !hidden.includes(col.key),
-      change: on => portfolioColumns.save(on ? portfolioColumns.hidden().filter(k => k !== col.key) : [...portfolioColumns.hidden(), col.key])
+      change: on => saveColumns(on ? hiddenColumns().filter(k => k !== col.key) : [...hiddenColumns(), col.key])
     }));
-    const reset = dgUi.chip(t('columnsReset'), false, () => { portfolioColumns.save(portfolioColumns.defaults); renderToolbar(); }, th);
+    const reset = dgUi.chip(t('columnsReset'), false, () => { saveColumns(portfolioColumns.defaults); renderToolbar(); }, th);
     reset.dataset.dgColumnsReset = '';
     reset.style.marginTop = '4px';
     return dgUi.picker({ kind: 'columns', label: n ? t('columnsHidden', n) : t('allColumns'), active: n > 0, items, th, footer: reset,
@@ -256,8 +313,8 @@
     const bar = columnsToolbar();
     const th = dgUi.theme();
     const cols = portfolioColumns.find(table);
-    portfolioColumns.apply(table, cols.filter(c => portfolioColumns.hidden().includes(c.key)).map(c => c.index));
-    const key = JSON.stringify([cols, portfolioColumns.hidden(), openColumns, th.bg, th.text]);
+    portfolioColumns.apply(table, cols.filter(c => hiddenColumns().includes(c.key)).map(c => c.index));
+    const key = JSON.stringify([cols, hiddenColumns(), openColumns, th.bg, th.text]);
     if (bar.isConnected && bar.dataset.key === key) return;
     bar.dataset.key = key;
     bar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0 4px;padding:0 16px;font-family:inherit;';
@@ -284,7 +341,7 @@
     if (!btn) return;
     const col = btn.closest('th')?.getAttribute('data-dg-col');
     if (!col) return;
-    sortState = { col, dir: sortState.col === col && sortState.dir === 'ascending' ? 'descending' : 'ascending' };
+    saveSort(col, sortState.col === col && sortState.dir === 'ascending' ? 'descending' : 'ascending');
     renderRows(collectRows());
   }, true);
 
