@@ -136,6 +136,26 @@ test('ETF-only portfolio (no Shares section): the merge still engages, anchored 
   await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable).toBe('ok');
 });
 
+test('a section with rows but no resolvable product hook keeps its native UI visible and reports missing', async ({ degiro, settings }) => {
+  // Simulates a future DEGIRO DOM change where SEL.portfolioProduct stops matching for one section:
+  // the stock section's <tr>s exist but none are collectible, so hiding its h3/table/pager would make
+  // those real holdings disappear with nothing shown anywhere — this must not happen.
+  const { page } = await degiro({ url: URL_P, initScript: () => { window.__MOCK_NO_PRODUCT_HOOK = 'stock'; } });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  // the broken section's own heading, table and pager stay visible
+  await expect(page.locator('h3[data-name=stock]')).toBeVisible();
+  await expect(page.locator('h3[data-name=stock] ~ * table')).toBeVisible();
+  await expect(page.locator('h3[data-name=stock] ~ * [data-name=pagination]')).toBeVisible();
+  // the other two sections, unaffected, are still merged and hidden as normal
+  await expect(page.locator('h3[data-name=etf]')).toBeHidden();
+  await expect(page.locator('h3[data-name=lox]')).toBeHidden();
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(3); // 2 etf + 1 lox, no stock rows
+  // 'missing' shows as 'loading' for LOADING_MS (8 s) after the page opens (common.js), so this poll
+  // needs longer than expect.poll's 5 s default to see it settle.
+  await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable, { timeout: 10000 }).toBe('missing');
+});
+
 test('off the Portfolio page, the feature reports idle, not missing', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_O }); // no h3[data-name=stock] here, and never will be
   const opt = await settings();
@@ -388,6 +408,53 @@ test('a stale saved sort column falls back to the default sort, and the table st
   const { page } = await degiro({ url: URL_P });
   await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
   await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+});
+
+test('disabling the merge restores the native tables and removes the merged UI; re-enabling rebuilds it cleanly', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  const nativeVisible = async () => {
+    for (const s of ['stock', 'etf', 'lox']) {
+      await expect(page.locator(`h3[data-name=${s}]`)).toBeVisible();
+      await expect(page.locator(`h3[data-name=${s}] ~ * table`)).toBeVisible();
+      await expect(page.locator(`h3[data-name=${s}] ~ * [data-name=pagination]`)).toBeVisible();
+    }
+  };
+  const nativeHidden = async () => {
+    for (const s of ['stock', 'etf', 'lox']) {
+      await expect(page.locator(`h3[data-name=${s}]`)).toBeHidden();
+      await expect(page.locator(`h3[data-name=${s}] ~ * table`)).toBeHidden();
+      await expect(page.locator(`h3[data-name=${s}] ~ * [data-name=pagination]`)).toBeHidden();
+    }
+  };
+  const mergedPresent = async () => {
+    await expect(page.locator('#dg-portfolio-toolbar')).toBeVisible();
+    await expect(page.locator('[data-dg-portfolio-table]')).toBeVisible();
+    await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+  };
+  const mergedAbsent = async () => {
+    await expect(page.locator('#dg-portfolio-toolbar')).toHaveCount(0);
+    await expect(page.locator('[data-dg-portfolio-table]')).toHaveCount(0);
+    await expect(page.locator('[data-dg-portfolio-table] + [data-name=pagination]')).toHaveCount(0);
+  };
+
+  await nativeVisible();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await nativeHidden();
+  await mergedPresent();
+
+  // stop(): removes the HIDDEN marks, the hide-style, the merged table/toolbar/pager, and resets
+  // portfolioColumns's own style — never exercised until now, since no earlier test turns the
+  // setting back off after enabling it.
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: false }));
+  await nativeVisible();
+  await mergedAbsent();
+
+  // re-enabling must cleanly rebuild everything from scratch, not rely on leftover state from the
+  // first run.
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await nativeHidden();
+  await mergedPresent();
 });
 
 test('portfolio merge toggles are present and save', async ({ settings }) => {

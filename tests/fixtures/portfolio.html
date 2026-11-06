@@ -233,6 +233,11 @@
       const tr = document.createElement('tr');
       tr.innerHTML = holdingsRowHtml(r);
       tr.querySelectorAll('td').forEach(td => { td.className = 'holdingsCell'; });
+      // window.__MOCK_NO_PRODUCT_HOOK: one section type (e.g. 'stock') whose rows exist but, like
+      // __MOCK_NO_TX_FEE/__MOCK_NO_HOOKS elsewhere, lose one real hook — here SEL.portfolioProduct
+      // ([data-name=productName]) itself, simulating a future DEGIRO DOM change that stops collectRows()
+      // from resolving any row in that section.
+      if (window.__MOCK_NO_PRODUCT_HOOK === type) tr.querySelector('[data-name=productName]')?.removeAttribute('data-name');
       // lets e2e tests confirm a forwarded click reached this real (possibly hidden) button
       tr.querySelectorAll('button[data-action]').forEach(b => b.addEventListener('click', () => {
         tr.setAttribute('data-dg-last-clicked', b.dataset.action);

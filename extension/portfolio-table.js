@@ -436,14 +436,16 @@
   }
 
   // One full merged-table render: header (labels, classes, aria-sort) and rows, from fresh sections.
-  /** @param {Section[]} [secs] */
-  function render(secs = sections()) {
+  // `rows` defaults to a fresh collectRows(secs), but run() below passes its own already-collected
+  // rows through so a single tick never walks every native <tr> twice.
+  /** @param {Section[]} [secs] @param {Row[]} [rows] */
+  function render(secs = sections(), rows = collectRows(secs)) {
     const tbl = portfolioTable();
     const look = nativeLook(secs);
     const css = fallbackCss(dgUi.theme());
     setLook(tbl, look.table, css.table);
     renderHead(tbl, look, css);
-    renderRows(collectRows(secs), look, css);
+    renderRows(rows, look, css);
     return { look, css };
   }
 
@@ -633,17 +635,28 @@
     const anchor = document.querySelector(Object.values(SEL.portfolioSection).join(', '));
     if (!anchor) return page.isPortfolio() ? 'missing' : 'idle';
     const secs = sections();
-    hideNative(secs);
+    const rows = collectRows(secs);
+    // A section's own heading/table/pager may only be hidden once it has actually contributed a row
+    // to the merge, or when its native <tbody> genuinely has none (nothing lost by hiding it). A
+    // section whose table has <tr>s but none were collectible (e.g. SEL.portfolioProduct stops
+    // matching after a future DEGIRO DOM change) must keep its native UI visible instead — hiding it
+    // here, with the merged table showing zero rows for it, would make those real holdings disappear
+    // silently. Reported as 'missing' below so the scheduler/status surface the degraded run too.
+    const broken = secs.filter(s => {
+      const nativeCount = s.table ? s.table.querySelectorAll('tbody tr').length : 0;
+      return nativeCount > 0 && !rows.some(r => r.type === s.type);
+    });
+    hideNative(secs.filter(s => !broken.includes(s)));
     const merged = portfolioTable();
     const bar = columnsToolbar();
     const pag = paginationBar();
     if (bar.nextElementSibling !== merged || merged.nextElementSibling !== pag || anchor.previousElementSibling !== pag) {
       anchor.before(bar, merged, pag);
     }
-    const { css } = render(secs);
+    const { css } = render(secs, rows);
     renderToolbar();
     renderPagination(secs, css);
-    return 'ok';
+    return broken.length ? 'missing' : 'ok';
   }
 
   function stop() {
