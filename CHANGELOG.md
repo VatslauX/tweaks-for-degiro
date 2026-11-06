@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased
+## 1.22.0 — 2026-11-06
 - **Merged Portfolio table** (optional): a new switch in Settings, *Merge holdings into one table*, combines Shares, Trackers (ETFs) and Structured products into one sortable table on the Portfolio page, with a *Type* column and a *Columns* menu. Off by default.
 - **Remember Portfolio table sort & columns**: a sub-setting that keeps the merged table's sort and hidden columns across reloads. Off by default.
 
