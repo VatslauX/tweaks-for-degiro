@@ -47,6 +47,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Transactions: the same filters, with buy, sell and net totals per currency and the fees
 > • Choose which columns to show on Orders and Transactions; long product names shown in full
 > • Orders keeps the sort order you last chose, even after a reload
+> • Optional merged Portfolio table: Shares, ETFs and Structured products in one sortable table, with a choice of columns
 > • Orders and Transactions links right in DEGIRO's left menu
 > • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved)
 >
@@ -92,13 +93,13 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders and Transactions pages, the Orders sort column and direction, and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders and Transactions pages, the Orders sort column and direction, the merged Portfolio table's sort and hidden columns (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.
 
 **Remote code:** No, I am not using remote code. All JavaScript is included in the package.
 
 **Data usage — select:**
-- **Financial and payment information** — the user's open orders and portfolio value history are read from DEGIRO to draw them on the charts, and the orders and transactions shown on DEGIRO's Orders and Transactions pages are read from the page for filters and totals. Used locally only.
+- **Financial and payment information** — the user's open orders and portfolio value history are read from DEGIRO to draw them on the charts, and the orders and transactions shown on DEGIRO's Orders and Transactions pages are read from the page for filters and totals, and the holdings on the Portfolio page are read from the page for the merged table (when that setting is on). Used locally only.
 - **Authentication information** — the DEGIRO session identifier and internal account number are used, locally, to request the user's own orders from DEGIRO. If DEGIRO's request URLs don't contain them, they are read from DEGIRO's own session and client endpoints (only the account number is read from the client answer).
 - **Personally identifiable information** — only in that fallback case: DEGIRO's client answer also contains the user's profile (name, contact details). It is received and parsed in page memory; only the account number is kept, the rest is discarded and never stored or sent anywhere. (Alternative, if you'd rather not tick this: remove the `/pa/secure/client` request from `orders.js` and wait for the account number to appear in DEGIRO's own request URLs.)
 

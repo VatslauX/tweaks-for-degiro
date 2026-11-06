@@ -72,6 +72,13 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - Clicking anywhere outside the *Adjust order* panel, or pressing Esc, closes it, the same as the Cancel or × button, without saving changes. An open DEGIRO confirmation, dropdown or menu takes the Esc first.
 - Clicks in DEGIRO's confirmation dialogs and menus are ignored, so the form never closes by accident.
 
+**Portfolio: merged holdings table** (optional, off by default)
+- Combines DEGIRO's *Shares*, *Trackers (ETFs)* and *Structured products* tables into one table on the Portfolio page, with a *Type* column naming each holding's section. DEGIRO's three tables are hidden while it is on.
+- Click a column header to sort. The table starts sorted by Type, so each section stays together.
+- **Columns**: a *Columns* menu chooses which columns to show (Product and Type always show). *Symbol/ISIN*, *Exchange*, *Last update* and *Delay* are hidden by default.
+- *Previous page* and *Next page* step through the rows.
+- **Remember Portfolio table sort & columns** (a sub-setting): keeps your sort and hidden columns across reloads and navigation, and syncs them with your Chrome profile. Off, the table starts again from the default each time.
+
 **Cleaner portfolio**
 - Hides the *Cash compensation* section by default, in any DEGIRO language. You can add your own section titles in Settings. A section is hidden only on its own: never the price chart, Pricing data or a box holding other sections.
 
@@ -96,13 +103,15 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Filters and totals on Orders (+ columns) | On (*Exchange* hidden) |
 | Remember Orders sort order | On |
 | Filters and totals on Transactions (+ columns) | On (*Exchange*, *Venue*, *Exchange Rate*, *AutoFX Fee* hidden) |
+| Merge holdings into one table (Portfolio) | Off |
+| ↳ Remember Portfolio table sort & columns | Off |
 | Orders, Transactions and Alarms in the sidebar | On |
 | Price alarms (button, Alarms page, sidebar item, banner) | On |
 | ↳ Alarms on the chart | On |
 | ↳ ↳ Click badge to edit | On |
 | Hide sections (+ editable list of titles) | On (*Cash compensation*, in any DEGIRO language) |
 
-Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles. The columns are chosen on the Orders and Transactions pages themselves.
+Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles. The columns are chosen on the Orders and Transactions pages themselves, and in the Columns menu of the merged Portfolio table.
 
 Opened from the toolbar over a DEGIRO tab, the popup also shows **On this page**: for each feature, whether it is working, not used on this page, or *Not found* — the last one means DEGIRO probably changed its page, which is useful to mention in a bug report. Nothing is stored or sent anywhere.
 

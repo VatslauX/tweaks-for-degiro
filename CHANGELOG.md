@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased
+- **Merged Portfolio table** (optional): a new switch in Settings, *Merge holdings into one table*, combines Shares, Trackers (ETFs) and Structured products into one sortable table on the Portfolio page, with a *Type* column and a *Columns* menu. Off by default.
+- **Remember Portfolio table sort & columns**: a sub-setting that keeps the merged table's sort and hidden columns across reloads. Off by default.
+
 ## 1.21.6 — 2026-11-05
 - **Fix**: the *Edit price alarm* panel opened from a gold alarm badge on the product chart no longer closes by itself a second later. It stays open on that product page until you close it, save, or leave the page.
 
