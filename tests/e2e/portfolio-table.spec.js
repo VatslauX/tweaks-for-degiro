@@ -127,6 +127,19 @@ test('persist on: a sort change survives reload; persist off: it resets to defau
   await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
 });
 
+test('toggling persist off mid-session immediately reverts an already-applied sort to the default, without a reload', async ({ degiro, settings }) => {
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
+  const { page } = await degiro({ url: URL_P });
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
+
+  // No reload here: flipping the toggle off alone (the Columns picker already reacts this way too)
+  // must drop the already-applied Product sort back to the default right away.
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: false }));
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
+});
+
 test('persist on: a hidden column survives reload; persist off: it resets to default, and restores when persist is on again', async ({ degiro, settings }) => {
   const opt = await settings();
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));

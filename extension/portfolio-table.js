@@ -107,6 +107,25 @@
     try { chrome.storage.sync.set({ dgPortfolioSort: sortState }).catch(() => {}); } catch (e) {}
   }
 
+  // Flipping portfolioMergedPersist off must drop an already-restored sort back to the default right
+  // away, not only on the next reload — the same immediacy hiddenColumns() below already has for
+  // columns, since it is recomputed from the toggle on every render. Sort can't be recomputed the same
+  // way: a header click (saveSort() above) sets sortState unconditionally, regardless of the toggle —
+  // sorting itself has never depended on it, only remembering it has — so sortState can't simply be
+  // "sortState while on, else the default" at render time, or every click would stop working the moment
+  // the toggle is off. Instead, this reacts only to the toggle itself changing: off, reset the working
+  // sortState to the default; on again, pick the last-sanitized stored value back up immediately (no
+  // reload needed there either, matching columns) — a plain click in between is unaffected either way.
+  let sortPersistWas = dgSettings.portfolioMergedPersist;
+  dgOnSettings(() => {
+    const on = dgSettings.portfolioMergedPersist;
+    if (on === sortPersistWas) return;
+    sortPersistWas = on;
+    if (on) { if (dgPortfolioSort) sortState = dgPortfolioSort; }
+    else sortState = DEFAULT_SORT;
+    schedule(true);
+  });
+
   // The header row is built once: every column (hideable or not) gets a <th>, plus one trailing blank
   // <th> for the Buy/Sell actions column (matching DEGIRO's own trailing blank header on its native
   // tables) — dgUi.columnsSetting()'s columnHooks() needs the <thead>/<tbody> column counts to match
