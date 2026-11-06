@@ -15,8 +15,8 @@ const sandbox = { location: { protocol: 'file:' }, setTimeout, clearTimeout, set
 const FLAGS_JS = path.join(__dirname, '../../extension/flags.js');
 const source = fs.readFileSync(FLAGS_JS, 'utf8');
 // its top-level names are const/function, not globals: the script's last expression hands them over
-const picked = 'DG_DEFAULTS, DG_PAGE_FLAGS, DG_TX_COLUMNS, DG_ORDER_COLUMNS, DG_MAX_TITLES, DG_MAX_TITLE_LEN, dgSanitize, dgOnSettings, dgSettings';
-const { DG_DEFAULTS, DG_PAGE_FLAGS, DG_TX_COLUMNS, DG_ORDER_COLUMNS, DG_MAX_TITLES, DG_MAX_TITLE_LEN, dgSanitize, dgOnSettings, dgSettings } =
+const picked = 'DG_DEFAULTS, DG_PAGE_FLAGS, DG_TX_COLUMNS, DG_ORDER_COLUMNS, DG_PORTFOLIO_COLUMNS, DG_MAX_TITLES, DG_MAX_TITLE_LEN, dgSanitize, dgOnSettings, dgSettings';
+const { DG_DEFAULTS, DG_PAGE_FLAGS, DG_TX_COLUMNS, DG_ORDER_COLUMNS, DG_PORTFOLIO_COLUMNS, DG_MAX_TITLES, DG_MAX_TITLE_LEN, dgSanitize, dgOnSettings, dgSettings } =
   vm.runInNewContext(`${source}\n;({ ${picked} });`, sandbox, { filename: FLAGS_JS });
 
 // values made inside the sandbox have that realm's prototypes: compare them as plain data
@@ -26,12 +26,17 @@ const DEFAULTS = plain(DG_DEFAULTS);
 const PAGE_FLAGS = plain(DG_PAGE_FLAGS);
 const TX_COLUMNS = plain(DG_TX_COLUMNS);
 const ORDER_COLUMNS = plain(DG_ORDER_COLUMNS);
+const PORTFOLIO_COLUMNS = plain(DG_PORTFOLIO_COLUMNS);
 
-test('defaults: every feature is on, and the lists are the two column lists and the titles', () => {
+// The portfolio merged-table feature ships off by default (Task 3); every other switch stays on.
+const OFF_BY_DEFAULT = ['portfolioMergedTable', 'portfolioMergedPersist'];
+
+test('defaults: every feature is on except the portfolio merge toggles, and the lists are the column lists and the titles', () => {
   const lists = Object.keys(DEFAULTS).filter(k => Array.isArray(DEFAULTS[k]));
-  assert.deepEqual(lists.sort(), ['hiddenTitles', 'ordersHiddenColumns', 'txHiddenColumns']);
+  assert.deepEqual(lists.sort(), ['hiddenTitles', 'ordersHiddenColumns', 'portfolioHiddenColumns', 'txHiddenColumns']);
   for (const [k, v] of Object.entries(DEFAULTS)) {
     if (Array.isArray(v)) continue;
+    if (OFF_BY_DEFAULT.includes(k)) { assert.equal(v, false, `${k} is off by default`); continue; }
     assert.equal(v, true, `${k} is on by default`);
   }
   assert.ok(DEFAULTS.hiddenTitles.length, 'Cash compensation titles are listed');
@@ -46,12 +51,14 @@ test('page flags are a subset of the settings, and only switches', () => {
 });
 
 test('hidable columns are known and never include Product', () => {
-  for (const list of [TX_COLUMNS, ORDER_COLUMNS]) {
+  for (const list of [TX_COLUMNS, ORDER_COLUMNS, PORTFOLIO_COLUMNS]) {
     assert.equal(new Set(list).size, list.length, 'no duplicates');
     assert.ok(!list.includes('product'), 'Product can never be hidden');
   }
+  assert.ok(!PORTFOLIO_COLUMNS.includes('type'), 'Type can never be hidden');
   for (const c of DEFAULTS.txHiddenColumns) assert.ok(TX_COLUMNS.includes(c), `${c} is a Transactions column`);
   for (const c of DEFAULTS.ordersHiddenColumns) assert.ok(ORDER_COLUMNS.includes(c), `${c} is an Orders column`);
+  for (const c of DEFAULTS.portfolioHiddenColumns) assert.ok(PORTFOLIO_COLUMNS.includes(c), `${c} is a Portfolio column`);
 });
 
 test('nothing stored, or something that is not an object: the defaults', () => {
@@ -110,6 +117,13 @@ test('hidden columns: only known ones, always in the table\'s own order', () => 
   assert.deepEqual(sanitize({ ordersHiddenColumns: { 0: 'date' } }).ordersHiddenColumns, DEFAULTS.ordersHiddenColumns);
   // every column at once is accepted: Product has no entry, so the table always keeps a column
   assert.deepEqual(sanitize({ txHiddenColumns: [...TX_COLUMNS] }).txHiddenColumns, TX_COLUMNS);
+});
+
+test('portfolio settings default and sanitize', () => {
+  assert.equal(sanitize({}).portfolioMergedTable, false);
+  assert.deepEqual(sanitize({}).portfolioHiddenColumns, ['symbolIsin', 'exchange', 'last', 'delay']);
+  assert.deepEqual(sanitize({ portfolioHiddenColumns: ['bogus', 'qty'] }).portfolioHiddenColumns, ['qty']);
+  assert.equal(sanitize({ portfolioMergedPersist: 'yes' }).portfolioMergedPersist, true);
 });
 
 test('dgOnSettings(fn) runs the listener at once with the current settings', () => {
