@@ -59,3 +59,16 @@ test('clicking a merged row\'s Buy button clicks the real hidden Buy button', as
   await page.locator('[data-dg-portfolio-table] tbody tr').first().locator('button[data-action=buy]').click();
   await expect(page.locator('h3[data-name=stock] ~ * table tbody tr').first()).toHaveAttribute('data-dg-last-clicked', 'buy');
 });
+
+test('default sort is Type ascending; clicking Product header sorts and toggles direction', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  const types = () => page.locator('[data-dg-portfolio-table] tbody tr [data-dg-type]').allTextContents();
+  expect(await types()).toEqual([...(await types())].sort());
+
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'descending');
+});

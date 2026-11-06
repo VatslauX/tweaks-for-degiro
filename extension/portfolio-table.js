@@ -2,7 +2,7 @@
 // table per section, see SEL.portfolioSection in common.js) into a single table, hiding DEGIRO's own
 // three.
 (() => {
-  const { SEL, page, own, feature } = __dgt; // common.js
+  const { SEL, page, own, feature, parseNum } = __dgt; // common.js
 
   // Column hooks sit on each row's body cells (data-field / data-name), never the <th> (the header
   // text is localised) — same pattern, and same file-local placement, as ORDERS_HOOKS in
@@ -32,6 +32,9 @@
     price: 'Price', currency: 'Curr.', value: 'Value', bep: 'BEP', plEuro: 'P/L €', plPercent: 'P/L %',
     unrealisedPl: 'Unrealised P/L €', totalPl: 'Total P/L€', last: 'Last', delay: 'Delay'
   };
+  // Columns compared as numbers (parseNum handles both "1.234,56" and "1,234.56"); everything else
+  // (Product, Type, Symbol | ISIN, Exchange, Curr., Last, Delay) sorts lexically as text.
+  const NUMERIC_COLUMNS = new Set(['qty', 'price', 'value', 'bep', 'plEuro', 'plPercent', 'unrealisedPl', 'totalPl']);
 
   /**
    * @typedef {{ id: string, type: 'stock'|'etf'|'lox', cells: Record<string,string>, nativeRow: Element }} Row
@@ -52,21 +55,60 @@
   /** @type {string | null} */
   let headKey = null; // last hidden-columns list the header was built from
 
-  // The header row, rebuilt only when the hidden-columns setting actually changes.
+  /** @typedef {{ col: string, dir: 'ascending' | 'descending' }} SortState */
+  // In-memory only (not persisted): every page load starts back at Type ascending.
+  let sortState = /** @type {SortState} */ ({ col: 'type', dir: 'ascending' });
+
+  // The header row, built once per hidden-columns setting: a <button> per <th>, like orders.html's
+  // sortable headers (orders-table.js's ORDERS_SORT_SCOPE pattern). Each <th> carries data-dg-col so
+  // the click listener and syncSortAttrs below can find it again without depending on column order.
   /** @param {HTMLTableElement} t */
   function renderHead(t) {
     const hidden = dgSettings.portfolioHiddenColumns || DG_DEFAULTS.portfolioHiddenColumns;
     const key = JSON.stringify(hidden);
-    if (key === headKey) return;
-    headKey = key;
-    const thead = /** @type {Element} */ (t.querySelector('thead'));
-    const tr = document.createElement('tr');
-    COLUMN_ORDER.filter(k => !hidden.includes(k)).forEach(k => {
-      const th = document.createElement('th');
-      th.textContent = COLUMN_LABEL[k];
-      tr.append(th);
+    if (key !== headKey) {
+      headKey = key;
+      const thead = /** @type {Element} */ (t.querySelector('thead'));
+      const tr = document.createElement('tr');
+      COLUMN_ORDER.filter(k => !hidden.includes(k)).forEach(k => {
+        const th = document.createElement('th');
+        th.setAttribute('data-dg-col', k);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = COLUMN_LABEL[k];
+        th.append(btn);
+        tr.append(th);
+      });
+      thead.replaceChildren(tr);
+    }
+    syncSortAttrs(t);
+  }
+
+  // aria-sort reflects the in-memory sortState on every render (cheap attribute writes the scheduler
+  // never observes: attributeFilter only watches data-dg-tweaks/data-dg-alarm-lines), independently of
+  // whether the header itself was just rebuilt.
+  /** @param {HTMLTableElement} t */
+  function syncSortAttrs(t) {
+    t.querySelectorAll('thead th[data-dg-col]').forEach(th => {
+      th.setAttribute('aria-sort', th.getAttribute('data-dg-col') === sortState.col ? sortState.dir : 'none');
     });
-    thead.replaceChildren(tr);
+  }
+
+  // Sorts a copy of rows by sortState.col: numeric columns parse both "1.234,56" and "1,234.56"
+  // (parseNum from common.js already handles either), everything else compares as text.
+  /** @param {Row[]} rows @param {SortState} state @returns {Row[]} */
+  function applySort(rows, state) {
+    const numeric = NUMERIC_COLUMNS.has(state.col);
+    const sign = state.dir === 'ascending' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = a.cells[state.col] || '', bv = b.cells[state.col] || '';
+      if (!numeric) return sign * av.localeCompare(bv);
+      const x = parseNum(av), y = parseNum(bv);
+      if (isNaN(x) && isNaN(y)) return 0;
+      if (isNaN(x)) return sign;
+      if (isNaN(y)) return -sign;
+      return sign * (x - y);
+    });
   }
 
   // Returns the merged <table data-dg-portfolio-table>, creating it once (own()-marked, so our own
@@ -126,10 +168,11 @@
   /** @param {Row[]} rows */
   function renderRows(rows) {
     const t = portfolioTable();
+    const sorted = applySort(rows, sortState);
     const hidden = dgSettings.portfolioHiddenColumns || DG_DEFAULTS.portfolioHiddenColumns;
     const shown = COLUMN_ORDER.filter(k => !hidden.includes(k));
     const frag = document.createDocumentFragment();
-    rows.forEach(row => {
+    sorted.forEach(row => {
       const tr = document.createElement('tr');
       shown.forEach(k => {
         const td = document.createElement('td');
@@ -161,6 +204,20 @@
     });
     /** @type {Element} */ (t.querySelector('tbody')).replaceChildren(frag);
   }
+
+  // A header-button click toggles sortState (same column: flip direction; a new column: ascending)
+  // and re-renders immediately, like filterPanel's own chip clicks in orders-table.js — it does not
+  // wait for the next scheduler tick. Capture-phase, so it runs before anything else observes the
+  // click; guarded by the feature's own enabled() flag, matching ordersSort's click listener.
+  document.addEventListener('click', e => {
+    if (!dgSettings.portfolioMergedTable) return;
+    const btn = /** @type {Element} */ (e.target).closest?.('[data-dg-portfolio-table] thead button');
+    if (!btn) return;
+    const col = btn.closest('th')?.getAttribute('data-dg-col');
+    if (!col) return;
+    sortState = { col, dir: sortState.col === col && sortState.dir === 'ascending' ? 'descending' : 'ascending' };
+    renderRows(collectRows());
+  }, true);
 
   function run() {
     const stock = document.querySelector(SEL.portfolioSection.stock);
