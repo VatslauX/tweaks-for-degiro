@@ -210,6 +210,23 @@
     return out;
   }
 
+  // Climbs from a section's own <h3> to the outer block whose parent also contains its real table
+  // and pager (when either exists yet): on the live page that <h3> sits inside its own small
+  // title-row wrapper div, a sibling of the real table/pager rather than their container (confirmed
+  // live; see the portfolio-merge bugfix) — inserting relative to the bare <h3> itself then lands
+  // the merged toolbar/table/pager inside that cramped wrapper instead of before the whole section.
+  // Stays at the <h3> itself when its own parent already contains the table/pager (the simpler
+  // flat-sibling shape, nothing to climb) or when neither exists yet (the section is still loading).
+  /** @param {Section} s @returns {Element} */
+  function sectionAnchor(s) {
+    const refs = [s.table, s.pager].flatMap(el => el ? [el] : []);
+    let block = s.h3;
+    while (refs.length && block.parentElement && !refs.every(r => /** @type {Element} */ (block.parentElement).contains(r))) {
+      block = block.parentElement;
+    }
+    return block;
+  }
+
   // Hides each section's own heading, table and pager (never removes them: their own pagination etc.
   // must keep working underneath) by marking exactly those elements — never a blanket "everything
   // after this heading" rule, which with flat siblings would also hide whatever follows the last
@@ -664,13 +681,16 @@
   }, true);
 
   function run() {
-    // The first section heading on the page, whichever it is (an ETF-only portfolio may have no
-    // Shares section at all): the merged elements go right before it. 'missing' only on the
-    // Portfolio page itself (DEGIRO may still be loading, or has changed its page); everywhere else
-    // there is simply nothing to do.
-    const anchor = document.querySelector(Object.values(SEL.portfolioSection).join(', '));
-    if (!anchor) return page.isPortfolio() ? 'missing' : 'idle';
+    // 'missing' only on the Portfolio page itself (DEGIRO may still be loading, or has changed its
+    // page); everywhere else there is simply nothing to do.
     const secs = sections();
+    if (!secs.length) return page.isPortfolio() ? 'missing' : 'idle';
+    // The first section heading on the page, whichever it is (an ETF-only portfolio may have no
+    // Shares section at all): the merged elements go right before its real outer block, found by
+    // sectionAnchor() — not necessarily its bare <h3> (see that function's own comment).
+    let first = secs[0];
+    for (const s of secs) if (precedes(s.h3, first.h3)) first = s;
+    const anchor = sectionAnchor(first);
     const rows = collectRows(secs);
     // A section's own heading/table/pager may only be hidden once it has actually contributed a row
     // to the merge, or when its native <tbody> genuinely has none (nothing lost by hiding it). A

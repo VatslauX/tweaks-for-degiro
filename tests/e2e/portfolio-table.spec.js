@@ -141,16 +141,31 @@ test('nested sections (the real page\'s own shape): the merged table gets rows f
   await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
   await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable).toBe('ok');
 
-  // each section's own heading, real table and real pager (never its skeleton) are hidden
+  // each section's own heading, real table and real pager (never its skeleton) are hidden —
+  // `:not([data-dg-own])` excludes stock's own merged table, now a `> table` sibling too (see the
+  // layout-bug regression below), so this keeps matching only DEGIRO's native one.
   for (const s of ['stock', 'etf', 'lox']) {
     await expect(page.locator(`h3[data-name=${s}]`)).toBeHidden();
-    await expect(page.locator(`[data-holdings=${s}] > table`)).toBeHidden();
+    await expect(page.locator(`[data-holdings=${s}] > table:not([data-dg-own])`)).toBeHidden();
     await expect(page.locator(`[data-holdings=${s}] > nav[data-name=pagination]`)).toBeHidden();
   }
   // lox's skeleton table/pager are never real content, so the extension never touches them — proof
   // the fix picked the real elements, not these
   await expect(page.locator('table.mockSkeletonTable')).toBeVisible();
   await expect(page.locator('.mockSkeletonPager')).toBeVisible();
+
+  // Regression for the portfolio-merge layout bug (a follow-on release blocker for 1.22.0): the
+  // merged toolbar/table/pager must land as children of stock's own outer <section> — the same
+  // container as its real (now-hidden) table/pager — never inside the hidden <h3>'s own small
+  // title-row wrapper div. That's exactly what made the "Columns" chip overlap a data row live:
+  // anchor.before() on the bare <h3> squeezed the merged elements into that cramped wrapper instead
+  // of before the whole section. Playwright's visibility/content assertions above don't catch this
+  // (they never check DOM containment or layout position), so it's asserted explicitly here.
+  expect(await page.evaluate(() =>
+    document.querySelector('[data-dg-portfolio-table]').parentElement !== document.querySelector('h3[data-name=stock]').parentElement)).toBe(true);
+  for (const sel of ['#dg-portfolio-toolbar', '[data-dg-portfolio-table]', '[data-dg-portfolio-table] + [data-name=pagination]']) {
+    expect(await page.$eval(sel, t => t.parentElement.getAttribute('data-holdings'))).toBe('stock');
+  }
 
   // the merged pager drives etf's real (nested) pagination, same as the flat-shape test above
   const next = page.locator('[data-dg-portfolio-table] + [data-name=pagination] button[data-dg-page=next]');
