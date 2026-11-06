@@ -174,38 +174,40 @@
     stock: {
       pageSize: 3,
       rows: [
-        { id: 332108, name: 'Mock Software SE', symbol: 'SWD', exchange: 'TDG', qty: 15, price: '128,40', currency: 'EUR', value: '1.926,00', bep: '110,00', todayPl: '+18,40', plPct: '+1,45%', unrealised: '+16,73%', totalPl: '+276,00', last: '16:32:10' },
-        { id: 332109, name: 'Mock Pharma NV', symbol: 'PHM', exchange: 'AEX', qty: 40, price: '22,15', currency: 'EUR', value: '886,00', bep: '19,80', todayPl: '+9,40', plPct: '+1,07%', unrealised: '+11,87%', totalPl: '+94,00', last: '16:32:10' },
-        { id: 332110, name: 'Mock Retail Corp', symbol: 'RTL', exchange: 'NDQ', qty: 8, price: '64,05', currency: 'USD', value: '512,40', bep: '70,00', todayPl: '-3,20', plPct: '-0,62%', unrealised: '-8,50%', totalPl: '-43,60', last: '16:32:10' }
+        { id: 332108, name: 'Mock Software SE', symbol: 'SWD', exchange: 'TDG', qty: 15, price: '128,40', currency: 'EUR', value: '1.926,00', bep: '110,00', todayPl: '+18,40', plPct: '+1,45%', unrealisedAmt: '+276,00', unrealised: '+16,73%', totalPl: '+276,00', last: '16:32:10' },
+        { id: 332109, name: 'Mock Pharma NV', symbol: 'PHM', exchange: 'AEX', qty: 40, price: '22,15', currency: 'EUR', value: '886,00', bep: '19,80', todayPl: '+9,40', plPct: '+1,07%', unrealisedAmt: '+94,00', unrealised: '+11,87%', totalPl: '+94,00', last: '16:32:10' },
+        { id: 332110, name: 'Mock Retail Corp', symbol: 'RTL', exchange: 'NDQ', qty: 8, price: '64,05', currency: 'USD', value: '512,40', bep: '70,00', todayPl: '-3,20', plPct: '-0,62%', unrealisedAmt: '-47,60', unrealised: '-8,50%', totalPl: '-43,60', last: '16:32:10' }
       ]
     },
     etf: {
       pageSize: 2,
       rows: [
-        { id: 441201, name: 'Mock Bond ETF EUR', symbol: 'BND', exchange: 'TDG', qty: 1000, price: '2,52', currency: 'EUR', value: '2.520,00', bep: '2,50', todayPl: '+2,00', plPct: '+0,08%', unrealised: '+0,80%', totalPl: '+20,00', last: '16:32:05' },
-        { id: 441202, name: 'Mock S&P 500 ETF USD', symbol: 'SPX', exchange: 'NDQ', qty: 100, price: '131,20', currency: 'USD', value: '13.120,00', bep: '130,00', todayPl: '+40,00', plPct: '+0,31%', unrealised: '+0,92%', totalPl: '+120,00', last: '16:32:05' },
-        { id: 441203, name: 'Mock Chips ETF EUR', symbol: 'CHP', exchange: 'TDG', qty: 200, price: '14,80', currency: 'EUR', value: '2.960,00', bep: '14,00', todayPl: '+30,00', plPct: '+1,03%', unrealised: '+5,71%', totalPl: '+160,00', last: '16:32:05' }
+        { id: 441201, name: 'Mock Bond ETF EUR', symbol: 'BND', exchange: 'TDG', qty: 1000, price: '2,52', currency: 'EUR', value: '2.520,00', bep: '2,50', todayPl: '+2,00', plPct: '+0,08%', unrealisedAmt: '+20,00', unrealised: '+0,80%', totalPl: '+20,00', last: '16:32:05' },
+        { id: 441202, name: 'Mock S&P 500 ETF USD', symbol: 'SPX', exchange: 'NDQ', qty: 100, price: '131,20', currency: 'USD', value: '13.120,00', bep: '130,00', todayPl: '+40,00', plPct: '+0,31%', unrealisedAmt: '+120,00', unrealised: '+0,92%', totalPl: '+120,00', last: '16:32:05' },
+        { id: 441203, name: 'Mock Chips ETF EUR', symbol: 'CHP', exchange: 'TDG', qty: 200, price: '14,80', currency: 'EUR', value: '2.960,00', bep: '14,00', todayPl: '+30,00', plPct: '+1,03%', unrealisedAmt: '+160,00', unrealised: '+5,71%', totalPl: '+160,00', last: '16:32:05' }
       ]
     },
     lox: {
       pageSize: 1,
       rows: [
-        { id: 551301, name: 'Mock Turbo Long AEX', symbol: 'TRB', exchange: 'AEX', qty: 50, price: '4,32', currency: 'EUR', value: '216,00', bep: '4,00', todayPl: '+6,00', plPct: '+1,41%', unrealised: '+8,00%', totalPl: '+16,00', last: '16:31:50' }
+        { id: 551301, name: 'Mock Turbo Long AEX', symbol: 'TRB', exchange: 'AEX', qty: 50, price: '4,32', currency: 'EUR', value: '216,00', bep: '4,00', todayPl: '+6,00', plPct: '+1,41%', unrealisedAmt: '+16,00', unrealised: '+8,00%', totalPl: '+16,00', last: '16:31:50' }
       ]
     }
   };
 
-  // DEGIRO colors todayPl/change/unrealizedRelativePl/totalPl per row, by that value's own sign (red
-  // for a loss, green for a gain), each via its own short, per-row class — confirmed live, and the
-  // reason the merged table must copy each row's own native element, not one sampled per column (see
-  // the portfolio-merge bugfix for this field). unrealizedRelativePl already carries its own class
-  // this way too, but that selector was already correct and isn't the fixture's concern here.
+  // DEGIRO colors todayPl/change/unrealizedPl/unrealizedRelativePl/totalPl per row, by that value's
+  // own sign (red for a loss, green for a gain), each via its own short, per-row class — confirmed
+  // live, and the reason the merged table must copy each row's own native element, not one sampled
+  // per column (see the portfolio-merge bugfix for this field).
   const signClass = v => (v.trim().startsWith('-') ? 'holdingsNeg' : 'holdingsPos');
 
   // real hooks (checked live against trader.degiro.nl, see the plan's Global Constraints): the
   // product name span carries the row's data-id; every other column hook sits on the body cell,
   // never on the <th>. The Delay indicator has no header hook, only this body button. Buy/Sell lead
   // the Product cell, before the name, as on the live page (there is no separate actions column).
+  // Unrealised P/L's own <td> holds TWO sibling spans (confirmed live), unlike every other
+  // sign-colored field's one: the euro amount (unrealizedPl) then, space-separated, the percentage
+  // with its own parentheses included in its text (unrealizedRelativePl) — e.g. "+276,00 (+16,73%)".
   function holdingsRowHtml(r) {
     return `<td><button type="button" data-action="buy" class="holdingsAction"><span class="holdingsActionLabel">Buy</span></button><button type="button" data-action="sell" class="holdingsAction"><span class="holdingsActionLabel">Sell</span></button><span data-name="productName" data-id="${r.id}" class="holdingsName">${r.name}</span></td>
       <td><span data-name="symbolIsin">${r.symbol}</span></td>
@@ -217,7 +219,7 @@
       <td><span data-field="breakEvenPrice">${r.bep}</span></td>
       <td><span data-field="todayPl" class="${signClass(r.todayPl)}">${r.todayPl}</span></td>
       <td><span data-field="change" class="${signClass(r.plPct)}">${r.plPct}</span></td>
-      <td><span data-field="unrealizedRelativePl" class="${signClass(r.unrealised)}">${r.unrealised}</span></td>
+      <td><span data-field="unrealizedPl" class="${signClass(r.unrealisedAmt)}">${r.unrealisedAmt}</span> <span data-field="unrealizedRelativePl" class="${signClass(r.unrealised)}">(${r.unrealised})</span></td>
       <td><span data-field="totalPl" class="${signClass(r.totalPl)}">${r.totalPl}</span></td>
       <td><time data-field="lastUpdate" data-id="${r.id}">${r.last}</time></td>
       <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>`;

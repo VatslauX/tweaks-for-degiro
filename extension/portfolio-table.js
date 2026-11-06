@@ -23,6 +23,14 @@
     last: '[data-field=lastUpdate]',
     delay: '[data-name=feedQuality]'
   };
+  // unrealisedPl's native <td> holds the percentage above (its PORTFOLIO_HOOKS entry, used — like
+  // every other hook — for the header, Columns lookup and sign-coloring span) PLUS a separate
+  // sibling span for the euro amount, in its own short class (confirmed live: two independently
+  // sign-colored spans, space-separated, e.g. "-7.706,38 (-58,93%)"). collectRows() reads this one
+  // selector in addition to PORTFOLIO_HOOKS.unrealisedPl to build that combined value; it is the one
+  // column needing a second source element, so it is kept out of PORTFOLIO_HOOKS/LOOK_HOOKS rather
+  // than changing that map's single-selector-per-field shape.
+  const UNREALISED_PL_AMOUNT_SEL = '[data-field=unrealizedPl]';
   // Every native column the merged table mirrors a header label or a class from: the hideable ones
   // above, plus Product (whose cell also holds the row's Buy/Sell buttons, as DEGIRO's own does).
   const LOOK_HOOKS = { ...PORTFOLIO_HOOKS, product: SEL.portfolioProduct };
@@ -53,6 +61,13 @@
   // give each of these four its own inner <span>, looked up per row (row.nativeRow), instead of
   // relying on the column-wide sample the way every other hideable column still does.
   const SIGN_COLUMNS = new Set(['plEuro', 'plPercent', 'unrealisedPl', 'totalPl']);
+  // unrealisedPl's cell combines two numbers ("-7.706,38 (-58,93%)"); parseNum on the whole string
+  // would mangle it (two '-'s, two separators). Both numbers always agree in sign (confirmed live),
+  // so sorting and the sign-based fallback color in SIGN_COLUMNS both use the amount alone — the
+  // leading, space-separated token — rather than the combined text. Every other numeric column's
+  // cell is already a single number, so this is a no-op for them.
+  /** @param {string} col @param {string} v @returns {string} */
+  const numericValue = (col, v) => col === 'unrealisedPl' ? v.split(' ')[0] : v;
   /** @type {Row['type'][]} */
   const TYPE_ORDER = ['stock', 'etf', 'lox']; // Shares, Trackers (ETFs), Structured products
   const HIDDEN = 'data-dg-portfolio-hidden'; // marks DEGIRO's own section headings, tables and pagers we hide
@@ -307,6 +322,10 @@
         Object.keys(PORTFOLIO_HOOKS).forEach(key => {
           cells[key] = tr.querySelector(PORTFOLIO_HOOKS[key])?.textContent.trim() || '';
         });
+        // combine unrealisedPl's two native spans (amount, then the percentage already read above)
+        // into the one value this column displays, space-separated as on the live page.
+        const unrealisedAmount = tr.querySelector(UNREALISED_PL_AMOUNT_SEL)?.textContent.trim() || '';
+        if (unrealisedAmount) cells.unrealisedPl = cells.unrealisedPl ? `${unrealisedAmount} ${cells.unrealisedPl}` : unrealisedAmount;
         rows.push({ id: product.getAttribute('data-id') || '', type, cells, nativeRow: tr });
       });
     }
@@ -444,7 +463,7 @@
       if (state.col === 'type') return sign * (TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
       const av = a.cells[state.col] || '', bv = b.cells[state.col] || '';
       if (!numeric) return sign * av.localeCompare(bv);
-      const x = parseNum(av), y = parseNum(bv);
+      const x = parseNum(numericValue(state.col, av)), y = parseNum(numericValue(state.col, bv));
       if (isNaN(x) && isNaN(y)) return 0;
       if (isNaN(x)) return 1; // blanks always last, regardless of sort direction
       if (isNaN(y)) return -1;
@@ -577,7 +596,7 @@
         // (sign coloring is per row, not per column) — a sign-based inline color only when there is no
         // native element/class to copy (e.g. a still-loading row with no native class yet).
         const native = row.nativeRow.querySelector(PORTFOLIO_HOOKS[k]);
-        const sign = Math.sign(parseNum(v));
+        const sign = Math.sign(parseNum(numericValue(k, v)));
         const fallback = sign < 0 ? `color:${th.sell};` : sign > 0 ? `color:${th.buy};` : '';
         setLook(target, native?.className || '', fallback);
       });

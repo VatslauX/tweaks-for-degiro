@@ -126,6 +126,38 @@ test('without a native class to copy, plEuro/plPercent/unrealisedPl/totalPl fall
   await expect(lossRow.locator(`[data-field=${field}]`)).toHaveCSS('color', 'rgb(228, 1, 1)'); // dgUi.theme().sell, light theme
 });
 
+test('Unrealised P/L € combines the native euro amount and percentage; sorting it orders by the amount', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  // the native <td> holds two separate spans (amount, then the parenthesised percentage) — the
+  // merged cell must show both, space-separated, not just the percentage (the bug this fixes).
+  const cell = row => row.locator('[data-field=unrealizedRelativePl]');
+  const gainRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(0); // Mock Software SE
+  const lossRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(2); // Mock Retail Corp
+  await expect(cell(gainRow)).toHaveText('+276,00 (+16,73%)');
+  await expect(cell(lossRow)).toHaveText('-47,60 (-8,50%)');
+
+  // sorting this column must order by the euro amount, not garble on the combined text's two
+  // numbers (parseNum on the whole string would) — only etf's first page (2 of its 3 rows) is
+  // merged by default, so this covers the six rows actually shown.
+  const products = () => page.locator('[data-dg-portfolio-table] tbody [data-name=productName]').allTextContents();
+  const header = page.locator('[data-dg-portfolio-table] thead th', { hasText: 'P&L Unrealized' });
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'P&L Unrealized' }).click(); // ascending
+  await expect(header).toHaveAttribute('aria-sort', 'ascending');
+  await expect.poll(products).toEqual([
+    'Mock Retail Corp', 'Mock Turbo Long AEX', 'Mock Bond ETF EUR',
+    'Mock Pharma NV', 'Mock S&P 500 ETF USD', 'Mock Software SE'
+  ]);
+
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'P&L Unrealized' }).click(); // descending
+  await expect(header).toHaveAttribute('aria-sort', 'descending');
+  await expect.poll(products).toEqual([
+    'Mock Software SE', 'Mock S&P 500 ETF USD', 'Mock Pharma NV',
+    'Mock Bond ETF EUR', 'Mock Turbo Long AEX', 'Mock Retail Corp'
+  ]);
+});
+
 test('the sorted header shows a visible arrow, which is not part of its label', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings();
