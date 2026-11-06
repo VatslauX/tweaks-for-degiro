@@ -211,6 +211,59 @@
     table.querySelectorAll('th').forEach(th => { th.className = 'holdingsHead'; });
   });
 
+  // Opt-in mock (window.__MOCK_NESTED_SECTIONS, read via initScript before this runs): rebuilds each
+  // section into the nested shape confirmed on the live page (see the portfolio-merge bugfix) instead
+  // of the flat h3+table+pager siblings above. There, the real <table>/pager are not a CSS sibling of
+  // the section's own <h3> — they sit two levels up, as siblings of the <h3>'s own small wrapper,
+  // which (for lox here, mirroring the live stock finding) also holds a loading-skeleton table/pager
+  // ahead of the <h3> itself; etf's wrapper, like the live etf section, holds no such skeleton. The
+  // flat shape stays the default and keeps working: it's a valid DOM shape the code must still
+  // handle, just not the one that exposed the bug live.
+  const NESTED_SKELETON = { stock: false, etf: false, lox: true };
+  function nestifySections() {
+    document.querySelectorAll('.holdings > section[data-holdings]').forEach(section => {
+      const type = section.dataset.holdings;
+      const h3 = section.querySelector('h3');
+      const table = section.querySelector('table');
+      const oldPagination = /** @type {Element} */ (section.querySelector('[data-name=pagination]'));
+      // the real pager, as DEGIRO's own: a <nav> with named Previous/current-page/Next buttons
+      const nav = document.createElement('nav');
+      [...oldPagination.attributes].forEach(a => nav.setAttribute(a.name, a.value));
+      nav.append(...oldPagination.childNodes);
+      const btns = nav.querySelectorAll('button');
+      if (btns.length) btns[0].setAttribute('data-name', 'prevPageButton');
+      if (btns.length > 2) btns[1].setAttribute('data-name', 'pageButton');
+      if (btns.length > 1) btns[btns.length - 1].setAttribute('data-name', 'nextPageButton');
+
+      const head = document.createElement('div');
+      head.className = 'sectionHead';
+      if (NESTED_SKELETON[type]) {
+        const skelTable = document.createElement('table');
+        skelTable.className = 'mockSkeletonTable';
+        skelTable.innerHTML = '<thead><tr><th></th></tr></thead><tbody></tbody>';
+        const skelPager = document.createElement('div');
+        skelPager.className = 'mockSkeletonPager';
+        skelPager.setAttribute('data-name', 'pagination');
+        skelPager.innerHTML = '<button type="button"></button><button type="button"></button>';
+        head.append(skelTable, skelPager);
+      }
+      head.append(h3);
+      // the real table/pager end up as section's own later children: siblings of head (the <h3>'s
+      // wrapper), not of the <h3> itself — exactly the shape sectionPart() must locate by document
+      // order, never by a `~` sibling selector
+      section.replaceChildren(head, table, nav);
+    });
+  }
+  if (window.__MOCK_NESTED_SECTIONS) nestifySections();
+
+  // The section's own container for its real table/pager: the flat .tableWrap above, or (nested
+  // mock) the section itself, now holding head/table/nav as plain children.
+  function sectionContainer(type) {
+    return window.__MOCK_NESTED_SECTIONS
+      ? document.querySelector(`[data-holdings=${type}]`)
+      : document.querySelector(`[data-holdings=${type}] .tableWrap`);
+  }
+
   // Renders the current page's rows and the pager, mirroring orders.html's render()-on-every-change
   // style. Matches the live page's own pagination shape exactly (see the plan's Global Constraints):
   // Previous, a single numbered button showing the current page (not one button per page), Next.
@@ -221,13 +274,13 @@
     const section = window.__PORTFOLIO[type];
     // the section's own wrapper, as DEGIRO's own references would be: the extension may insert its
     // merged table and pager (another tbody, another [data-name=pagination]) inside the section too
-    const container = document.querySelector(`[data-holdings=${type}] .tableWrap`);
-    const pagination = container.querySelector('[data-name=pagination]');
+    const container = sectionContainer(type);
+    const pagination = container.querySelector('[data-name=pagination]:not(.mockSkeletonPager)');
     const page = Number(pagination.dataset.page || '1');
     const pages = Math.max(1, Math.ceil(section.rows.length / section.pageSize));
     const start = (page - 1) * section.pageSize;
 
-    const tbody = container.querySelector('tbody');
+    const tbody = container.querySelector('table:not(.mockSkeletonTable) tbody');
     tbody.innerHTML = '';
     section.rows.slice(start, start + section.pageSize).forEach(r => {
       const tr = document.createElement('tr');
@@ -254,7 +307,7 @@
   }
 
   ['stock', 'etf', 'lox'].forEach(type => {
-    const pagination = document.querySelector(`[data-holdings=${type}] .tableWrap [data-name=pagination]`);
+    const pagination = sectionContainer(type).querySelector('[data-name=pagination]:not(.mockSkeletonPager)');
     const buttons = pagination.querySelectorAll('button');
     buttons[0].addEventListener('click', () => {
       const page = Number(pagination.dataset.page || '1');

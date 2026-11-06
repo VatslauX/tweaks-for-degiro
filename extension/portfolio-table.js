@@ -148,28 +148,64 @@
   /** @param {Node} a @param {Node} b */
   const precedes = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-  // The first element matching `${sel} ~ * ${inner}` that belongs to this section: not one of ours,
-  // and with no other <h3> between the section's heading and it. Nested sections (each <h3> + body
-  // inside its own wrapper) need no such check, but with flat siblings (h3, body, h3, body, ...) a
-  // section without its own pager would otherwise pick up the next section's — or a later block's,
-  // like the Cash accounts — and hide or click it.
-  /** @param {Element} h3 @param {string} sel @param {string} inner @returns {Element | null} */
-  function sectionPart(h3, sel, inner) {
-    const el = [...document.querySelectorAll(`${sel} ~ * ${inner}`)].find(e => !e.closest('[data-dg-own]'));
-    if (!el) return null;
-    return [...document.querySelectorAll('h3')].some(h => h !== h3 && precedes(h3, h) && precedes(h, el)) ? null : el;
+  // The nearest other <h3> that follows this one in document order, or null for the last section on
+  // the page — the right edge of sectionPart()'s own search below (and, with none, that search runs
+  // to the end of the document).
+  /** @param {Element} h3 @param {Element[]} h3s @returns {Element | null} */
+  function nextH3(h3, h3s) {
+    let next = /** @type {Element | null} */ (null);
+    for (const h of h3s) if (h !== h3 && precedes(h3, h) && (!next || precedes(h, next))) next = h;
+    return next;
   }
+
+  // DEGIRO's real table/pager are not necessarily a CSS sibling of the section's own <h3> — on the
+  // live page they sit two levels up, as siblings of the <h3>'s own (small) wrapper, not reachable by
+  // any `${sel} ~ *` selector (confirmed live; see the portfolio-merge bugfix). So this locates them
+  // by document order alone: every non-own element matching `inner` that falls strictly between this
+  // <h3> and the next one (or the end of the document, for the last section) — covering both that
+  // nested shape and the simpler flat-sibling one (h3, body, h3, body, ...) the code also still needs
+  // to handle, where a section without its own pager would otherwise pick up the next section's, or a
+  // later block's (like the Cash accounts).
+  //
+  // DEGIRO also renders a loading skeleton (an empty table, a bare pager with generic, unnamed
+  // buttons) that can sit ahead of a *later* section's own heading, inside that later section's own
+  // wrapper — which lands inside the *current* section's window, alongside its real table/pager, once
+  // that later heading becomes this window's right edge. `isReal` prefers genuine content over such a
+  // skeleton; where nothing qualifies (still loading, or a genuinely empty section) the first
+  // candidate in the window is used, same as before.
+  /** @param {Element} h3 @param {Element[]} h3s @param {string} inner @param {(el: Element) => boolean} isReal
+   *  @returns {Element | null} */
+  function sectionPart(h3, h3s, inner, isReal) {
+    const next = nextH3(h3, h3s);
+    const candidates = [...document.querySelectorAll(inner)].filter(el =>
+      !el.closest('[data-dg-own]') && precedes(h3, el) && (!next || precedes(el, next)));
+    return candidates.find(isReal) || candidates[0] || null;
+  }
+
+  // A table with actual holdings rows, as opposed to DEGIRO's own loading skeleton (a <table> with a
+  // header row but an empty <tbody>).
+  /** @param {Element} el @returns {boolean} */
+  const isRealTable = el => !!el.querySelector('tbody tr');
+
+  // A pagination control with DEGIRO's own named Previous/current-page/Next buttons, as opposed to
+  // its loading skeleton (a bare [data-name=pagination] with generic, unnamed buttons).
+  /** @param {Element} el @returns {boolean} */
+  const isRealPager = el => !!el.querySelector('button[data-name=prevPageButton], button[data-name=pageButton], button[data-name=nextPageButton]');
 
   // Every section present right now, in DEGIRO's own order. Reads fresh every call: DEGIRO may have
   // re-rendered a table or pager since the last one.
   /** @returns {Section[]} */
   function sections() {
+    const h3s = [...document.querySelectorAll('h3')];
     /** @type {Section[]} */
     const out = [];
     for (const type of TYPE_ORDER) {
-      const sel = SEL.portfolioSection[type];
-      const h3 = document.querySelector(sel);
-      if (h3) out.push({ type, h3, table: sectionPart(h3, sel, 'table'), pager: sectionPart(h3, sel, '[data-name=pagination]') });
+      const h3 = document.querySelector(SEL.portfolioSection[type]);
+      if (h3) out.push({
+        type, h3,
+        table: sectionPart(h3, h3s, 'table', isRealTable),
+        pager: sectionPart(h3, h3s, '[data-name=pagination]', isRealPager)
+      });
     }
     return out;
   }

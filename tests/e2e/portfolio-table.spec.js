@@ -125,6 +125,40 @@ test('flat sections: only each section\'s own heading, table and pager are hidde
   await expect(page.locator('#cashWrap [data-name=pagination]')).toBeVisible();
 });
 
+test('nested sections (the real page\'s own shape): the merged table gets rows from every section, native tables/pagers that contributed are hidden, and its pager drives the real one', async ({ degiro, settings }) => {
+  // Mirrors the live page's real DOM shape (see the portfolio-merge bugfix, a release blocker for
+  // 1.22.0): each section's real table/pager are not a CSS sibling of its own <h3> — they sit two
+  // levels up, as siblings of the <h3>'s own small wrapper, which (for lox here, mirroring the live
+  // stock finding) also holds a loading-skeleton table/pager ahead of the <h3> itself; etf's wrapper,
+  // like the live etf section, holds none. Because lox's skeleton precedes lox's own <h3>, it lands
+  // inside *etf's* search window (up to the next <h3>), alongside etf's real table/pager — exactly
+  // the real-vs-skeleton disambiguation sectionPart() must get right.
+  const { page } = await degiro({ url: URL_P, initScript: () => { window.__MOCK_NESTED_SECTIONS = true; } });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+
+  // all three sections' rows are collected, exactly as with the flat shape
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+  await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable).toBe('ok');
+
+  // each section's own heading, real table and real pager (never its skeleton) are hidden
+  for (const s of ['stock', 'etf', 'lox']) {
+    await expect(page.locator(`h3[data-name=${s}]`)).toBeHidden();
+    await expect(page.locator(`[data-holdings=${s}] > table`)).toBeHidden();
+    await expect(page.locator(`[data-holdings=${s}] > nav[data-name=pagination]`)).toBeHidden();
+  }
+  // lox's skeleton table/pager are never real content, so the extension never touches them — proof
+  // the fix picked the real elements, not these
+  await expect(page.locator('table.mockSkeletonTable')).toBeVisible();
+  await expect(page.locator('.mockSkeletonPager')).toBeVisible();
+
+  // the merged pager drives etf's real (nested) pagination, same as the flat-shape test above
+  const next = page.locator('[data-dg-portfolio-table] + [data-name=pagination] button[data-dg-page=next]');
+  await next.click();
+  await expect(page.locator('[data-holdings=etf] > nav button', { hasText: '2' })).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(5); // 3 stock + 1 etf(page2) + 1 lox
+});
+
 test('ETF-only portfolio (no Shares section): the merge still engages, anchored on the first section', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   await page.evaluate(() => document.querySelector('[data-holdings=stock]').remove());
