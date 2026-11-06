@@ -72,3 +72,23 @@ test('default sort is Type ascending; clicking Product header sorts and toggles 
   await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
   await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'descending');
 });
+
+test('a blank numeric cell sorts last in both ascending and descending order', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  // Mock Software SE's Value hasn't ticked in yet (empty, as a real holding briefly shows before its
+  // first price): this must not jump to the top just because we sorted descending.
+  await page.evaluate(() => {
+    document.querySelector('[data-name=productName][data-id="332108"]').closest('tr').querySelector('[data-field=value]').textContent = '';
+  });
+  const lastProduct = () => page.locator('[data-dg-portfolio-table] tbody tr:last-child [data-name=productName]');
+
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Value' }).click(); // ascending
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Value' })).toHaveAttribute('aria-sort', 'ascending');
+  await expect(lastProduct()).toHaveText('Mock Software SE');
+
+  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Value' }).click(); // descending
+  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Value' })).toHaveAttribute('aria-sort', 'descending');
+  await expect(lastProduct()).toHaveText('Mock Software SE');
+});

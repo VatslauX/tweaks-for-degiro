@@ -95,7 +95,9 @@
   }
 
   // Sorts a copy of rows by sortState.col: numeric columns parse both "1.234,56" and "1,234.56"
-  // (parseNum from common.js already handles either), everything else compares as text.
+  // (parseNum from common.js already handles either), everything else compares as text. A blank or
+  // non-numeric cell (e.g. a value not yet ticked in) always sorts last, in both directions — not
+  // just "last when ascending" (which would make it jump to the top on a direction toggle).
   /** @param {Row[]} rows @param {SortState} state @returns {Row[]} */
   function applySort(rows, state) {
     const numeric = NUMERIC_COLUMNS.has(state.col);
@@ -105,8 +107,8 @@
       if (!numeric) return sign * av.localeCompare(bv);
       const x = parseNum(av), y = parseNum(bv);
       if (isNaN(x) && isNaN(y)) return 0;
-      if (isNaN(x)) return sign;
-      if (isNaN(y)) return -sign;
+      if (isNaN(x)) return 1; // blanks always last, regardless of sort direction
+      if (isNaN(y)) return -1;
       return sign * (x - y);
     });
   }
