@@ -283,6 +283,18 @@
   "columnsReset": {
     "message": "Standaard herstellen"
   },
+  "portfolioType": {
+    "message": "Type"
+  },
+  "portfolioDelay": {
+    "message": "Vertraging"
+  },
+  "portfolioPrevPage": {
+    "message": "Vorige pagina"
+  },
+  "portfolioNextPage": {
+    "message": "Volgende pagina"
+  },
   "badgeBuy": {
     "message": "KOOP"
   },

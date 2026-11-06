@@ -201,8 +201,15 @@
       <td><span data-field="totalPl">${r.totalPl}</span></td>
       <td><time data-field="lastUpdate" data-id="${r.id}">${r.last}</time></td>
       <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>
-      <td><button type="button" data-action="buy">Buy</button><button type="button" data-action="sell">Sell</button></td>`;
+      <td><button type="button" data-action="buy" class="holdingsAction"><span class="holdingsActionLabel">Buy</span></button><button type="button" data-action="sell" class="holdingsAction"><span class="holdingsActionLabel">Sell</span></button></td>`;
   }
+
+  // DEGIRO styles its holdings tables with its own (generated) classes; these stand in for them, so
+  // the merged table copying a native table's, header's and cell's class is testable.
+  document.querySelectorAll('.holdings table').forEach(table => {
+    table.className = 'holdingsTable';
+    table.querySelectorAll('th').forEach(th => { th.className = 'holdingsHead'; });
+  });
 
   // Renders the current page's rows and the pager, mirroring orders.html's render()-on-every-change
   // style. Matches the live page's own pagination shape exactly (see the plan's Global Constraints):
@@ -212,7 +219,9 @@
   // HTML `disabled` state, same as transactions.html's pager.
   function renderHoldings(type) {
     const section = window.__PORTFOLIO[type];
-    const container = document.querySelector(`[data-holdings=${type}]`);
+    // the section's own wrapper, as DEGIRO's own references would be: the extension may insert its
+    // merged table and pager (another tbody, another [data-name=pagination]) inside the section too
+    const container = document.querySelector(`[data-holdings=${type}] .tableWrap`);
     const pagination = container.querySelector('[data-name=pagination]');
     const page = Number(pagination.dataset.page || '1');
     const pages = Math.max(1, Math.ceil(section.rows.length / section.pageSize));
@@ -223,6 +232,7 @@
     section.rows.slice(start, start + section.pageSize).forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = holdingsRowHtml(r);
+      tr.querySelectorAll('td').forEach(td => { td.className = 'holdingsCell'; });
       // lets e2e tests confirm a forwarded click reached this real (possibly hidden) button
       tr.querySelectorAll('button[data-action]').forEach(b => b.addEventListener('click', () => {
         tr.setAttribute('data-dg-last-clicked', b.dataset.action);
@@ -230,20 +240,24 @@
       tbody.appendChild(tr);
     });
 
+    // Previous/Next found by position, not aria-label: tests localise the labels (as a non-English
+    // DEGIRO account would) and the pager must keep working.
+    const buttons = pagination.querySelectorAll('button');
     pagination.querySelector('[aria-current=true]').textContent = String(page);
-    pagination.querySelector('[aria-label="Previous page"]').disabled = page <= 1;
-    pagination.querySelector('[aria-label="Next page"]').disabled = page >= pages;
+    buttons[0].disabled = page <= 1;
+    buttons[buttons.length - 1].disabled = page >= pages;
   }
 
   ['stock', 'etf', 'lox'].forEach(type => {
-    const pagination = document.querySelector(`[data-holdings=${type}] [data-name=pagination]`);
-    pagination.querySelector('[aria-label="Previous page"]').addEventListener('click', () => {
+    const pagination = document.querySelector(`[data-holdings=${type}] .tableWrap [data-name=pagination]`);
+    const buttons = pagination.querySelectorAll('button');
+    buttons[0].addEventListener('click', () => {
       const page = Number(pagination.dataset.page || '1');
       if (page <= 1) return;
       pagination.dataset.page = String(page - 1);
       renderHoldings(type);
     });
-    pagination.querySelector('[aria-label="Next page"]').addEventListener('click', () => {
+    buttons[buttons.length - 1].addEventListener('click', () => {
       const section = window.__PORTFOLIO[type];
       const page = Number(pagination.dataset.page || '1');
       const pages = Math.max(1, Math.ceil(section.rows.length / section.pageSize));

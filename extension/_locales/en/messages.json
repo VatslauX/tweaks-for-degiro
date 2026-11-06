@@ -323,6 +323,20 @@
   "columnsReset": {
     "message": "Reset to default"
   },
+  "portfolioType": {
+    "message": "Type",
+    "description": "Merged Portfolio table: header of the column naming each holding's section (Shares, Trackers (ETFs), Structured products)"
+  },
+  "portfolioDelay": {
+    "message": "Delay",
+    "description": "Merged Portfolio table: header of the price-feed delay column (DEGIRO's own header there is blank)"
+  },
+  "portfolioPrevPage": {
+    "message": "Previous page"
+  },
+  "portfolioNextPage": {
+    "message": "Next page"
+  },
   "badgeBuy": {
     "message": "BUY",
     "description": "Order badge on the chart, short and upper case"

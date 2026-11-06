@@ -283,6 +283,18 @@
   "columnsReset": {
     "message": "Standard wiederherstellen"
   },
+  "portfolioType": {
+    "message": "Typ"
+  },
+  "portfolioDelay": {
+    "message": "Verzögerung"
+  },
+  "portfolioPrevPage": {
+    "message": "Vorherige Seite"
+  },
+  "portfolioNextPage": {
+    "message": "Nächste Seite"
+  },
   "badgeBuy": {
     "message": "KAUF"
   },
