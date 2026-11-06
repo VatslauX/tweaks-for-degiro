@@ -46,6 +46,13 @@
   // DEGIRO's own section order (TYPE_ORDER), everything else (Product, Symbol | ISIN, Exchange,
   // Curr., Last, Delay) lexically as text.
   const NUMERIC_COLUMNS = new Set(['qty', 'price', 'value', 'bep', 'plEuro', 'plPercent', 'unrealisedPl', 'totalPl']);
+  // DEGIRO colors each of these per ROW, by that row's own value's sign (red for a loss, green for a
+  // gain, confirmed live) via its own short class on its native element — never a property of the
+  // column as a whole. nativeLook()'s column-sampled look.cell[k] (one representative native <tr>'s
+  // class, copied onto every row in that column) can never reproduce that, so renderRows()/buildRow()
+  // give each of these four its own inner <span>, looked up per row (row.nativeRow), instead of
+  // relying on the column-wide sample the way every other hideable column still does.
+  const SIGN_COLUMNS = new Set(['plEuro', 'plPercent', 'unrealisedPl', 'totalPl']);
   /** @type {Row['type'][]} */
   const TYPE_ORDER = ['stock', 'etf', 'lox']; // Shares, Trackers (ETFs), Structured products
   const HIDDEN = 'data-dg-portfolio-hidden'; // marks DEGIRO's own section headings, tables and pagers we hide
@@ -518,6 +525,13 @@
         const chip = document.createElement('span');
         chip.setAttribute('data-dg-type-chip', '');
         td.append(chip);
+      } else if (SIGN_COLUMNS.has(k)) {
+        // its own inner span (never the <td> itself), so renderRows() can give it this row's own
+        // native class/color without touching the <td>'s column-wide cell look (border, padding)
+        const span = document.createElement('span');
+        const attr = hookAttr(PORTFOLIO_HOOKS[k]);
+        if (attr) span.setAttribute(attr[0], attr[1]);
+        td.append(span);
       } else {
         const attr = hookAttr(PORTFOLIO_HOOKS[k]);
         if (attr) td.setAttribute(attr[0], attr[1]);
@@ -555,8 +569,17 @@
         setLook(tds[i], look.cell[k]?.className || look.repCell, css.cell);
         if (k === 'type') return;
         const v = row.cells[k] || '';
-        const target = k === 'product' ? /** @type {HTMLElement} */ (tds[i].querySelector('[data-name=productName]')) : tds[i];
+        const target = k === 'product' ? /** @type {HTMLElement} */ (tds[i].querySelector('[data-name=productName]'))
+          : SIGN_COLUMNS.has(k) ? /** @type {HTMLElement} */ (tds[i].firstElementChild) : tds[i];
         if (target.textContent !== v) target.textContent = v;
+        if (!SIGN_COLUMNS.has(k)) return;
+        // this ROW's own native element for this field, never the column-sampled look.cell[k] above
+        // (sign coloring is per row, not per column) — a sign-based inline color only when there is no
+        // native element/class to copy (e.g. a still-loading row with no native class yet).
+        const native = row.nativeRow.querySelector(PORTFOLIO_HOOKS[k]);
+        const sign = Math.sign(parseNum(v));
+        const fallback = sign < 0 ? `color:${th.sell};` : sign > 0 ? `color:${th.buy};` : '';
+        setLook(target, native?.className || '', fallback);
       });
       const name = /** @type {HTMLElement} */ (tds[0].querySelector('[data-name=productName]'));
       setLook(name, look.name, css.name, look.nameWeight ? `font-weight:${look.nameWeight};` : '');

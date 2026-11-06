@@ -94,6 +94,38 @@ test('Type is a coloured chip with a short label per section; sorting by it keep
   await expect(chips.first()).toHaveCSS('border-radius', '999px');
 });
 
+test('plEuro/plPercent/unrealisedPl/totalPl copy each row\'s OWN sign-coloured class, not one sampled per column', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  // Mock Software SE (row 1, stock) is a gain in the fixture (+18,40/+1,45%/+16,73%/+276,00); Mock
+  // Retail Corp (row 3, stock) is a loss (-3,20/-0,62%/-8,50%/-43,60). A column-wide sample (the bug)
+  // would give every row in a column the identical class/colour regardless of its own sign.
+  const gainRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(0);
+  const lossRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(2);
+  for (const field of ['todayPl', 'change', 'unrealizedRelativePl', 'totalPl']) {
+    const gain = gainRow.locator(`[data-field=${field}]`);
+    const loss = lossRow.locator(`[data-field=${field}]`);
+    await expect(gain).toHaveClass('holdingsPos');
+    await expect(loss).toHaveClass('holdingsNeg');
+    await expect(gain).toHaveCSS('color', 'rgb(66, 173, 0)');
+    await expect(loss).toHaveCSS('color', 'rgb(255, 56, 56)');
+  }
+});
+
+test('without a native class to copy, plEuro/plPercent/unrealisedPl/totalPl fall back to a sign-based inline color', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  await page.evaluate(() => document.querySelectorAll('.holdings [class]').forEach(el => el.removeAttribute('class')));
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  const gainRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(0);
+  const lossRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(2);
+  const field = 'todayPl';
+  await expect(gainRow.locator(`[data-field=${field}]`)).toHaveAttribute('class', '');
+  await expect(gainRow.locator(`[data-field=${field}]`)).toHaveCSS('color', 'rgb(30, 131, 2)'); // dgUi.theme().buy, light theme
+  await expect(lossRow.locator(`[data-field=${field}]`)).toHaveCSS('color', 'rgb(228, 1, 1)'); // dgUi.theme().sell, light theme
+});
+
 test('the sorted header shows a visible arrow, which is not part of its label', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings();

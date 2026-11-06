@@ -18,6 +18,11 @@
        product name is bold (both confirmed live) */
     .holdings tr.holdingsRow { height: 44px; }
     .holdings .holdingsName { font-weight: 600; }
+    /* stand-ins for DEGIRO's own per-row sign classes on todayPl/change/unrealizedRelativePl/totalPl
+       (confirmed live: a short, per-field class carries red for a loss, green for a gain, sampled
+       per row rather than per column) */
+    .holdings .holdingsPos { color: rgb(66, 173, 0); }
+    .holdings .holdingsNeg { color: rgb(255, 56, 56); }
   </style>
 </head>
 <body>
@@ -190,6 +195,13 @@
     }
   };
 
+  // DEGIRO colors todayPl/change/unrealizedRelativePl/totalPl per row, by that value's own sign (red
+  // for a loss, green for a gain), each via its own short, per-row class — confirmed live, and the
+  // reason the merged table must copy each row's own native element, not one sampled per column (see
+  // the portfolio-merge bugfix for this field). unrealizedRelativePl already carries its own class
+  // this way too, but that selector was already correct and isn't the fixture's concern here.
+  const signClass = v => (v.trim().startsWith('-') ? 'holdingsNeg' : 'holdingsPos');
+
   // real hooks (checked live against trader.degiro.nl, see the plan's Global Constraints): the
   // product name span carries the row's data-id; every other column hook sits on the body cell,
   // never on the <th>. The Delay indicator has no header hook, only this body button. Buy/Sell lead
@@ -203,10 +215,10 @@
       <td data-field="currency">${r.currency}</td>
       <td><span data-field="value">${r.value}</span></td>
       <td><span data-field="breakEvenPrice">${r.bep}</span></td>
-      <td><span data-field="todayPl">${r.todayPl}</span></td>
-      <td><span data-field="change">${r.plPct}</span></td>
-      <td><span data-field="unrealizedRelativePl">${r.unrealised}</span></td>
-      <td><span data-field="totalPl">${r.totalPl}</span></td>
+      <td><span data-field="todayPl" class="${signClass(r.todayPl)}">${r.todayPl}</span></td>
+      <td><span data-field="change" class="${signClass(r.plPct)}">${r.plPct}</span></td>
+      <td><span data-field="unrealizedRelativePl" class="${signClass(r.unrealised)}">${r.unrealised}</span></td>
+      <td><span data-field="totalPl" class="${signClass(r.totalPl)}">${r.totalPl}</span></td>
       <td><time data-field="lastUpdate" data-id="${r.id}">${r.last}</time></td>
       <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>`;
   }
