@@ -286,6 +286,15 @@
   "portfolioType": {
     "message": "Typ"
   },
+  "portfolioTypeShare": {
+    "message": "Aktie"
+  },
+  "portfolioTypeTracker": {
+    "message": "Tracker"
+  },
+  "portfolioTypeStruct": {
+    "message": "Strukt."
+  },
   "portfolioDelay": {
     "message": "Verzögerung"
   },

@@ -14,6 +14,10 @@
     td, th { padding: 4px 8px; text-align: left; white-space: nowrap; box-sizing: border-box; }
     .holdings table { width: 100%; }
     .holdings [data-name=pagination] button[aria-current=true] { font-weight: 700; }
+    /* stand-ins for DEGIRO's own generated classes: its row class sets the row height, and its
+       product name is bold (both confirmed live) */
+    .holdings tr.holdingsRow { height: 44px; }
+    .holdings .holdingsName { font-weight: 600; }
   </style>
 </head>
 <body>
@@ -45,7 +49,7 @@
           <thead><tr>
             <th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
             <th>Value</th><th>Break Even Price</th><th>Today's P&amp;L</th><th>Today's P&amp;L %</th>
-            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th><th></th>
+            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -55,6 +59,7 @@
           <button type="button" aria-label="Next page">&rsaquo;</button>
         </div>
       </div>
+      <hr class="sectionDivider">
     </section>
     <section data-holdings="etf">
       <h3 data-name="etf">Trackers (ETFs)</h3>
@@ -63,7 +68,7 @@
           <thead><tr>
             <th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
             <th>Value</th><th>Break Even Price</th><th>Today's P&amp;L</th><th>Today's P&amp;L %</th>
-            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th><th></th>
+            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -73,6 +78,7 @@
           <button type="button" aria-label="Next page">&rsaquo;</button>
         </div>
       </div>
+      <hr class="sectionDivider">
     </section>
     <section data-holdings="lox">
       <h3 data-name="lox">Structured products</h3>
@@ -81,7 +87,7 @@
           <thead><tr>
             <th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
             <th>Value</th><th>Break Even Price</th><th>Today's P&amp;L</th><th>Today's P&amp;L %</th>
-            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th><th></th>
+            <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -91,6 +97,7 @@
           <button type="button" aria-label="Next page">&rsaquo;</button>
         </div>
       </div>
+      <hr class="sectionDivider">
     </section>
   </div>
 </div>
@@ -185,9 +192,10 @@
 
   // real hooks (checked live against trader.degiro.nl, see the plan's Global Constraints): the
   // product name span carries the row's data-id; every other column hook sits on the body cell,
-  // never on the <th>. The Delay indicator has no header hook, only this body button.
+  // never on the <th>. The Delay indicator has no header hook, only this body button. Buy/Sell lead
+  // the Product cell, before the name, as on the live page (there is no separate actions column).
   function holdingsRowHtml(r) {
-    return `<td><span data-name="productName" data-id="${r.id}">${r.name}</span></td>
+    return `<td><button type="button" data-action="buy" class="holdingsAction"><span class="holdingsActionLabel">Buy</span></button><button type="button" data-action="sell" class="holdingsAction"><span class="holdingsActionLabel">Sell</span></button><span data-name="productName" data-id="${r.id}" class="holdingsName">${r.name}</span></td>
       <td><span data-field="productInfo.symbol">${r.symbol}</span></td>
       <td><span data-field="productInfo.exchange.hiqAbbr">${r.exchange}</span></td>
       <td><span data-field="size">${r.qty}</span></td>
@@ -200,8 +208,7 @@
       <td><span data-field="unrealizedRelativePl">${r.unrealised}</span></td>
       <td><span data-field="totalPl">${r.totalPl}</span></td>
       <td><time data-field="lastUpdate" data-id="${r.id}">${r.last}</time></td>
-      <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>
-      <td><button type="button" data-action="buy" class="holdingsAction"><span class="holdingsActionLabel">Buy</span></button><button type="button" data-action="sell" class="holdingsAction"><span class="holdingsActionLabel">Sell</span></button></td>`;
+      <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>`;
   }
 
   // DEGIRO styles its holdings tables with its own (generated) classes; these stand in for them, so
@@ -250,8 +257,8 @@
       head.append(h3);
       // the real table/pager end up as section's own later children: siblings of head (the <h3>'s
       // wrapper), not of the <h3> itself — exactly the shape sectionPart() must locate by document
-      // order, never by a `~` sibling selector
-      section.replaceChildren(head, table, nav);
+      // order, never by a `~` sibling selector. The section's own divider stays last.
+      section.replaceChildren(head, table, nav, ...section.querySelectorAll('hr.sectionDivider'));
     });
   }
   if (window.__MOCK_NESTED_SECTIONS) nestifySections();
@@ -284,6 +291,7 @@
     tbody.innerHTML = '';
     section.rows.slice(start, start + section.pageSize).forEach(r => {
       const tr = document.createElement('tr');
+      tr.className = 'holdingsRow';
       tr.innerHTML = holdingsRowHtml(r);
       tr.querySelectorAll('td').forEach(td => { td.className = 'holdingsCell'; });
       // window.__MOCK_NO_PRODUCT_HOOK: one section type (e.g. 'stock') whose rows exist but, like

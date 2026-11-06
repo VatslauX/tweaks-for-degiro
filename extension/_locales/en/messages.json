@@ -327,6 +327,18 @@
     "message": "Type",
     "description": "Merged Portfolio table: header of the column naming each holding's section (Shares, Trackers (ETFs), Structured products)"
   },
+  "portfolioTypeShare": {
+    "message": "Share",
+    "description": "Merged Portfolio table: short chip in the Type column for a holding from DEGIRO's Shares section"
+  },
+  "portfolioTypeTracker": {
+    "message": "Tracker",
+    "description": "Merged Portfolio table: short chip in the Type column for a holding from DEGIRO's Trackers (ETFs) section"
+  },
+  "portfolioTypeStruct": {
+    "message": "Struct.",
+    "description": "Merged Portfolio table: short (abbreviated) chip in the Type column for a holding from DEGIRO's Structured products section"
+  },
   "portfolioDelay": {
     "message": "Delay",
     "description": "Merged Portfolio table: header of the price-feed delay column (DEGIRO's own header there is blank)"

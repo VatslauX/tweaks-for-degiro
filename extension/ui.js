@@ -38,6 +38,19 @@ const dgUi = (() => {
     return b;
   }
 
+  // A muted label ("Columns", "Action", ...) followed by its controls, as one wrapping row: the
+  // filter bars of Orders/Transactions and the merged Portfolio table's toolbar.
+  /** @param {string} title @param {ReturnType<typeof theme>} th @param {...Node} children */
+  function group(title, th, ...children) {
+    const g = document.createElement('div');
+    g.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+    const name = document.createElement('span');
+    name.textContent = title;
+    name.style.cssText = `font-size:12px;color:${th.muted};margin-right:2px;white-space:nowrap;`;
+    g.append(name, ...children);
+    return g;
+  }
+
   /**
    * DEGIRO-style dropdown of checkboxes. The caller keeps which menu is open and re-renders.
    * @param {{ kind: string, label: string, active: boolean, items: { text: string, checked: boolean, change: (on: boolean) => void }[],
@@ -235,5 +248,5 @@ const dgUi = (() => {
     };
   }
 
-  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, TRASH, theme, chip, picker, toggle, icon, pill, columnHooks, columnsSetting });
+  return Object.freeze({ BLUE, BELL, PENCIL, QUESTION, TRASH, theme, chip, group, picker, toggle, icon, pill, columnHooks, columnsSetting });
 })();

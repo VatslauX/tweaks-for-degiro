@@ -286,6 +286,15 @@
   "portfolioType": {
     "message": "Tipo"
   },
+  "portfolioTypeShare": {
+    "message": "Azione"
+  },
+  "portfolioTypeTracker": {
+    "message": "Tracker"
+  },
+  "portfolioTypeStruct": {
+    "message": "Strutt."
+  },
   "portfolioDelay": {
     "message": "Ritardo"
   },

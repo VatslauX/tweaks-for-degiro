@@ -203,15 +203,7 @@
     // DEGIRO-style pill: selected = filled (dark, or green/red for Buy/Sell), unselected = plain text
     const chip = dgUi.chip;
 
-    function group(title, th, ...children) {
-      const g = document.createElement('div');
-      g.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
-      const name = document.createElement('span');
-      name.textContent = title;
-      name.style.cssText = `font-size:12px;color:${th.muted};margin-right:2px;`;
-      g.append(name, ...children);
-      return g;
-    }
+    const group = dgUi.group;
 
     // DEGIRO-style dropdown of checkboxes (products, columns)
     const picker = (kind, label, active, items, th, footer) => dgUi.picker({ kind, label, active, items, th, footer,

@@ -24,8 +24,8 @@
     delay: '[data-name=feedQuality]'
   };
   // Every native column the merged table mirrors a header label or a class from: the hideable ones
-  // above, plus Product and the trailing Buy/Sell cell.
-  const LOOK_HOOKS = { ...PORTFOLIO_HOOKS, product: SEL.portfolioProduct, actions: 'button[data-action]' };
+  // above, plus Product (whose cell also holds the row's Buy/Sell buttons, as DEGIRO's own does).
+  const LOOK_HOOKS = { ...PORTFOLIO_HOOKS, product: SEL.portfolioProduct };
 
   // Merged table column order (Product and Type are never hideable).
   const COLUMN_ORDER = ['product', 'type', 'symbolIsin', 'exchange', 'qty', 'price', 'currency', 'value',
@@ -49,6 +49,17 @@
   /** @type {Row['type'][]} */
   const TYPE_ORDER = ['stock', 'etf', 'lox']; // Shares, Trackers (ETFs), Structured products
   const HIDDEN = 'data-dg-portfolio-hidden'; // marks DEGIRO's own section headings, tables and pagers we hide
+
+  // The Type column's coloured chip per section: a short label (DEGIRO's own section headings, e.g.
+  // "Trackers (ETFs)", are too long for a column) and the approved mockup's pastel colours in the
+  // light theme; in the dark one, a translucent tint of the same hue with a lighter text, the way
+  // dgUi.pill() keeps its colours readable on both. Display only: sorting stays on TYPE_ORDER.
+  /** @type {Record<Row['type'], { label: string, light: [string, string], dark: [string, string] }>} */
+  const TYPE_CHIP = {
+    stock: { label: 'portfolioTypeShare', light: ['#eef2ff', '#4338ca'], dark: ['rgba(99,102,241,.22)', '#a5b4fc'] },
+    etf: { label: 'portfolioTypeTracker', light: ['#ecfdf5', '#047857'], dark: ['rgba(16,185,129,.2)', '#6ee7b7'] },
+    lox: { label: 'portfolioTypeStruct', light: ['#fff7ed', '#c2410c'], dark: ['rgba(249,115,22,.2)', '#fdba74'] }
+  };
 
   /**
    * @typedef {{ id: string, type: 'stock'|'etf'|'lox', cells: Record<string,string>, nativeRow: Element }} Row
@@ -227,19 +238,50 @@
     return block;
   }
 
+  // The outermost block that holds nothing visible but this one section: climbs from sectionAnchor()
+  // while the parent still contains no other <h3> (another section, or the Cash accounts), none of
+  // our own elements (the merged toolbar/table/pager sit inside the first section's block), and no
+  // child with any text that isn't this section's own heading, table or pager — only empty shells
+  // such as a divider <hr>, a spacer or a loading skeleton. Hiding just the h3/table/pager inside it
+  // would leave those shells as empty bands below the merged table. In the flat-sibling shape the
+  // parent holds every section, so this stays at the anchor itself.
+  /** @param {Section} s @returns {Element} */
+  function sectionShell(s) {
+    let block = sectionAnchor(s);
+    for (let p = block.parentElement; p && p !== document.body; block = p, p = p.parentElement) {
+      if (p.querySelector('[data-dg-own]') || [...p.querySelectorAll('h3')].some(h => h !== s.h3)) break;
+      const b = block;
+      const ownPart = (/** @type {Element} */ c) => c === b || [s.table, s.pager].some(x => x && c.contains(x));
+      if (![...p.children].every(c => ownPart(c) || !c.textContent.trim())) break;
+    }
+    return block;
+  }
+
   // Hides each section's own heading, table and pager (never removes them: their own pagination etc.
-  // must keep working underneath) by marking exactly those elements — never a blanket "everything
-  // after this heading" rule, which with flat siblings would also hide whatever follows the last
-  // section. One owned style; the marks are re-applied every run, as DEGIRO may re-render an element.
+  // must keep working underneath) by marking exactly those elements, plus the section's own empty
+  // shell (sectionShell) — never a blanket "everything after this heading" rule, which with flat
+  // siblings would also hide whatever follows the last section. The marks are re-applied every run,
+  // as DEGIRO may re-render an element; a mark on a block that now holds our own merged elements
+  // (the first section changed, e.g. a sold-out Shares section) is lifted again.
   /** @param {Section[]} secs */
   function hideNative(secs) {
-    if (!document.getElementById('dg-portfolio-hide-native')) {
-      const style = /** @type {HTMLStyleElement} */ (own(document.createElement('style')));
-      style.id = 'dg-portfolio-hide-native';
-      style.textContent = `[${HIDDEN}] { display: none !important; }`;
-      document.head.append(style);
-    }
-    secs.forEach(s => [s.h3, s.table, s.pager].forEach(el => { if (el && !el.hasAttribute(HIDDEN)) el.setAttribute(HIDDEN, ''); }));
+    ensureStyle();
+    document.querySelectorAll(`[${HIDDEN}]`).forEach(el => { if (el.querySelector('[data-dg-own]')) el.removeAttribute(HIDDEN); });
+    secs.forEach(s => [s.h3, s.table, s.pager, sectionShell(s)].forEach(el => { if (el && !el.hasAttribute(HIDDEN)) el.setAttribute(HIDDEN, ''); }));
+  }
+
+  // One owned style: hides the marked native elements, and draws the sort arrow after the sorted
+  // header's label (blue ↑/↓, like DEGIRO's own "Product ↑") as CSS content — so it never becomes
+  // part of the header's text, which the Columns picker offers as the column's label.
+  function ensureStyle() {
+    if (document.getElementById('dg-portfolio-style')) return;
+    const style = /** @type {HTMLStyleElement} */ (own(document.createElement('style')));
+    style.id = 'dg-portfolio-style';
+    const arrow = 'color:' + dgUi.BLUE + ';margin-left:4px;font-weight:inherit;';
+    style.textContent = `[${HIDDEN}] { display: none !important; }\n` +
+      `[data-dg-portfolio-table] th[aria-sort=ascending] > button::after { content: "\\2191"; ${arrow} }\n` +
+      `[data-dg-portfolio-table] th[aria-sort=descending] > button::after { content: "\\2193"; ${arrow} }`;
+    document.head.append(style);
   }
 
   // Every current <tr> of each section's own table, tagged with which section it came from and a
@@ -248,14 +290,13 @@
   function collectRows(secs) {
     /** @type {Row[]} */
     const rows = [];
-    for (const { type, h3, table: nativeTable } of secs) {
+    for (const { type, table: nativeTable } of secs) {
       if (!nativeTable) continue;
-      const typeLabel = h3.textContent.trim(); // DEGIRO's own section heading: already localised
       nativeTable.querySelectorAll('tbody tr').forEach(tr => {
         const product = tr.querySelector(SEL.portfolioProduct);
         if (!product) return;
         /** @type {Record<string, string>} */
-        const cells = { product: product.textContent.trim(), type: typeLabel };
+        const cells = { product: product.textContent.trim() }; // Type is a chip by row.type (TYPE_CHIP)
         Object.keys(PORTFOLIO_HOOKS).forEach(key => {
           cells[key] = tr.querySelector(PORTFOLIO_HOOKS[key])?.textContent.trim() || '';
         });
@@ -269,16 +310,26 @@
   // The content script runs on DEGIRO's own page, so a class copied from a native element picks up
   // DEGIRO's own styling. Header labels come from the native <th>s too, so they follow DEGIRO's language.
 
-  /** @typedef {{ table: string, head: Record<string, Element | undefined>, cell: Record<string, Element | undefined>,
-   *   repHead: string, repCell: string }} NativeLook */
+  // `row` is a native body <tr>'s own class (DEGIRO sizes its rows there, not only on the cells);
+  // `name`/`nameWeight` are the native product-name element's class and its resolved font weight
+  // (DEGIRO shows the name bold — whether from that element's own class or a wrapper's, the computed
+  // weight covers both; computed styles still resolve on the hidden native table).
+  /** @typedef {{ table: string, row: string, name: string, nameWeight: string, head: Record<string, Element | undefined>,
+   *   cell: Record<string, Element | undefined>, repHead: string, repCell: string }} NativeLook */
   /** @param {Section[]} secs @returns {NativeLook} */
   function nativeLook(secs) {
     const found = secs.flatMap(s => {
       const f = s.table && dgUi.columnHooks(s.table, 'table', LOOK_HOOKS);
-      return f && s.table ? [{ f, cells: [...(s.table.querySelector('tbody tr')?.children || [])], cls: s.table.className }] : [];
+      const tr = s.table?.querySelector('tbody tr');
+      return f && s.table ? [{ f, tr, cells: [...(tr?.children || [])], cls: s.table.className }] : [];
     });
+    const name = found.map(x => x.tr?.querySelector(SEL.portfolioProduct)).find(Boolean);
     /** @type {NativeLook} */
-    const look = { table: found.find(x => x.cls)?.cls || '', head: {}, cell: {}, repHead: '', repCell: '' };
+    const look = {
+      table: found.find(x => x.cls)?.cls || '', row: found.find(x => x.tr?.className)?.tr?.className || '',
+      name: name?.className || '', nameWeight: name ? getComputedStyle(name).fontWeight : '',
+      head: {}, cell: {}, repHead: '', repCell: ''
+    };
     for (const k of Object.keys(LOOK_HOOKS)) {
       const x = found.find(x => x.f.index[k] >= 0);
       if (!x) continue;
@@ -299,8 +350,19 @@
     head: `text-align:left;padding:8px;font-weight:500;font-size:12px;color:${th.muted};border-bottom:1px solid ${th.line};white-space:nowrap;`,
     cell: `padding:8px;color:${th.text};border-bottom:1px solid ${th.line};white-space:nowrap;`,
     pager: 'display:flex;gap:8px;align-items:center;margin:4px 0 8px;padding:0 16px;font-family:inherit;',
-    pageButton: `font:inherit;min-width:28px;height:28px;border-radius:300px;cursor:pointer;background:transparent;color:${th.text};border:1px solid ${th.line};`
+    pageButton: `font:inherit;min-width:28px;height:28px;border-radius:300px;cursor:pointer;background:transparent;color:${th.text};border:1px solid ${th.line};`,
+    pageCurrent: `display:inline-flex;align-items:center;justify-content:center;font:inherit;min-width:28px;height:28px;border-radius:300px;background:${th.text};color:${th.bg};`,
+    name: 'font-weight:600;' // the mockup's (and DEGIRO's own) bold product name
   });
+
+  // Buy/Sell sit first in the Product cell, before the name — DEGIRO's own layout (and the mockup's).
+  const ACTIONS_CSS = 'display:inline-flex;gap:4px;align-items:center;vertical-align:middle;';
+
+  /** @param {Row['type']} type @param {ReturnType<typeof dgUi.theme>} th */
+  function chipCss(type, th) {
+    const [bg, fg] = TYPE_CHIP[type][th.dark ? 'dark' : 'light'];
+    return `display:inline-block;font-size:10.5px;line-height:16px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;background:${bg};color:${fg};`;
+  }
 
   /** @type {WeakMap<HTMLElement, string>} */
   const lookKey = new WeakMap();
@@ -317,13 +379,13 @@
 
   // ---------- the merged table ----------
 
-  // The header row is built once: every column (hideable or not) gets a <th>, plus one trailing blank
-  // <th> for the Buy/Sell actions column (matching DEGIRO's own trailing blank header on its native
-  // tables) — dgUi.columnsSetting()'s columnHooks() needs the <thead>/<tbody> column counts to match,
-  // so hiding a column is done with CSS (dgUi.columnsSetting's own `apply`, called from renderToolbar
-  // below), never by leaving it out of the DOM. Each <th> carries data-dg-col so the click listener
-  // and syncSortAttrs below can find it again without depending on column order. Labels and classes
-  // follow the native headers on every render (cheap: written only on a change).
+  // The header row is built once: every column (hideable or not) gets a <th>; Buy/Sell have no column
+  // of their own, they lead the Product cell (buildRow) — dgUi.columnsSetting()'s columnHooks() needs
+  // the <thead>/<tbody> column counts to match, so hiding a column is done with CSS
+  // (dgUi.columnsSetting's own `apply`, called from renderToolbar below), never by leaving it out of
+  // the DOM. Each <th> carries data-dg-col so the click listener and syncSortAttrs below can find it
+  // again without depending on column order. Labels and classes follow the native headers on every
+  // render (cheap: written only on a change).
   /** @param {HTMLTableElement} tbl @param {NativeLook} look @param {ReturnType<typeof fallbackCss>} css */
   function renderHead(tbl, look, css) {
     const thead = /** @type {Element} */ (tbl.querySelector('thead'));
@@ -338,7 +400,6 @@
         th.append(btn);
         tr.append(th);
       });
-      tr.append(document.createElement('th')); // Buy/Sell column: no header label
       thead.replaceChildren(tr);
     }
     const ths = /** @type {HTMLElement[]} */ ([.../** @type {Element} */ (thead.querySelector('tr')).children]);
@@ -348,12 +409,12 @@
       if (btn.textContent !== label) btn.textContent = label;
       setLook(ths[i], look.head[k]?.className || look.repHead, css.head);
     });
-    setLook(ths[COLUMN_ORDER.length], look.head.actions?.className || look.repHead, css.head);
     syncSortAttrs(tbl);
   }
 
   // aria-sort reflects the in-memory sortState on every render (cheap attribute writes the scheduler
-  // never observes: attributeFilter only watches data-dg-tweaks/data-dg-alarm-lines).
+  // never observes: attributeFilter only watches data-dg-tweaks/data-dg-alarm-lines). It also draws
+  // the visible ↑/↓ on the sorted header (ensureStyle's ::after rule).
   /** @param {HTMLTableElement} tbl */
   function syncSortAttrs(tbl) {
     tbl.querySelectorAll('thead th[data-dg-col]').forEach(th => {
@@ -427,7 +488,9 @@
     const key = natives.map(b => b.outerHTML).join('');
     if (key === e.actions) return;
     e.actions = key;
-    /** @type {Element} */ (e.tr.lastElementChild).replaceChildren(...natives.map(nb => {
+    const box = /** @type {HTMLElement} */ (e.tr.querySelector('[data-dg-actions]'));
+    box.style.marginRight = natives.length ? '8px' : '';
+    box.replaceChildren(...natives.map(nb => {
       const btn = /** @type {HTMLElement} */ (nb.cloneNode(true));
       btn.removeAttribute('id');
       const action = nb.getAttribute('data-action') || '';
@@ -436,19 +499,31 @@
     }));
   }
 
+  // One merged <tr>. The Product cell holds the Buy/Sell buttons (span[data-dg-actions], filled by
+  // syncActions) and then the name (span[data-name=productName], DEGIRO's own hook, as on its native
+  // rows); the Type cell holds one chip (span[data-dg-type-chip]).
   /** @returns {HTMLTableRowElement} */
   function buildRow() {
     const tr = document.createElement('tr');
     COLUMN_ORDER.forEach(k => {
       const td = document.createElement('td');
-      if (k === 'product') td.setAttribute('data-name', 'productName');
-      else if (k !== 'type') {
+      if (k === 'product') {
+        const actions = document.createElement('span');
+        actions.setAttribute('data-dg-actions', '');
+        actions.style.cssText = ACTIONS_CSS;
+        const name = document.createElement('span');
+        name.setAttribute('data-name', 'productName');
+        td.append(actions, name);
+      } else if (k === 'type') {
+        const chip = document.createElement('span');
+        chip.setAttribute('data-dg-type-chip', '');
+        td.append(chip);
+      } else {
         const attr = hookAttr(PORTFOLIO_HOOKS[k]);
         if (attr) td.setAttribute(attr[0], attr[1]);
       }
       tr.append(td);
     });
-    tr.append(document.createElement('td')); // Buy/Sell
     return tr;
   }
 
@@ -457,8 +532,9 @@
   // a row is moved only when the sorted order changed — so a click, keyboard focus or a text
   // selection in the table survives DEGIRO's ticks. Each row's Type cell carries data-dg-type; every
   // other cell carries the same data-field/data-name hook its value came from.
-  /** @param {Row[]} rows @param {NativeLook} look @param {ReturnType<typeof fallbackCss>} css */
-  function renderRows(rows, look, css) {
+  /** @param {Row[]} rows @param {NativeLook} look @param {ReturnType<typeof fallbackCss>} css
+   *  @param {ReturnType<typeof dgUi.theme>} th */
+  function renderRows(rows, look, css, th) {
     const tbody = /** @type {Element} */ (portfolioTable().querySelector('tbody'));
     /** @type {Map<string, number>} */
     const seen = new Map();
@@ -473,14 +549,22 @@
       let e = rowEls.get(key);
       if (!e) { e = { tr: buildRow(), id: row.id, native: row.nativeRow, actions: null }; rowEls.set(key, e); }
       e.native = row.nativeRow;
+      setLook(e.tr, look.row, '');
       const tds = /** @type {HTMLElement[]} */ ([...e.tr.children]);
       COLUMN_ORDER.forEach((k, i) => {
-        const v = row.cells[k] || '';
-        if (tds[i].textContent !== v) tds[i].textContent = v;
         setLook(tds[i], look.cell[k]?.className || look.repCell, css.cell);
+        if (k === 'type') return;
+        const v = row.cells[k] || '';
+        const target = k === 'product' ? /** @type {HTMLElement} */ (tds[i].querySelector('[data-name=productName]')) : tds[i];
+        if (target.textContent !== v) target.textContent = v;
       });
+      const name = /** @type {HTMLElement} */ (tds[0].querySelector('[data-name=productName]'));
+      setLook(name, look.name, css.name, look.nameWeight ? `font-weight:${look.nameWeight};` : '');
       if (tds[1].getAttribute('data-dg-type') !== row.type) tds[1].setAttribute('data-dg-type', row.type);
-      setLook(tds[COLUMN_ORDER.length], look.cell.actions?.className || look.repCell, css.cell);
+      const chip = /** @type {HTMLElement} */ (tds[1].firstElementChild);
+      const label = t(TYPE_CHIP[row.type].label);
+      if (chip.textContent !== label) chip.textContent = label;
+      setLook(chip, '', chipCss(row.type, th));
       syncActions(e, row);
       return e.tr;
     });
@@ -495,10 +579,11 @@
   function render(secs = sections(), rows = collectRows(secs)) {
     const tbl = portfolioTable();
     const look = nativeLook(secs);
-    const css = fallbackCss(dgUi.theme());
+    const th = dgUi.theme();
+    const css = fallbackCss(th);
     setLook(tbl, look.table, css.table);
     renderHead(tbl, look, css);
-    renderRows(rows, look, css);
+    renderRows(rows, look, css, th);
     return { look, css };
   }
 
@@ -567,7 +652,8 @@
     if (bar.isConnected && bar.dataset.key === key) return;
     bar.dataset.key = key;
     bar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0 4px;padding:0 16px;font-family:inherit;';
-    bar.replaceChildren(...(cols.length ? [columnPicker(cols, th)] : []));
+    // labelled "Columns", exactly as Orders/Transactions' own filter bar shows its picker
+    bar.replaceChildren(...(cols.length ? [dgUi.group(t('columns'), th, columnPicker(cols, th))] : []));
   }
 
   // ---------- pagination ----------
@@ -614,8 +700,8 @@
   let pager = null; // merged Previous/Next control; a sibling after the merged table, like
   // columnsToolbar()'s own bar is a sibling before it — a <div> is not valid direct <table> content.
 
-  // Builds the merged pager once (own()-marked, like columnsToolbar()) with its own Previous/Next
-  // buttons (data-dg-page = prev/next, localised aria-labels).
+  // Builds the merged pager once (own()-marked, like columnsToolbar()) as DEGIRO's own: Previous, the
+  // current page number, Next (data-dg-page = prev/current/next, localised aria-labels).
   function paginationBar() {
     if (!pager) {
       pager = /** @type {HTMLElement} */ (own(document.createElement('div')));
@@ -631,20 +717,42 @@
         btn.addEventListener('click', () => advancePage(dir));
         /** @type {HTMLElement} */ (pager).append(btn);
       });
+      const current = document.createElement('span');
+      current.setAttribute('data-dg-page', 'current');
+      current.setAttribute('aria-current', 'page');
+      pager.insertBefore(current, pager.lastElementChild);
     }
     return pager;
   }
 
-  // Disables the merged Previous/Next button only once every section's own button in that direction
-  // is disabled (lockstep): while any section still has a page to go that way, the merged button
-  // stays enabled. With both disabled (every section on its only page) the pager is hidden.
+  // The page number the merged pager shows: the furthest page any section is on (the sections page in
+  // lockstep, so one still on page 1 just has fewer pages). Read from each section's own middle
+  // (current-page) button; 1 when none shows a number.
+  /** @param {Section[]} secs @returns {{ page: string, cls: string }} */
+  function currentPage(secs) {
+    let page = 1, cls = '';
+    secs.forEach(s => {
+      const btns = s.pager?.querySelectorAll('button');
+      if (!btns || btns.length < 3) return;
+      const mid = btns[Math.floor(btns.length / 2)];
+      const n = parseInt(mid.textContent || '', 10);
+      if (n > page) page = n;
+      cls = cls || mid.className;
+    });
+    return { page: String(page), cls };
+  }
+
+  // Always shown, as DEGIRO's own pager is (and the mockup's "‹ 1 ›"), even when every section is on
+  // its only page: the merged Previous/Next button is disabled, not hidden, once every section's own
+  // button in that direction is disabled (lockstep) — while any section still has a page to go that
+  // way, it stays enabled.
   /** @param {Section[]} secs @param {ReturnType<typeof fallbackCss>} css */
   function renderPagination(secs, css) {
     const bar = paginationBar();
     const native = secs.find(s => s.pager)?.pager;
     const nativeBtn = secs.map(s => nativePageButton(s, 'next')).find(b => b?.className);
     const prev = !anySectionCanAdvance(secs, 'prev'), next = !anySectionCanAdvance(secs, 'next');
-    setLook(bar, native?.className || '', css.pager, prev && next ? 'display:none !important;' : '');
+    setLook(bar, native?.className || '', css.pager);
     /** @type {[string, boolean][]} */
     const states = [['prev', prev], ['next', next]];
     states.forEach(([dir, disabled]) => {
@@ -652,6 +760,10 @@
       if (btn.disabled !== disabled) btn.disabled = disabled;
       setLook(btn, nativeBtn?.className || '', css.pageButton);
     });
+    const cur = currentPage(secs);
+    const el = /** @type {HTMLElement} */ (bar.querySelector('[data-dg-page=current]'));
+    if (el.textContent !== cur.page) el.textContent = cur.page;
+    setLook(el, cur.cls, css.pageCurrent);
   }
 
   // ---------- events ----------
@@ -702,13 +814,15 @@
       const nativeCount = s.table ? s.table.querySelectorAll('tbody tr').length : 0;
       return nativeCount > 0 && !rows.some(r => r.type === s.type);
     });
-    hideNative(secs.filter(s => !broken.includes(s)));
     const merged = portfolioTable();
     const bar = columnsToolbar();
     const pag = paginationBar();
     if (bar.nextElementSibling !== merged || merged.nextElementSibling !== pag || anchor.previousElementSibling !== pag) {
       anchor.before(bar, merged, pag);
     }
+    // only after the merged elements are in place: sectionShell() must see them, so it never hides
+    // the first section's block that now holds them
+    hideNative(secs.filter(s => !broken.includes(s)));
     const { css } = render(secs, rows);
     renderToolbar();
     renderPagination(secs, css);
@@ -716,7 +830,7 @@
   }
 
   function stop() {
-    document.getElementById('dg-portfolio-hide-native')?.remove();
+    document.getElementById('dg-portfolio-style')?.remove();
     document.querySelectorAll(`[${HIDDEN}]`).forEach(el => el.removeAttribute(HIDDEN));
     table?.remove();
     table = null;

@@ -286,6 +286,15 @@
   "portfolioType": {
     "message": "Type"
   },
+  "portfolioTypeShare": {
+    "message": "Aandeel"
+  },
+  "portfolioTypeTracker": {
+    "message": "Tracker"
+  },
+  "portfolioTypeStruct": {
+    "message": "Gestruct."
+  },
   "portfolioDelay": {
     "message": "Vertraging"
   },
