@@ -37,6 +37,7 @@ The main session uses the `run-tests` skill for tests. A forked review agent run
   helpers of `common.js` (JSDOM globals before the require; see `tests/unit/common-dom.test.js`).
 - `tests/integration/`, `tests/e2e/`, `tests/fixtures/`: DOM and browser behavior against local mocks. See `.claude/rules/test-fixtures.md`.
 - `scripts/`: build, store publishing, store images, and structured test reporting.
+- `docs/features-backlog.md`: parking lot for future feature ideas not yet scheduled. Add new ideas here rather than inline in conversation or other docs.
 - `.github/workflows/`: CI, release, and manual Chrome Web Store authentication check. Actions are pinned to commit SHAs (the release job holds the Web Store OIDC token); `.github/dependabot.yml` updates the pins and the npm dev dependencies weekly. Minor and patch updates are grouped; majors get their own PR. `highcharts` is pinned exactly (no Dependabot updates) for mock parity with the live page, see `.claude/rules/test-fixtures.md`.
 
 The manifest version lives only in `extension/manifest.json`; `package.json` has no version. CI runs `npm test` on pushes to `main` and pull requests.
