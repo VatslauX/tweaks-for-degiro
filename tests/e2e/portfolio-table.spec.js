@@ -70,14 +70,37 @@ test('Buy/Sell lead the Product cell, before the name, as on DEGIRO\'s own rows;
   await expect(page.locator('h3[data-name=stock] ~ * table tbody tr').first()).toHaveAttribute('data-dg-last-clicked', 'buy');
 });
 
+test('the merged product name is a real link to that product\'s page, as DEGIRO\'s own (now-hidden) name is', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  const row = page.locator('[data-dg-portfolio-table] tbody tr').first();
+  const name = row.locator('[data-name=productName]');
+  // the name sits inside the real <a>, not just styled to look like one (same hash route DEGIRO's
+  // own link uses, confirmed live) — no click listener of our own, DEGIRO's SPA router already
+  // handles the hashchange
+  const link = name.locator('xpath=ancestor::a[1]');
+  await expect(link).toHaveAttribute('href', '#/products/332108/overview');
+  await link.click();
+  await expect(page).toHaveURL(/#\/products\/332108\/overview/);
+});
+
 test('merged rows copy the native row class, so they get DEGIRO\'s own row height', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings();
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
   const row = page.locator('[data-dg-portfolio-table] tbody tr').first();
   await expect(row).toHaveClass('holdingsRow');
-  // the fixture's row class sets a 44px height, as DEGIRO's own row class sizes its rows
+  // the fixture's row class sets a 44px height, as DEGIRO's own row class sizes its rows. CSS height
+  // is a floor, not a cap: the fixture's product cell has its own (taller) ambient line-height, which
+  // a cloned Buy/Sell button falls back to unless DEGIRO's own tighter-line-height wrapper around
+  // just those two buttons is cloned along with them (see syncActions() in portfolio-table.js) — a
+  // regression here pushes this past 44, not below it.
   expect(await row.evaluate(tr => Math.round(tr.getBoundingClientRect().height))).toBe(44);
+  // the wrapper itself (not just the bare buttons) must be what got cloned
+  const wrap = row.locator('td').first().locator('.holdingsActions');
+  await expect(wrap).toHaveCount(1);
+  await expect(wrap.locator('button[data-action]')).toHaveCount(2);
 });
 
 test('Type is a coloured chip with a short label per section; sorting by it keeps DEGIRO\'s section order', async ({ degiro, settings }) => {
@@ -111,6 +134,36 @@ test('plEuro/plPercent/unrealisedPl/totalPl copy each row\'s OWN sign-coloured c
     await expect(gain).toHaveCSS('color', 'rgb(66, 173, 0)');
     await expect(loss).toHaveCSS('color', 'rgb(255, 56, 56)');
   }
+});
+
+test('Delay copies each row\'s OWN feed-quality class (and its dot), not one sampled per column', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  // Mock Software SE (row 1, stock) is 15-min-delayed in the fixture; Mock Retail Corp (row 3, stock)
+  // is real-time. A column-wide sample (the bug) would give every row the identical class/dot
+  // regardless of its own feed quality; before the fix, the cell held only plain text, no dot at all.
+  const delayed = page.locator('[data-dg-portfolio-table] tbody tr').nth(0).locator('[data-name=feedQuality]');
+  const realtime = page.locator('[data-dg-portfolio-table] tbody tr').nth(2).locator('[data-name=feedQuality]');
+  await expect(delayed).toHaveText('15');
+  await expect(realtime).toHaveText('R');
+  await expect(delayed).toHaveClass('holdingsFeedD15');
+  await expect(realtime).toHaveClass('holdingsFeedR');
+  // the dot itself: a ::before pseudo-element, coloured per row (confirmed live, see the fixture)
+  const dotColor = loc => loc.evaluate(el => getComputedStyle(el, '::before').backgroundColor);
+  expect(await dotColor(delayed)).toBe('rgb(242, 136, 44)');
+  expect(await dotColor(realtime)).toBe('rgb(30, 131, 2)');
+});
+
+test('without a native class to copy, Delay falls back to plain text and no dot', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  await page.evaluate(() => document.querySelectorAll('.holdings [class]').forEach(el => el.removeAttribute('class')));
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  const delayed = page.locator('[data-dg-portfolio-table] tbody tr').nth(0).locator('[data-name=feedQuality]');
+  await expect(delayed).toHaveAttribute('class', '');
+  await expect(delayed).toHaveText('15');
+  expect(await delayed.evaluate(el => getComputedStyle(el, '::before').content)).toBe('none');
 });
 
 test('without a native class to copy, plEuro/plPercent/unrealisedPl/totalPl fall back to a sign-based inline color', async ({ degiro, settings }) => {

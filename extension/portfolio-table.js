@@ -61,6 +61,15 @@
   // give each of these four its own inner <span>, looked up per row (row.nativeRow), instead of
   // relying on the column-wide sample the way every other hideable column still does.
   const SIGN_COLUMNS = new Set(['plEuro', 'plPercent', 'unrealisedPl', 'totalPl']);
+  // DEGIRO also draws a small coloured dot before each row's own Delay value, via a ::before
+  // pseudo-element on the native feedQuality button whose colour is set entirely by a per-VALUE
+  // modifier class (confirmed live: 15-min-delayed orange rgb(242,136,44), real-time green
+  // rgb(30,131,2), end-of-day blue rgb(0,121,168)) — never a property of the column as a whole
+  // (a real-time and a delayed holding can sit in the same column), so it needs the very same
+  // per-row native-class copy as SIGN_COLUMNS, not nativeLook()'s single column-sampled class. It
+  // has no numeric sign, so it shares SIGN_COLUMNS' per-row <span>/class-copy treatment below
+  // without sharing its sign-based fallback colour (see renderRows()).
+  const PER_ROW_LOOK_COLUMNS = new Set([...SIGN_COLUMNS, 'delay']);
   // unrealisedPl's cell combines two numbers ("-7.706,38 (-58,93%)"); parseNum on the whole string
   // would mangle it (two '-'s, two separators). Both numbers always agree in sign (confirmed live),
   // so sorting and the sign-based fallback color in SIGN_COLUMNS both use the amount alone — the
@@ -383,6 +392,23 @@
 
   // Buy/Sell sit first in the Product cell, before the name — DEGIRO's own layout (and the mockup's).
   const ACTIONS_CSS = 'display:inline-flex;gap:4px;align-items:center;vertical-align:middle;';
+  // DEGIRO wraps its own product name in an <a href="#/products/<id>/overview"> (confirmed live): a
+  // same-page hash route its own SPA router already handles on click, so this needs no listener,
+  // history.pushState call, or network request of our own — just a real anchor with the right href
+  // (never a form submit or anything order-related, so extension-security.md's "never place/change/
+  // cancel orders" does not apply). nativeLook() only samples the inner name span (SEL.portfolioProduct
+  // is that span, not its wrapping anchor), so there is no native class to copy here; these styles
+  // keep the anchor from imposing the browser's own default link colour/underline over the name
+  // span's own (copied) look.
+  const PRODUCT_LINK_CSS = 'color:inherit;text-decoration:none;display:inline-flex;align-items:center;';
+  // DEGIRO's own Product cell has exactly one direct child: a flex row holding Buy/Sell and the name
+  // together (confirmed live). A <td> with two separate inline-level children instead (as this cell
+  // had before) shares one inline-formatting-context line between them, whose minimum height is set
+  // by the <td>'s own (inherited) line-height regardless of either child's actual content — so a
+  // taller ambient line-height on the cell could inflate the row even once Buy/Sell's own sizing is
+  // fixed (see syncActions()). A `display:flex` wrapper sizes each child independently instead, like
+  // DEGIRO's own cell.
+  const PRODUCT_ROW_CSS = 'display:flex;align-items:center;';
 
   /** @param {Row['type']} type @param {ReturnType<typeof dgUi.theme>} th */
   function chipCss(type, th) {
@@ -508,6 +534,13 @@
   // creates or dispatches a new order action itself (extension-security.md: never place, change, or
   // cancel orders). Re-copied only when DEGIRO's own buttons change, so a click in progress (mousedown
   // then mouseup) is never lost to a re-render.
+  /** @param {HTMLElement} el @param {Element} nb @param {RowEl} e */
+  function rewireAction(el, nb, e) {
+    el.removeAttribute('id');
+    const action = nb.getAttribute('data-action') || '';
+    el.addEventListener('click', () => { nativeButton(e, action)?.click(); });
+  }
+
   /** @param {RowEl} e @param {Row} row */
   function syncActions(e, row) {
     const natives = ['buy', 'sell'].flatMap(a => row.nativeRow.querySelector(`button[data-action=${a}]`) || []);
@@ -516,35 +549,70 @@
     e.actions = key;
     const box = /** @type {HTMLElement} */ (e.tr.querySelector('[data-dg-actions]'));
     box.style.marginRight = natives.length ? '8px' : '';
-    box.replaceChildren(...natives.map(nb => {
-      const btn = /** @type {HTMLElement} */ (nb.cloneNode(true));
-      btn.removeAttribute('id');
-      const action = nb.getAttribute('data-action') || '';
-      btn.addEventListener('click', () => { nativeButton(e, action)?.click(); });
-      return btn;
-    }));
+    // DEGIRO wraps Buy/Sell together in their own element, apart from the cell's own ambient sizing
+    // (confirmed live: a <div>, its own line-height shorter than the cell's, e.g. 18px vs the cell's
+    // 21px) — cloning the bare <button>s alone (as before) loses that wrapper, so the buttons fall
+    // back to inheriting the row's own (taller) line-height instead, inflating the merged row past
+    // DEGIRO's own height. Clone the wrapper whole, carrying its sizing along, when it holds only
+    // these buttons (confirmed live shape); otherwise (a lone button, or an unfamiliar DOM shape)
+    // fall back to cloning the buttons on their own, as before.
+    const wrap = natives[0]?.parentElement;
+    const wholeWrap = natives.length > 1 && wrap && wrap.children.length === natives.length &&
+      natives.every(b => b.parentElement === wrap) ? /** @type {HTMLElement} */ (wrap.cloneNode(true)) : null;
+    if (wholeWrap) {
+      wholeWrap.removeAttribute('id');
+      natives.forEach(nb => {
+        const clone = wholeWrap.querySelector(`button[data-action=${nb.getAttribute('data-action')}]`);
+        if (clone) rewireAction(/** @type {HTMLElement} */ (clone), nb, e);
+      });
+      box.replaceChildren(wholeWrap);
+    } else {
+      box.replaceChildren(...natives.map(nb => {
+        const btn = /** @type {HTMLElement} */ (nb.cloneNode(true));
+        rewireAction(btn, nb, e);
+        return btn;
+      }));
+    }
   }
 
-  // One merged <tr>. The Product cell holds the Buy/Sell buttons (span[data-dg-actions], filled by
-  // syncActions) and then the name (span[data-name=productName], DEGIRO's own hook, as on its native
-  // rows); the Type cell holds one chip (span[data-dg-type-chip]).
-  /** @returns {HTMLTableRowElement} */
-  function buildRow() {
+  // One merged <tr>. The Product cell's sole child is a flex row (PRODUCT_ROW_CSS) holding the
+  // Buy/Sell buttons (span[data-dg-actions], filled by syncActions) and then the name
+  // (span[data-name=productName], DEGIRO's own hook, as on its native rows), itself wrapped in an
+  // <a href="#/products/<id>/overview"> as DEGIRO's own cell is, so clicking it opens that product's
+  // page the same way DEGIRO's own (now-hidden) table does; the Type cell holds one chip
+  // (span[data-dg-type-chip]). `id` is the row's own data-id (collectRows()), always numeric on the
+  // real page; a row with none, or a non-numeric one (never seen live, only a defensive case —
+  // SEL.portfolioProduct always carries a plain numeric id), keeps the bare name span, with no
+  // anchor, rather than emit a garbled or unchecked `#/products/.../overview` link.
+  /** @param {string} id @returns {HTMLTableRowElement} */
+  function buildRow(id) {
     const tr = document.createElement('tr');
     COLUMN_ORDER.forEach(k => {
       const td = document.createElement('td');
       if (k === 'product') {
+        const row = document.createElement('span');
+        row.style.cssText = PRODUCT_ROW_CSS;
         const actions = document.createElement('span');
         actions.setAttribute('data-dg-actions', '');
         actions.style.cssText = ACTIONS_CSS;
         const name = document.createElement('span');
         name.setAttribute('data-name', 'productName');
-        td.append(actions, name);
+        if (/^\d+$/.test(id)) {
+          const link = document.createElement('a');
+          link.setAttribute('href', `#/products/${id}/overview`);
+          link.setAttribute('tabindex', '1'); // DEGIRO's own anchor carries this too (confirmed live)
+          link.style.cssText = PRODUCT_LINK_CSS;
+          link.append(name);
+          row.append(actions, link);
+        } else {
+          row.append(actions, name);
+        }
+        td.append(row);
       } else if (k === 'type') {
         const chip = document.createElement('span');
         chip.setAttribute('data-dg-type-chip', '');
         td.append(chip);
-      } else if (SIGN_COLUMNS.has(k)) {
+      } else if (PER_ROW_LOOK_COLUMNS.has(k)) {
         // its own inner span (never the <td> itself), so renderRows() can give it this row's own
         // native class/color without touching the <td>'s column-wide cell look (border, padding)
         const span = document.createElement('span');
@@ -580,7 +648,7 @@
       const key = `${base}#${n}`;
       keep.add(key);
       let e = rowEls.get(key);
-      if (!e) { e = { tr: buildRow(), id: row.id, native: row.nativeRow, actions: null }; rowEls.set(key, e); }
+      if (!e) { e = { tr: buildRow(row.id), id: row.id, native: row.nativeRow, actions: null }; rowEls.set(key, e); }
       e.native = row.nativeRow;
       setLook(e.tr, look.row, '');
       const tds = /** @type {HTMLElement[]} */ ([...e.tr.children]);
@@ -589,15 +657,20 @@
         if (k === 'type') return;
         const v = row.cells[k] || '';
         const target = k === 'product' ? /** @type {HTMLElement} */ (tds[i].querySelector('[data-name=productName]'))
-          : SIGN_COLUMNS.has(k) ? /** @type {HTMLElement} */ (tds[i].firstElementChild) : tds[i];
+          : PER_ROW_LOOK_COLUMNS.has(k) ? /** @type {HTMLElement} */ (tds[i].firstElementChild) : tds[i];
         if (target.textContent !== v) target.textContent = v;
-        if (!SIGN_COLUMNS.has(k)) return;
+        if (!PER_ROW_LOOK_COLUMNS.has(k)) return;
         // this ROW's own native element for this field, never the column-sampled look.cell[k] above
-        // (sign coloring is per row, not per column) — a sign-based inline color only when there is no
-        // native element/class to copy (e.g. a still-loading row with no native class yet).
+        // (per-row look, not per column) — SIGN_COLUMNS falls back to a sign-based inline color when
+        // there is no native element/class to copy (e.g. a still-loading row with no native class
+        // yet); delay has no such fallback — its dot comes only from a ::before on the copied native
+        // class, nothing deducible from the text alone ("15"/"R"/"ED" don't imply a colour).
         const native = row.nativeRow.querySelector(PORTFOLIO_HOOKS[k]);
-        const sign = Math.sign(parseNum(numericValue(k, v)));
-        const fallback = sign < 0 ? `color:${th.sell};` : sign > 0 ? `color:${th.buy};` : '';
+        let fallback = '';
+        if (SIGN_COLUMNS.has(k)) {
+          const sign = Math.sign(parseNum(numericValue(k, v)));
+          fallback = sign < 0 ? `color:${th.sell};` : sign > 0 ? `color:${th.buy};` : '';
+        }
         setLook(target, native?.className || '', fallback);
       });
       const name = /** @type {HTMLElement} */ (tds[0].querySelector('[data-name=productName]'));

@@ -3,6 +3,9 @@
 ## 1.22.0 — 2026-11-06
 - **Merged Portfolio table** (optional): a new switch in Settings, *Merge holdings into one table*, combines Shares, Trackers (ETFs) and Structured products into one sortable table on the Portfolio page, with a *Type* column and a *Columns* menu. Off by default.
 - **Remember Portfolio table sort & columns**: a sub-setting that keeps the merged table's sort and hidden columns across reloads. Off by default.
+- **Fix**: the merged Portfolio table's *Delay* column shows each holding's own colour dot again (real-time, delayed, end-of-day), instead of one colour copied for the whole column.
+- **Fix**: rows in the merged Portfolio table match DEGIRO's own row height again, instead of running slightly taller.
+- **Fix**: a product name in the merged Portfolio table opens that product's page again, like DEGIRO's own table.
 
 ## 1.21.6 — 2026-11-05
 - **Fix**: the *Edit price alarm* panel opened from a gold alarm badge on the product chart no longer closes by itself a second later. It stays open on that product page until you close it, save, or leave the page.

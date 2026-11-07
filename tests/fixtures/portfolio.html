@@ -23,6 +23,26 @@
        per row rather than per column) */
     .holdings .holdingsPos { color: rgb(66, 173, 0); }
     .holdings .holdingsNeg { color: rgb(255, 56, 56); }
+    /* stand-in for DEGIRO's own Delay indicator: a small dot drawn as a ::before, coloured by a
+       per-VALUE modifier class on the native feedQuality button (confirmed live: 15-min-delayed
+       orange rgb(242,136,44), real-time green rgb(30,131,2), end-of-day blue rgb(0,121,168)) — sampled
+       per row, like the P/L sign classes above, never per column. */
+    .holdings .holdingsFeedD15::before, .holdings .holdingsFeedR::before, .holdings .holdingsFeedEd::before {
+      content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px;
+    }
+    .holdings .holdingsFeedD15::before { background: rgb(242, 136, 44); }
+    .holdings .holdingsFeedR::before { background: rgb(30, 131, 2); }
+    .holdings .holdingsFeedEd::before { background: rgb(0, 121, 168); }
+    /* stand-in for DEGIRO's own cell/Buy-Sell-wrapper line-heights (confirmed live: every cell sets
+       an ambient line-height, e.g. 21px; the Buy/Sell wrapper around just those two buttons overrides
+       it tighter, e.g. 18px, and DEGIRO's own CSS reset makes a plain <button> inherit it like any
+       other element — Chromium's UA default otherwise gives a button its own fixed line-height). 40/16
+       here only need to keep the product cell within the row's own 44px (16 does; 40, unwrapped,
+       does not) — the exact DEGIRO px values aren't load-bearing. */
+    .holdings button { line-height: inherit; }
+    .holdings .holdingsCell:first-child { line-height: 40px; }
+    .holdings .holdingsName { line-height: 16px; }
+    .holdings .holdingsActions { line-height: 16px; }
   </style>
 </head>
 <body>
@@ -174,23 +194,23 @@
     stock: {
       pageSize: 3,
       rows: [
-        { id: 332108, name: 'Mock Software SE', symbol: 'SWD', exchange: 'TDG', qty: 15, price: '128,40', currency: 'EUR', value: '1.926,00', bep: '110,00', todayPl: '+18,40', plPct: '+1,45%', unrealisedAmt: '+276,00', unrealised: '+16,73%', totalPl: '+276,00', last: '16:32:10' },
-        { id: 332109, name: 'Mock Pharma NV', symbol: 'PHM', exchange: 'AEX', qty: 40, price: '22,15', currency: 'EUR', value: '886,00', bep: '19,80', todayPl: '+9,40', plPct: '+1,07%', unrealisedAmt: '+94,00', unrealised: '+11,87%', totalPl: '+94,00', last: '16:32:10' },
-        { id: 332110, name: 'Mock Retail Corp', symbol: 'RTL', exchange: 'NDQ', qty: 8, price: '64,05', currency: 'USD', value: '512,40', bep: '70,00', todayPl: '-3,20', plPct: '-0,62%', unrealisedAmt: '-47,60', unrealised: '-8,50%', totalPl: '-43,60', last: '16:32:10' }
+        { id: 332108, name: 'Mock Software SE', symbol: 'SWD', exchange: 'TDG', qty: 15, price: '128,40', currency: 'EUR', value: '1.926,00', bep: '110,00', todayPl: '+18,40', plPct: '+1,45%', unrealisedAmt: '+276,00', unrealised: '+16,73%', totalPl: '+276,00', last: '16:32:10', delay: 'D15' },
+        { id: 332109, name: 'Mock Pharma NV', symbol: 'PHM', exchange: 'AEX', qty: 40, price: '22,15', currency: 'EUR', value: '886,00', bep: '19,80', todayPl: '+9,40', plPct: '+1,07%', unrealisedAmt: '+94,00', unrealised: '+11,87%', totalPl: '+94,00', last: '16:32:10', delay: 'D15' },
+        { id: 332110, name: 'Mock Retail Corp', symbol: 'RTL', exchange: 'NDQ', qty: 8, price: '64,05', currency: 'USD', value: '512,40', bep: '70,00', todayPl: '-3,20', plPct: '-0,62%', unrealisedAmt: '-47,60', unrealised: '-8,50%', totalPl: '-43,60', last: '16:32:10', delay: 'R' }
       ]
     },
     etf: {
       pageSize: 2,
       rows: [
-        { id: 441201, name: 'Mock Bond ETF EUR', symbol: 'BND', exchange: 'TDG', qty: 1000, price: '2,52', currency: 'EUR', value: '2.520,00', bep: '2,50', todayPl: '+2,00', plPct: '+0,08%', unrealisedAmt: '+20,00', unrealised: '+0,80%', totalPl: '+20,00', last: '16:32:05' },
-        { id: 441202, name: 'Mock S&P 500 ETF USD', symbol: 'SPX', exchange: 'NDQ', qty: 100, price: '131,20', currency: 'USD', value: '13.120,00', bep: '130,00', todayPl: '+40,00', plPct: '+0,31%', unrealisedAmt: '+120,00', unrealised: '+0,92%', totalPl: '+120,00', last: '16:32:05' },
-        { id: 441203, name: 'Mock Chips ETF EUR', symbol: 'CHP', exchange: 'TDG', qty: 200, price: '14,80', currency: 'EUR', value: '2.960,00', bep: '14,00', todayPl: '+30,00', plPct: '+1,03%', unrealisedAmt: '+160,00', unrealised: '+5,71%', totalPl: '+160,00', last: '16:32:05' }
+        { id: 441201, name: 'Mock Bond ETF EUR', symbol: 'BND', exchange: 'TDG', qty: 1000, price: '2,52', currency: 'EUR', value: '2.520,00', bep: '2,50', todayPl: '+2,00', plPct: '+0,08%', unrealisedAmt: '+20,00', unrealised: '+0,80%', totalPl: '+20,00', last: '16:32:05', delay: 'D15' },
+        { id: 441202, name: 'Mock S&P 500 ETF USD', symbol: 'SPX', exchange: 'NDQ', qty: 100, price: '131,20', currency: 'USD', value: '13.120,00', bep: '130,00', todayPl: '+40,00', plPct: '+0,31%', unrealisedAmt: '+120,00', unrealised: '+0,92%', totalPl: '+120,00', last: '16:32:05', delay: 'ED' },
+        { id: 441203, name: 'Mock Chips ETF EUR', symbol: 'CHP', exchange: 'TDG', qty: 200, price: '14,80', currency: 'EUR', value: '2.960,00', bep: '14,00', todayPl: '+30,00', plPct: '+1,03%', unrealisedAmt: '+160,00', unrealised: '+5,71%', totalPl: '+160,00', last: '16:32:05', delay: 'D15' }
       ]
     },
     lox: {
       pageSize: 1,
       rows: [
-        { id: 551301, name: 'Mock Turbo Long AEX', symbol: 'TRB', exchange: 'AEX', qty: 50, price: '4,32', currency: 'EUR', value: '216,00', bep: '4,00', todayPl: '+6,00', plPct: '+1,41%', unrealisedAmt: '+16,00', unrealised: '+8,00%', totalPl: '+16,00', last: '16:31:50' }
+        { id: 551301, name: 'Mock Turbo Long AEX', symbol: 'TRB', exchange: 'AEX', qty: 50, price: '4,32', currency: 'EUR', value: '216,00', bep: '4,00', todayPl: '+6,00', plPct: '+1,41%', unrealisedAmt: '+16,00', unrealised: '+8,00%', totalPl: '+16,00', last: '16:31:50', delay: 'D15' }
       ]
     }
   };
@@ -201,15 +221,29 @@
   // per column (see the portfolio-merge bugfix for this field).
   const signClass = v => (v.trim().startsWith('-') ? 'holdingsNeg' : 'holdingsPos');
 
+  // stand-in for DEGIRO's own per-VALUE feedQuality classes/labels (confirmed live: data-value D15
+  // displays "15", R displays "R", ED displays "ED" — see the ::before dot rules above).
+  const FEED = {
+    D15: { cls: 'holdingsFeedD15', label: '15', aria: '15, 15 minutes delayed' },
+    R: { cls: 'holdingsFeedR', label: 'R', aria: 'Real-time' },
+    ED: { cls: 'holdingsFeedEd', label: 'ED', aria: 'End of day' }
+  };
+
   // real hooks (checked live against trader.degiro.nl, see the plan's Global Constraints): the
   // product name span carries the row's data-id; every other column hook sits on the body cell,
   // never on the <th>. The Delay indicator has no header hook, only this body button. Buy/Sell lead
-  // the Product cell, before the name, as on the live page (there is no separate actions column).
+  // the Product cell, before the name, as on the live page (there is no separate actions column),
+  // wrapped together in their own element, apart from the cell's own ambient sizing (confirmed live;
+  // see the portfolio-merge row-height bugfix). The name span itself sits inside an
+  // <a href="#/products/<id>/overview">, DEGIRO's own in-app link to that product's page (confirmed
+  // live; see the portfolio-merge clickable-name bugfix) — a same-page hash route, so clicking it just
+  // changes location.hash here, with no router of its own needed for this fixture's purposes.
   // Unrealised P/L's own <td> holds TWO sibling spans (confirmed live), unlike every other
   // sign-colored field's one: the euro amount (unrealizedPl) then, space-separated, the percentage
   // with its own parentheses included in its text (unrealizedRelativePl) — e.g. "+276,00 (+16,73%)".
   function holdingsRowHtml(r) {
-    return `<td><button type="button" data-action="buy" class="holdingsAction"><span class="holdingsActionLabel">Buy</span></button><button type="button" data-action="sell" class="holdingsAction"><span class="holdingsActionLabel">Sell</span></button><span data-name="productName" data-id="${r.id}" class="holdingsName">${r.name}</span></td>
+    const feed = FEED[r.delay];
+    return `<td><div class="holdingsActions"><button type="button" data-action="buy" class="holdingsAction"><span class="holdingsActionLabel">Buy</span></button><button type="button" data-action="sell" class="holdingsAction"><span class="holdingsActionLabel">Sell</span></button></div><a href="#/products/${r.id}/overview" class="holdingsLink"><span data-name="productName" data-id="${r.id}" class="holdingsName">${r.name}</span></a></td>
       <td><span data-name="symbolIsin">${r.symbol}</span></td>
       <td><span data-name="exchangeAbbr">${r.exchange}</span></td>
       <td><span data-field="size">${r.qty}</span></td>
@@ -222,7 +256,7 @@
       <td><span data-field="unrealizedPl" class="${signClass(r.unrealisedAmt)}">${r.unrealisedAmt}</span> <span data-field="unrealizedRelativePl" class="${signClass(r.unrealised)}">(${r.unrealised})</span></td>
       <td><span data-field="totalPl" class="${signClass(r.totalPl)}">${r.totalPl}</span></td>
       <td><time data-field="lastUpdate" data-id="${r.id}">${r.last}</time></td>
-      <td><button type="button" data-name="feedQuality" data-value="D15" aria-label="15, 15 minutes delayed">D15</button></td>`;
+      <td><button type="button" data-name="feedQuality" data-value="${r.delay}" class="${feed.cls}" aria-label="${feed.aria}">${feed.label}</button></td>`;
   }
 
   // DEGIRO styles its holdings tables with its own (generated) classes; these stand in for them, so

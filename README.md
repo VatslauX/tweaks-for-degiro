@@ -75,6 +75,7 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 **Portfolio: merged holdings table** (optional, off by default)
 - Combines DEGIRO's *Shares*, *Trackers (ETFs)* and *Structured products* tables into one table on the Portfolio page, with a *Type* column naming each holding's section. DEGIRO's three tables are hidden while it is on.
 - Click a column header to sort. The table starts sorted by Type, so each section stays together.
+- Click a product name to open that product's page. The Buy and Sell buttons before each name work as on DEGIRO's own tables.
 - **Columns**: a *Columns* menu chooses which columns to show (Product and Type always show). *Symbol/ISIN*, *Exchange*, *Last update* and *Delay* are hidden by default.
 - *Previous page* and *Next page* step through the rows.
 - **Remember Portfolio table sort & columns** (a sub-setting): keeps your sort and hidden columns across reloads and navigation, and syncs them with your Chrome profile. Off, the table starts again from the default each time.
