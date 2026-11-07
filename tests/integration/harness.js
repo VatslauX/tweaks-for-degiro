@@ -13,6 +13,10 @@
 //    world. Nothing waits for real time; tests move it with world.advance(ms) or tab.flush().
 //  - jsdom gaps the scripts rely on: CSS.escape, TextEncoder, crypto.randomUUID.
 // Not covered: layout (sizes, visibility, sticky, clamping): jsdom has none. That stays in Playwright.
+// The `portfolio` fixture's own script calls fetch() for its canvas chart, which jsdom has neither of;
+// open it with `globals: { fetch: () => new Promise(() => {}) }` so that chart's load() parks at its
+// first await forever, leaving the holdings table itself (and the extension's scripts) to run normally
+// — only the chart/canvas stays Playwright-only.
 // Mock pages: their inline <script>s are run (like the page would), the extension's scripts after them.
 const fs = require('fs');
 const path = require('path');

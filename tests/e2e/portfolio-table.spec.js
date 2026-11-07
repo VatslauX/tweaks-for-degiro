@@ -3,7 +3,6 @@
 // Constraints). This file grows task-by-task as that feature is built.
 const { test, expect, setFlag } = require('./fixtures');
 const URL_P = 'https://trader.degiro.nl/trader/?mock=portfolio#/portfolio';
-const URL_O = 'https://trader.degiro.nl/trader/?mock=orders#/orders/open';
 
 // Raw per-feature status (status.js's message reply), not the popup's rendered list: options.js's
 // own FEATURES map (extension/options.js) doesn't offer portfolioTable as a popup row yet, but the
@@ -15,14 +14,6 @@ async function rawStatus(page, opt) {
     return chrome.tabs.sendMessage(tab.id, { type: 'dg-status' });
   });
 }
-
-test('fixture renders three holdings sections with real hooks', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_P });
-  await expect(page.locator('h3[data-name=stock]')).toHaveText('Shares');
-  await expect(page.locator('h3[data-name=etf]')).toHaveText('Trackers (ETFs)');
-  await expect(page.locator('h3[data-name=lox]')).toHaveText('Structured products');
-  await expect(page.locator('[data-name=productName]')).toHaveCount(6); // 3 + 2 + 1 rows
-});
 
 test('enabling the feature hides the native tables and renders a merged header', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
@@ -179,38 +170,6 @@ test('without a native class to copy, plEuro/plPercent/unrealisedPl/totalPl fall
   await expect(lossRow.locator(`[data-field=${field}]`)).toHaveCSS('color', 'rgb(228, 1, 1)'); // dgUi.theme().sell, light theme
 });
 
-test('Unrealised P/L € combines the native euro amount and percentage; sorting it orders by the amount', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  // the native <td> holds two separate spans (amount, then the parenthesised percentage) — the
-  // merged cell must show both, space-separated, not just the percentage (the bug this fixes).
-  const cell = row => row.locator('[data-field=unrealizedRelativePl]');
-  const gainRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(0); // Mock Software SE
-  const lossRow = page.locator('[data-dg-portfolio-table] tbody tr').nth(2); // Mock Retail Corp
-  await expect(cell(gainRow)).toHaveText('+276,00 (+16,73%)');
-  await expect(cell(lossRow)).toHaveText('-47,60 (-8,50%)');
-
-  // sorting this column must order by the euro amount, not garble on the combined text's two
-  // numbers (parseNum on the whole string would) — only etf's first page (2 of its 3 rows) is
-  // merged by default, so this covers the six rows actually shown.
-  const products = () => page.locator('[data-dg-portfolio-table] tbody [data-name=productName]').allTextContents();
-  const header = page.locator('[data-dg-portfolio-table] thead th', { hasText: 'P&L Unrealized' });
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'P&L Unrealized' }).click(); // ascending
-  await expect(header).toHaveAttribute('aria-sort', 'ascending');
-  await expect.poll(products).toEqual([
-    'Mock Retail Corp', 'Mock Turbo Long AEX', 'Mock Bond ETF EUR',
-    'Mock Pharma NV', 'Mock S&P 500 ETF USD', 'Mock Software SE'
-  ]);
-
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'P&L Unrealized' }).click(); // descending
-  await expect(header).toHaveAttribute('aria-sort', 'descending');
-  await expect.poll(products).toEqual([
-    'Mock Software SE', 'Mock S&P 500 ETF USD', 'Mock Pharma NV',
-    'Mock Bond ETF EUR', 'Mock Turbo Long AEX', 'Mock Retail Corp'
-  ]);
-});
-
 test('the sorted header shows a visible arrow, which is not part of its label', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings();
@@ -231,7 +190,6 @@ test('the toolbar labels its picker "Columns", like Orders\' own', async ({ degi
   const opt = await settings();
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
   const bar = page.locator('#dg-portfolio-toolbar');
-  await expect(bar).toHaveText('Columns4 hidden ▾');
   await expect(bar.locator('span', { hasText: /^Columns$/ })).toBeVisible();
 });
 
@@ -261,38 +219,6 @@ test('a fully merged section\'s whole block (its divider included) is hidden; th
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: false }));
   await expect(page.locator('[data-holdings=etf]')).toBeVisible();
   await expect(page.locator('[data-holdings=lox] hr')).toBeVisible();
-});
-
-test('merged headers follow DEGIRO\'s own (localised) header text', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  // as on a Dutch account: the native header texts are translated, the body-cell hooks are not
-  await page.evaluate(() => document.querySelectorAll('.holdings thead').forEach(thead => {
-    thead.querySelectorAll('th')[3].textContent = 'Aantal';
-  }));
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=qty]')).toHaveText('Aantal');
-  // the Columns picker offers the same label
-  await page.locator('[data-dg-columns]').click();
-  await expect(page.locator('[role=listbox] label', { hasText: 'Aantal' })).toHaveCount(1);
-  // DEGIRO renames a header later (e.g. after a language switch): the merged one follows
-  await page.evaluate(() => { document.querySelector('h3[data-name=stock] ~ * thead th:nth-child(4)').textContent = 'Stück'; });
-  await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=qty]')).toHaveText('Stück');
-});
-
-test('merged table copies the native table, header, cell and Buy/Sell button styling', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  const merged = page.locator('[data-dg-portfolio-table]');
-  await expect(merged).toHaveClass('holdingsTable');
-  await expect(merged.locator('th[data-dg-col=value]')).toHaveClass('holdingsHead');
-  await expect(merged.locator('th[data-dg-col=type]')).toHaveClass('holdingsHead'); // no native Type: a representative header
-  await expect(merged.locator('tbody tr').first().locator('[data-field=value]')).toHaveClass('holdingsCell');
-  // Buy/Sell are copies of DEGIRO's own buttons: class and inner markup survive the merge
-  const buy = merged.locator('tbody tr').first().locator('button[data-action=buy]');
-  await expect(buy).toHaveClass('holdingsAction');
-  await expect(buy.locator('span.holdingsActionLabel')).toHaveText('Buy');
 });
 
 test('without native classes, the merged table falls back to theme-based inline styles', async ({ degiro, settings }) => {
@@ -425,30 +351,6 @@ test('a section with rows but no resolvable product hook keeps its native UI vis
   await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable, { timeout: 10000 }).toBe('missing');
 });
 
-test('off the Portfolio page, the feature reports idle, not missing', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_O }); // no h3[data-name=stock] here, and never will be
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable).toBe('idle');
-});
-
-test('merged table shows all rows from all three sections and tracks a live update', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
-  await page.evaluate(() => { document.querySelector('h3[data-name=stock] ~ * [data-field=value]').textContent = '9.999,99'; });
-  await expect(page.locator('[data-dg-portfolio-table] tbody tr').first().locator('[data-field=value]')).toHaveText('9.999,99');
-});
-
-test('clicking a merged row\'s Buy button clicks the real hidden Buy button', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  await page.locator('[data-dg-portfolio-table] tbody tr').first().locator('button[data-action=buy]').click();
-  await expect(page.locator('h3[data-name=stock] ~ * table tbody tr').first()).toHaveAttribute('data-dg-last-clicked', 'buy');
-});
-
 test('the merged rows are updated in place: a live tick keeps its buttons, focus, and a forwarded click reaches DEGIRO\'s re-rendered row', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings();
@@ -467,145 +369,6 @@ test('the merged rows are updated in place: a live tick keeps its buttons, focus
   await expect(page.locator('h3[data-name=stock] ~ * table tbody tr').first()).toHaveAttribute('data-dg-last-clicked', 'sell');
 });
 
-test('default sort is Type in DEGIRO\'s section order; clicking Product header sorts and toggles direction', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  // Shares, then Trackers (ETFs), then Structured products — not alphabetical by the (localised) label,
-  // which in English would put Structured products before Trackers (ETFs)
-  const types = () => page.locator('[data-dg-portfolio-table] tbody tr [data-dg-type]').evaluateAll(tds => tds.map(td => td.getAttribute('data-dg-type')));
-  await expect.poll(types).toEqual(['stock', 'stock', 'stock', 'etf', 'etf', 'lox']);
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Type' }).click(); // descending
-  await expect.poll(types).toEqual(['lox', 'etf', 'etf', 'stock', 'stock', 'stock']);
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Type' }).click(); // back to ascending
-
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'descending');
-});
-
-test('columns: Symbol, Exchange, Last, Delay hidden by default; Product and Type never offered', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  await expect(page.locator('[data-dg-columns]')).toHaveText('4 hidden ▾');
-  await page.locator('[data-dg-columns]').click();
-  const items = await page.locator('[role=listbox] label').allTextContents();
-  expect(items).not.toContain('Product');
-  expect(items).not.toContain('Type');
-  expect(items).toContain('Symbol | ISIN');
-});
-
-test('a blank numeric cell sorts last in both ascending and descending order', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  // Mock Software SE's Value hasn't ticked in yet (empty, as a real holding briefly shows before its
-  // first price): this must not jump to the top just because we sorted descending.
-  await page.evaluate(() => {
-    document.querySelector('[data-name=productName][data-id="332108"]').closest('tr').querySelector('[data-field=value]').textContent = '';
-  });
-  const lastProduct = () => page.locator('[data-dg-portfolio-table] tbody tr:last-child [data-name=productName]');
-
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Value' }).click(); // ascending
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Value' })).toHaveAttribute('aria-sort', 'ascending');
-  await expect(lastProduct()).toHaveText('Mock Software SE');
-
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Value' }).click(); // descending
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Value' })).toHaveAttribute('aria-sort', 'descending');
-  await expect(lastProduct()).toHaveText('Mock Software SE');
-});
-
-test('persist on: a sort change survives reload; persist off: it resets to default', async ({ degiro, settings }) => {
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
-  const { page } = await degiro({ url: URL_P });
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
-  await page.reload();
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
-
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: false }));
-  await page.reload();
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
-
-  // Binding: switching persist off never deletes the stored sort — switching it on again later
-  // restores it, without the user having to re-sort.
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: true }));
-  await page.reload();
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
-});
-
-test('toggling persist off mid-session immediately reverts an already-applied sort to the default, without a reload', async ({ degiro, settings }) => {
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
-  const { page } = await degiro({ url: URL_P });
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' })).toHaveAttribute('aria-sort', 'ascending');
-
-  // No reload here: flipping the toggle off alone (the Columns picker already reacts this way too)
-  // must drop the already-applied Product sort back to the default right away.
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: false }));
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
-});
-
-test('persist on: a hidden column survives reload; persist off: it resets to default, and restores when persist is on again', async ({ degiro, settings }) => {
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
-  const { page } = await degiro({ url: URL_P });
-  await page.locator('[data-dg-columns]').click();
-  await page.locator('[role=listbox] label', { hasText: 'Qty' }).click(); // hide one more column (4 hidden by default)
-  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
-  await page.reload();
-  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
-
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: false }));
-  await page.reload();
-  await expect(page.locator('[data-dg-columns]')).toHaveText('4 hidden ▾'); // back to DG_DEFAULTS, Qty shown again
-
-  // Binding: switching persist off never deletes the stored choice — switching it on again later
-  // restores it.
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: true }));
-  await page.reload();
-  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
-});
-
-// The merged pager sits as a sibling right after the merged table (like columnsToolbar()'s own bar
-// sits as a sibling right before it) — a <div> is not valid direct <table> content, and the existing
-// architecture already keeps toolbar elements as siblings rather than nesting them inside the table.
-test('merged Next page advances the etf section\'s native pager and re-collects rows', async ({ degiro, settings }) => {
-  const opt = await settings(); await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  const { page } = await degiro({ url: URL_P });
-  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6); // 3 stock + 2 etf(page1) + 1 lox
-  const next = page.locator('[data-dg-portfolio-table] + [data-name=pagination] button[data-dg-page=next]');
-  await expect(next).toHaveAttribute('aria-label', 'Next page'); // the extension's own (English) text
-  await next.click();
-  // stock's own Next is disabled (1 page) and lox's own Next is disabled (1 page) — neither receives
-  // a click; only etf (2 pages) advances.
-  await expect(page.locator('h3[data-name=etf] ~ * [data-name=pagination] button', { hasText: '2' })).toHaveAttribute('aria-current', 'true');
-  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(5); // 3 stock + 1 etf(page2) + 1 lox
-});
-
-test('merged pagination finds DEGIRO\'s own Previous/Next by position, not by their (localised) aria-labels', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  // as on a Dutch account
-  await page.evaluate(() => document.querySelectorAll('.holdings [data-name=pagination]').forEach(p => {
-    const b = p.querySelectorAll('button');
-    b[0].setAttribute('aria-label', 'Vorige pagina');
-    b[b.length - 1].setAttribute('aria-label', 'Volgende pagina');
-  }));
-  const opt = await settings(); await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  const pager = page.locator('[data-dg-portfolio-table] + [data-name=pagination]');
-  await expect(pager.locator('[data-dg-page=prev]')).toBeDisabled();
-  await expect(pager.locator('[data-dg-page=next]')).toBeEnabled();
-  await pager.locator('[data-dg-page=next]').click();
-  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(5);
-  await expect(pager.locator('[data-dg-page=next]')).toBeDisabled();
-  await expect(pager.locator('[data-dg-page=prev]')).toBeEnabled();
-  await pager.locator('[data-dg-page=prev]').click();
-  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
-});
-
 test('the merged pager stays visible, with both buttons disabled, while every section is on its only page', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings(); await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
@@ -622,75 +385,13 @@ test('the merged pager stays visible, with both buttons disabled, while every se
   await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
 });
 
-test('the merged pager shows the furthest page any section is on', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings(); await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  const pager = page.locator('[data-dg-portfolio-table] + [data-name=pagination]');
-  await expect(pager.locator('[data-dg-page=current]')).toHaveText('1');
-  await pager.locator('[data-dg-page=next]').click();
-  await expect(pager.locator('[data-dg-page=current]')).toHaveText('2'); // etf on page 2, stock/lox on 1
-});
-
-test('numeric sort: a live tick on a sorted row updates its merged cell and re-sorts', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Value' }).click(); // ascending
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Value' })).toHaveAttribute('aria-sort', 'ascending');
-  const lastRow = page.locator('[data-dg-portfolio-table] tbody tr:last-child');
-  await expect(lastRow.locator('[data-name=productName]')).toHaveText('Mock S&P 500 ETF USD'); // 13.120,00, the largest
-  // Mock Pharma NV (886,00) ticks up past every other value
-  await page.evaluate(() => {
-    document.querySelector('[data-name=productName][data-id="332109"]').closest('tr').querySelector('[data-field=value]').textContent = '99.999,99';
-  });
-  await expect(lastRow.locator('[data-name=productName]')).toHaveText('Mock Pharma NV');
-  await expect(lastRow.locator('[data-field=value]')).toHaveText('99.999,99');
-});
-
-test('persist on: toggling persist off then on again mid-session restores the stored sort, without a reload', async ({ degiro, settings }) => {
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
-  const { page } = await degiro({ url: URL_P });
-  const product = page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Product' });
-  await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
-  await expect(product).toHaveAttribute('aria-sort', 'ascending');
-  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('dgPortfolioSort'))).toEqual({ dgPortfolioSort: { col: 'product', dir: 'ascending' } });
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: false }));
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedPersist: true }));
-  await expect(product).toHaveAttribute('aria-sort', 'ascending');
-});
-
 test('persist off: the Columns picker works for the session, and nothing is remembered after a reload', async ({ degiro, settings }) => {
   const opt = await settings();
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
   const { page } = await degiro({ url: URL_P });
   await page.locator('[data-dg-columns]').click();
   await page.locator('[role=listbox] label', { hasText: 'Qty' }).click();
-  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
   await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=qty]')).toBeHidden();
-  await page.locator('[data-dg-columns-reset]').click();
-  await expect(page.locator('[data-dg-columns]')).toHaveText('4 hidden ▾');
-  await page.locator('[role=listbox] label', { hasText: 'Qty' }).click();
-  await expect(page.locator('[data-dg-columns]')).toHaveText('5 hidden ▾');
-  expect(await opt.evaluate(() => chrome.storage.sync.get('portfolioHiddenColumns'))).toEqual({});
-  await page.reload();
-  await expect(page.locator('[data-dg-columns]')).toHaveText('4 hidden ▾');
-});
-
-// Review Focus (binding): a malformed or stale persisted value must fall back to the default rather
-// than throwing or rendering an empty table. sanitizePortfolioSort() isn't exported (orders-table.js's
-// own sanitizeSort isn't either, and has no dedicated unit test) — covered here the same way
-// sanitizeSort's correctness is covered today, through e2e behaviour.
-test('a stale saved sort column falls back to the default sort, and the table still renders', async ({ degiro, settings }) => {
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({
-    portfolioMergedTable: true, portfolioMergedPersist: true,
-    dgPortfolioSort: { col: 'noLongerAColumn', dir: 'ascending' }
-  }));
-  const { page } = await degiro({ url: URL_P });
-  await expect(page.locator('[data-dg-portfolio-table] thead th', { hasText: 'Type' })).toHaveAttribute('aria-sort', 'ascending');
-  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
 });
 
 test('disabling the merge restores the native tables and removes the merged UI; re-enabling rebuilds it cleanly', async ({ degiro, settings }) => {
