@@ -54,7 +54,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > PRICE ALARMS FOR YOUR FAVOURITES
 > • Alarm button on the page of any product in your Favourites: set a price, above or below, once, once a day or every time
 > • A banner appears in every open DEGIRO tab when the price is reached
-> • An Alarms page and sidebar item to see, switch and delete all alarms
+> • An Alarms page and sidebar item to see, switch and delete all alarms, with a choice of columns
 > • Gold alarm badges at the alarm prices on the product chart. Click one to edit that alarm
 > • Checked while DEGIRO's Favourites or a product page is open; stored in Chrome, nothing sent anywhere
 >
@@ -76,14 +76,16 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 >
 > This is an unofficial extension. It is not affiliated with, endorsed or supported by DEGIRO or flatexDEGIRO Bank. DEGIRO is a trademark of its owner.
 
-**Screenshots (1280×800):**
+**Screenshots (1280×800):** the Chrome Web Store listing caps real screenshots at 5, so pick 5 of
+the 6 below when actually uploading.
 1. Product page with spread row and orders on the chart
 2. Range selection showing % change
 3. Portfolio chart with the period change
 4. Orders page with filters, totals and the new sidebar links
 5. Settings popup with *On this page*
+6. Merged portfolio table combining Shares, Trackers and Structured products
 
-Take them from the real page with every personal number replaced: paste `scripts/screenshot-mask.js` into the DevTools console of a logged-in DEGIRO tab, save the four shots to `dist/screenshots-real/raw/` (see `scripts/store-images.spec.js`), and check each one. `npm run store-images` then writes the five screenshots (caption bar, 1280×800 JPEG, the settings popup added from the extension) and both promo tiles to `dist/store/`.
+Take them from the real page with every personal number replaced: paste `scripts/screenshot-mask.js` into the DevTools console of a logged-in DEGIRO tab, save the five shots to `dist/screenshots-real/raw/` (see `scripts/store-images.spec.js`), and check each one. `npm run store-images` then writes the six screenshots (caption bar, 1280×800 JPEG, the settings popup added from the extension) and both promo tiles to `dist/store/`.
 
 **Privacy policy URL:** a public URL for `PRIVACY.md`, for example the file on GitHub or GitHub Pages.
 
@@ -93,7 +95,7 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders and Transactions pages, the Orders sort column and direction, the merged Portfolio table's sort and hidden columns (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort and hidden columns (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.
 
 **Remote code:** No, I am not using remote code. All JavaScript is included in the package.
@@ -114,7 +116,7 @@ The Web Store also asks about **Website content**, because the extension reads p
 
 - [ ] Read DEGIRO's terms of use about browser extensions and automated access
 - [ ] Publish `PRIVACY.md` at a public URL
-- [x] Make 5 screenshots and the promo tiles (`npm run store-images`, real page with mock numbers): product page with spread and order badges, range selection, portfolio chart, Orders filters, popup with *On this page*
+- [x] Make 6 screenshots and the promo tiles (`npm run store-images`, real page with mock numbers): product page with spread and order badges, range selection, portfolio chart, Orders filters, popup with *On this page*, merged portfolio table (pick 5 of the 6 when uploading — the store caps at 5)
 - [x] Check that the icon has nothing that could pass for DEGIRO's logo (now indigo; it was DEGIRO's blue)
 - [ ] `npm test` passes
 - [ ] `npm run build` → upload `dist/tweaks-for-degiro-<version>.zip`

@@ -468,8 +468,14 @@
   "alarmColRepeat": {
     "message": "Wiederholung"
   },
-  "alarmColLatest": {
+  "alarmColPrice": {
+    "message": "Preis"
+  },
+  "alarmColLast": {
     "message": "Letzter"
+  },
+  "alarmColSeen": {
+    "message": "Gesehen"
   },
   "alarmColDistance": {
     "message": "Abstand"
@@ -518,9 +524,6 @@
   },
   "alarmTipNoTrading": {
     "message": "das Produkt steht in der Liste, hat aber gerade keinen Kurs, zum Beispiel vor Börsenöffnung."
-  },
-  "alarmSeen": {
-    "message": "gesehen $1"
   },
   "alarmEmpty": {
     "message": "Noch keine Alarme. Öffnen Sie ein Produkt in Ihren Favoriten und drücken Sie Alarm."

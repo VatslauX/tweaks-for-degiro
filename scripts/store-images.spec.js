@@ -1,10 +1,12 @@
-// Chrome Web Store images: 5 screenshots (1280×800), small promo tile (440×280), marquee (1400×560).
+// Chrome Web Store images: 6 screenshots (1280×800), small promo tile (440×280), marquee (1400×560).
 // Run: npm run store-images  →  dist/store/
 //
 // Screenshots come from the real trader.degiro.nl, taken by hand in a logged-in tab after pasting
 // scripts/screenshot-mask.js into the DevTools console (it replaces every personal number with a
-// mock value), and saved as dist/screenshots-real/raw/{1-product,2-range,3-portfolio,4-orders}.{png,jpg}.
-// The settings popup is captured here from the extension itself, over the product screenshot.
+// mock value), and saved as dist/screenshots-real/raw/{1-product,2-range,3-portfolio,4-orders,
+// 6-merged-portfolio}.{png,jpg}. The settings popup is captured here from the extension itself,
+// over the product screenshot. The Chrome Web Store listing itself caps real screenshots at 5, so
+// drop one of these six when actually uploading (not decided here).
 const { test, expect } = require('../tests/e2e/fixtures');
 const path = require('path');
 const fs = require('fs');
@@ -20,7 +22,8 @@ const SHOTS = [
   ['1-product', 'Spread, period change and your open orders on the chart'],
   ['2-range', 'Drag on the chart to see the change between two points'],
   ['3-portfolio', 'The same on your portfolio chart'],
-  ['4-orders', 'Filter orders and transactions, with totals and your columns']
+  ['4-orders', 'Filter orders and transactions, with totals and your columns'],
+  ['6-merged-portfolio', 'Merge Shares, Trackers and Structured products into one sortable table']
 ];
 
 const raw = name => {

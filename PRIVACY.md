@@ -1,6 +1,6 @@
 # Privacy Policy — Tweaks for DEGIRO (unofficial)
 
-_Last updated: 6 November 2026_
+_Last updated: 10 November 2026_
 
 Tweaks for DEGIRO is an unofficial browser extension that adds display features to the DEGIRO web trader at `trader.degiro.nl`. It is not affiliated with DEGIRO or flatexDEGIRO Bank.
 
@@ -20,7 +20,7 @@ The extension does not collect, sell or share your personal data. It stores only
 | **Your holdings shown on DEGIRO's Portfolio page** (product, quantity, values, gains and losses), only with *Merge holdings into one table* on | To merge DEGIRO's holdings tables into one sortable table | Read from the page you are viewing; no extra requests. Kept in page memory only; never stored or sent anywhere else |
 | **Prices of your favourite products on the DEGIRO page** (Favourites list and product page) | To check your price alarms | Read from the page you are viewing; no extra requests. Used to compare with your alarms and stored as described in the next row |
 | **Your price alarms** (product id, name, symbol, currency, price, repeat, on/off), **last seen prices and times**, and **open alarm banners** | To check alarms and show a banner when a price is reached | Saved in Chrome's storage on your computer. The alarm list uses `storage.sync`, which Chrome may sync to your own Google account; the last seen prices and open banners use `storage.local` and stay in this browser. While a product's page is open with *Alarms on the chart* switched on, that product's id and the price and direction (above/below) of its switched-on alarms are written into the page, so the chart part of the extension can draw them; the DEGIRO page can read them there while it is open. Never sent anywhere else |
-| **Your extension settings** (feature on/off switches, list of section titles to hide, columns hidden on Orders and Transactions, the Orders sort column and direction, and, only with *Remember Portfolio table sort & columns* on, the merged Portfolio table's sort and hidden columns) | To remember your preferences | Saved with Chrome's `storage.sync`, which Chrome may sync to your own Google account. Contains no personal or financial data |
+| **Your extension settings** (feature on/off switches, list of section titles to hide, columns hidden on Orders, Transactions and Alarms (`alarmHiddenColumns` for the Alarms page), the Orders sort column and direction, and, only with *Remember Portfolio table sort & columns* on, the merged Portfolio table's sort and hidden columns) | To remember your preferences | Saved with Chrome's `storage.sync`, which Chrome may sync to your own Google account. Contains no personal or financial data |
 
 ## What the extension does not do
 

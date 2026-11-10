@@ -23,6 +23,7 @@ const DG_DEFAULTS = {
   portfolioMergedTable: false, // Portfolio page: merge the three holdings tables into one
   portfolioMergedPersist: false, // Portfolio merged table: remember the setting across visits
   portfolioHiddenColumns: ['symbolIsin', 'exchange', 'last', 'delay'], // Portfolio columns to hide (DG_PORTFOLIO_COLUMNS)
+  alarmHiddenColumns: /** @type {string[]} */ ([]), // Alarms page columns to hide (DG_ALARM_COLUMNS); all visible by default
   hideSections: true,  // hide sections listed below
   // DEGIRO's Cash compensation section is also found by its hook, in any language
   hiddenTitles: ['Cash compensation', 'Cash compensatie', 'Barausgleich', 'Compensation espèces']
@@ -39,6 +40,9 @@ const DG_ORDER_COLUMNS = ['date', 'symbolIsin', 'exchange', 'action', 'qty', 'li
 // Portfolio holdings-table columns that can be hidden (Product and Type never can).
 const DG_PORTFOLIO_COLUMNS = ['symbolIsin', 'exchange', 'qty', 'price', 'currency', 'value', 'bep', 'plEuro',
   'plPercent', 'unrealisedPl', 'totalPl', 'last', 'delay'];
+
+// Alarms page columns that can be hidden (Product and On never can).
+const DG_ALARM_COLUMNS = ['price', 'last', 'seen', 'alarm', 'distance', 'repeat', 'status'];
 
 // Flags read by the page-context scripts — the only ones exposed to the page.
 const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick', 'alarmLines', 'alarmLinesClick'];
@@ -72,6 +76,7 @@ function dgSanitize(s) {
   if (Array.isArray(s.txHiddenColumns)) out.txHiddenColumns = DG_TX_COLUMNS.filter(c => s.txHiddenColumns.includes(c));
   if (Array.isArray(s.ordersHiddenColumns)) out.ordersHiddenColumns = DG_ORDER_COLUMNS.filter(c => s.ordersHiddenColumns.includes(c));
   if (Array.isArray(s.portfolioHiddenColumns)) out.portfolioHiddenColumns = DG_PORTFOLIO_COLUMNS.filter(c => s.portfolioHiddenColumns.includes(c));
+  if (Array.isArray(s.alarmHiddenColumns)) out.alarmHiddenColumns = DG_ALARM_COLUMNS.filter(c => s.alarmHiddenColumns.includes(c));
   return out;
 }
 

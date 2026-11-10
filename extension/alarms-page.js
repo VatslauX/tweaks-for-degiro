@@ -5,8 +5,12 @@
   const { SEL, page, OWN, own, feature, t, fmt, schedule } = __dgt; // common.js
   const R = dgAlarmRules, S = dgAlarmStore;
   const ROOT = 'data-dg-alarms-page', STYLE = 'dg-alarms-page-style';
-  /** @type {{ status: string, products: Set<number>, menu: boolean }} */
-  const view = { status: 'all', products: new Set(), menu: false };
+  /** @type {{ status: string, products: Set<number>, open: 'products' | 'columns' | null }} */
+  const view = { status: 'all', products: new Set(), open: null };
+  // header/body label for each hideable column (DG_ALARM_COLUMNS); Product and On are never hideable.
+  const ALARM_COL_LABEL = { price: 'alarmColPrice', last: 'alarmColLast', seen: 'alarmColSeen',
+    alarm: 'alarmColAlarm', distance: 'alarmColDistance', repeat: 'alarmColRepeat', status: 'alarmColStatus' };
+  const ALARM_RIGHT_ALIGN = new Set(['price', 'last', 'seen', 'alarm', 'distance']);
   let sig = '';
   /** The "?" hint on the Status header: open by pointer hover, keyboard focus or a click (pinned). Kept here so a rebuild keeps it. */
   const tip = { hover: false, focus: false, pinned: false };
@@ -20,7 +24,7 @@
     document.querySelectorAll('[data-dg-alarm-tip-bubble]').forEach(b => b.remove());
     sig = '';
     tip.hover = tip.focus = tip.pinned = false;
-    view.menu = false;
+    view.open = null;
     view.status = 'all'; // the filters live only while the page is open
     view.products.clear();
     if (!document.querySelector('[data-dg-toggle]')) document.getElementById('dg-toggle-style')?.remove();
@@ -153,7 +157,30 @@
     }));
     const n = view.products.size;
     filters.append(dgUi.picker({ kind: 'alarm-products', label: n ? t('ordersSelected', n) : t('ordersAllProducts'), active: n > 0, items, th, align: 'right',
-      open: view.menu, onToggle: () => { view.menu = !view.menu; schedule(true); }, onChange: () => schedule(true) }));
+      open: view.open === 'products', onToggle: () => { view.open = view.open === 'products' ? null : 'products'; schedule(true); }, onChange: () => schedule(true) }));
+    // checked = shown; Reset brings back the default (all columns shown) — same semantics as
+    // orders-table.js's own columnPicker and the merged Portfolio table's.
+    const hiddenCols = dgSettings.alarmHiddenColumns;
+    const colItems = DG_ALARM_COLUMNS.map(k => ({
+      text: t(ALARM_COL_LABEL[k]),
+      checked: !hiddenCols.includes(k),
+      change: (/** @type {boolean} */ on) => {
+        const cur = dgSettings.alarmHiddenColumns; // read fresh: an earlier click in the same menu may already have replaced it
+        const next = on ? cur.filter(c => c !== k) : [...cur, k];
+        dgSettings.alarmHiddenColumns = DG_ALARM_COLUMNS.filter(c => next.includes(c));
+        try { chrome.storage.sync.set({ alarmHiddenColumns: dgSettings.alarmHiddenColumns }).catch(() => {}); } catch (e) {}
+      }
+    }));
+    const reset = dgUi.chip(t('columnsReset'), false, () => {
+      dgSettings.alarmHiddenColumns = DG_DEFAULTS.alarmHiddenColumns;
+      try { chrome.storage.sync.set({ alarmHiddenColumns: dgSettings.alarmHiddenColumns }).catch(() => {}); } catch (e) {}
+      schedule(true);
+    }, th);
+    reset.dataset.dgColumnsReset = '';
+    reset.style.marginTop = '4px';
+    filters.append(dgUi.group(t('columns'), th, dgUi.picker({ kind: 'columns', label: hiddenCols.length ? t('columnsHidden', hiddenCols.length) : t('allColumns'),
+      active: hiddenCols.length > 0, items: colItems, th, footer: reset, align: 'right',
+      open: view.open === 'columns', onToggle: () => { view.open = view.open === 'columns' ? null : 'columns'; schedule(true); }, onChange: () => schedule(true) })));
     head.append(title, filters);
     out.push(head);
 
@@ -167,13 +194,17 @@
     const wrap = el('div', `overflow-x:auto;margin-top:12px;border:1px solid ${th.line};border-radius:8px;`);
     wrap.setAttribute('data-dg-alarm-scroll', '');
     const table = el('table', 'border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums;');
+    const shownCols = DG_ALARM_COLUMNS.filter(k => !hiddenCols.includes(k));
     const thead = document.createElement('thead');
     const hr = document.createElement('tr');
-    ['alarmColProduct', 'alarmColLatest', 'alarmColAlarm', 'alarmColDistance', 'alarmColRepeat', 'alarmColStatus', 'alarmColOn', ''].forEach(k => {
-      const h = el('th', `text-align:${k === 'alarmColLatest' || k === 'alarmColAlarm' || k === 'alarmColDistance' ? 'right' : 'left'};font-weight:500;color:${th.muted};font-size:12px;padding:9px 12px;border-bottom:1px solid ${th.line};white-space:nowrap;`, k ? t(k) : '');
-      if (k === 'alarmColStatus') h.append(tipButton());
-      hr.append(h);
-    });
+    const headCell = (/** @type {string} */ key, /** @type {string} */ labelKey, /** @type {boolean} */ right) => {
+      const h = el('th', `text-align:${right ? 'right' : 'left'};font-weight:500;color:${th.muted};font-size:12px;padding:9px 12px;border-bottom:1px solid ${th.line};white-space:nowrap;`, labelKey ? t(labelKey) : '');
+      if (key === 'status') h.append(tipButton());
+      return h;
+    };
+    hr.append(headCell('', 'alarmColProduct', false));
+    shownCols.forEach(k => hr.append(headCell(k, ALARM_COL_LABEL[k], ALARM_RIGHT_ALIGN.has(k))));
+    hr.append(headCell('', 'alarmColOn', false), headCell('', '', false));
     thead.append(hr);
     const tbody = document.createElement('tbody');
     const td = (/** @type {string} */ css = '') => el('td', `padding:9px 12px;border-bottom:1px solid ${th.line};white-space:nowrap;${css}`);
@@ -211,18 +242,25 @@
       if (a.symbol && link.textContent === R.label(a) && a.symbol !== link.textContent) link.title = a.symbol;
       prodRow.append(sideButton('buy', 'alarmBuyAria'), sideButton('sell', 'alarmSellAria'), link);
       prod.append(prodRow);
+      // Price/Last/Seen: always one line each, no wrapped sub-line. Price is the live tick only;
+      // Last is the value alarm-firing logic itself last compared against (extension/alarms.js),
+      // which can lag Price by up to SEEN_EVERY — a real, separate value, not a duplicate of Price.
+      const priceCell = td('text-align:right;');
+      priceCell.textContent = price != null ? money(a, price) : '–';
+      const lastCell = td('text-align:right;');
+      lastCell.textContent = st.last != null ? money(a, st.last) : '–';
+      const seenCell = td('text-align:right;');
+      seenCell.textContent = st.lastAt ? when(st.lastAt) : '–';
       const al = td(`text-align:right;color:${a.dir === 'above' ? th.buy : th.sell};`);
       al.textContent = `${a.dir === 'above' ? '↑' : '↓'} ${money(a, a.price)}`;
-      const rep = td();
-      rep.textContent = t(a.repeat === 'once' ? 'alarmOnce' : a.repeat === 'daily' ? 'alarmDaily' : 'alarmEach');
-      const last = td('text-align:right;');
-      last.textContent = ref != null ? money(a, ref) : '–';
-      if (price == null && st.lastAt) last.append(el('span', `display:block;color:${th.muted};font-size:11.5px;`, t('alarmSeen', when(st.lastAt))));
       const dist = td('text-align:right;');
       if (ref) { const p = (a.price / ref - 1) * 100; dist.textContent = `${p > 0 ? '+' : ''}${fmt(p)}%`; } else dist.textContent = '–';
+      const rep = td();
+      rep.textContent = t(a.repeat === 'once' ? 'alarmOnce' : a.repeat === 'daily' ? 'alarmDaily' : 'alarmEach');
       const stc = td();
       stc.setAttribute('data-dg-alarm-status', '');
       stc.append(dgUi.pill(status(a, st, price), statusKind(a, st, price), th));
+      const cell = { price: priceCell, last: lastCell, seen: seenCell, alarm: al, distance: dist, repeat: rep, status: stc };
       const onc = td();
       onc.append(dgUi.toggle({ on: a.on, label: t('alarmOnAria', money(a, a.price)), th, onChange: on => S.setOn(a.id, on) }));
       const delc = td();
@@ -242,7 +280,7 @@
       del.addEventListener('click', () => S.remove(a.id));
       acts.append(edit, del);
       delc.append(acts);
-      tr.append(prod, last, al, dist, rep, stc, onc, delc);
+      tr.append(prod, ...shownCols.map(k => cell[k]), onc, delc);
       tbody.append(tr);
     }
     table.append(thead, tbody);
@@ -268,7 +306,8 @@
     if (a.hasAttribute('data-dg-alarm-tip')) return '[data-dg-alarm-tip]';
     const f = a.getAttribute('data-dg-alarm-filter');
     if (f) return `[data-dg-alarm-filter="${CSS.escape(f)}"]`;
-    return a.hasAttribute('data-dg-alarm-products') ? '[data-dg-alarm-products]' : '';
+    if (a.hasAttribute('data-dg-alarm-products')) return '[data-dg-alarm-products]';
+    return a.hasAttribute('data-dg-columns') ? '[data-dg-columns]' : '';
   }
 
   function run() {
@@ -286,7 +325,8 @@
     view.products.forEach(p => { if (!ids.has(p)) view.products.delete(p); });
     const th = dgUi.theme();
     // an open menu must not be rebuilt under the cursor by a price tick
-    const key = JSON.stringify([S.list(), view.menu ? [] : S.state(), view.menu ? [] : [...S.live()], view.status, [...view.products], view.menu, [...S.listed()].sort((x, y) => x - y), th.bg, th.text]);
+    const menuOpen = !!view.open;
+    const key = JSON.stringify([S.list(), menuOpen ? [] : S.state(), menuOpen ? [] : [...S.live()], view.status, [...view.products], view.open, dgSettings.alarmHiddenColumns, [...S.listed()].sort((x, y) => x - y), th.bg, th.text]);
     let root = document.querySelector(`[${ROOT}]`);
     const list = main.querySelector(`:scope > ${SEL.favourites}`);
     // where DEGIRO's Favourites list was, so its footer stays at the bottom
@@ -365,14 +405,17 @@
     location.hash = `${path}?${params}`;
   }, true);
 
-  // a click outside the open product menu closes it
+  // a click outside the open product or columns menu closes it
   document.addEventListener('click', e => {
-    if (!view.menu) return;
+    if (!view.open) return;
     const target = /** @type {Element} */ (e.target);
-    if (target.closest?.(`[${ROOT}] [role=listbox], [data-dg-alarm-products]`)) return;
-    view.menu = false;
+    if (target.closest?.(`[${ROOT}] [role=listbox], [data-dg-alarm-products], [data-dg-columns]`)) return;
+    view.open = null;
     schedule(true);
   });
+
+  // a column choice from another tab needs a nudge, same as Orders/Transactions/Portfolio
+  dgOnSettings(() => schedule(true));
 
   feature({ name: 'alarmsPage', enabled: () => dgSettings.priceAlarms, run, stop: remove });
 })();

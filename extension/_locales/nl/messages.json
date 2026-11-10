@@ -468,8 +468,14 @@
   "alarmColRepeat": {
     "message": "Herhaling"
   },
-  "alarmColLatest": {
+  "alarmColPrice": {
+    "message": "Prijs"
+  },
+  "alarmColLast": {
     "message": "Laatste"
+  },
+  "alarmColSeen": {
+    "message": "Gezien"
   },
   "alarmColDistance": {
     "message": "Afstand"
@@ -518,9 +524,6 @@
   },
   "alarmTipNoTrading": {
     "message": "het product staat in de lijst maar heeft nu geen koers, bijvoorbeeld voordat de markt opent."
-  },
-  "alarmSeen": {
-    "message": "gezien $1"
   },
   "alarmEmpty": {
     "message": "Nog geen alarmen. Open een product in je Favorieten en druk op Alarm."

@@ -1,5 +1,8 @@
 # Release notes
 
+## Unreleased
+- **Alarms page columns**: a *Columns* menu on the Alarms page chooses which columns to show (Product and On always show); all columns are visible by default. The old *Latest* column is now separate *Price*, *Last* and *Seen* columns, each on one line.
+
 ## 1.22.0 — 2026-11-06
 - **Merged Portfolio table** (optional): a new switch in Settings, *Merge holdings into one table*, combines Shares, Trackers (ETFs) and Structured products into one sortable table on the Portfolio page, with a *Type* column and a *Columns* menu. Off by default.
 - **Remember Portfolio table sort & columns**: a sub-setting that keeps the merged table's sort and hidden columns across reloads. Off by default.

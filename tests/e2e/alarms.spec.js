@@ -358,20 +358,105 @@ test('the price is pre-filled with all its decimals', async ({ degiro }) => {
 });
 
 // stays in Playwright: getComputedStyle textAlign
-test('Alarms page columns: Latest comes before Alarm, numbers right-aligned', async ({ degiro, settings }) => {
+test('Alarms page columns: Price comes before Alarm, numbers right-aligned', async ({ degiro, settings }) => {
   await seed(settings, [alarm({ price: 18 })]);
   const { page } = await degiro({ url: FAV });
   await page.evaluate(() => { location.hash = '#/favourites?dg=alarms'; });
   await expect(rows(page)).toHaveCount(1);
   const heads = page.locator('[data-dg-alarms-page] thead th');
-  await expect(heads).toHaveText(['Product', 'Latest', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect(heads).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
   const cells = rows(page).first().locator('td');
   await expect(cells.nth(1)).toContainText('€ 16,92');
-  await expect(cells.nth(2)).toContainText('18');
+  await expect(cells.nth(4)).toContainText('18');
   const aligns = await page.evaluate(() => [...document.querySelectorAll('[data-dg-alarms-page] thead th, [data-dg-alarms-page] tr[data-dg-alarm-id] td')].map(c => getComputedStyle(c).textAlign));
   const n = aligns.length / 2;
-  for (const i of [1, 2, 3]) { expect(aligns[i]).toBe('right'); expect(aligns[n + i]).toBe('right'); }
-  for (const i of [0, 4, 5]) expect(aligns[i]).not.toBe('right');
+  for (const i of [1, 2, 3, 4, 5]) { expect(aligns[i]).toBe('right'); expect(aligns[n + i]).toBe('right'); }
+  for (const i of [0, 6, 7]) expect(aligns[i]).not.toBe('right');
+});
+
+// stays in Playwright: getBoundingClientRect
+test('Alarms page rows: a last-seen price (no live price) stays one line tall, like a live row', async ({ degiro, settings }) => {
+  const live = alarm({ productId: 123, price: 18 });
+  const seen = alarm({ productId: 999, price: 18 }); // not in the Favourites mock: never live
+  await seed(settings, [live, seen], { dgAlarmState: { [seen.id]: { last: 16.5, lastAt: Date.now() - 60000 } } });
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await expect(rows(page)).toHaveCount(2);
+  const liveRow = page.locator(`tr[data-dg-alarm-id="${live.id}"]`);
+  // wait for the live price itself, not just the row: a price tick (or alarms.js writing
+  // last/lastAt) can still rebuild the whole table after the rows first appear, replacing both
+  // <tr>s. Reading each row's height from a separate locator call can straddle that rebuild and
+  // catch one row already detached (height 0) while the other is the fresh one. A single
+  // evaluate() reads both rows' current height together, so it cannot straddle a rebuild.
+  await expect(liveRow.locator('td').nth(1)).toContainText('€ 16,92');
+  const heights = () => page.evaluate(([l, s]) => [l, s].map(id =>
+    document.querySelector(`tr[data-dg-alarm-id="${id}"]`)?.getBoundingClientRect().height ?? 0), [live.id, seen.id]);
+  await expect.poll(async () => { const [l, s] = await heights(); return l > 0 && s > 0; }).toBe(true);
+  const [liveH, seenH] = await heights();
+  expect(seenH).toBe(liveH);
+});
+
+// stays in Playwright: clicking a real checkbox dropdown, storage round-trip
+test('Alarms page: all columns are visible by default; the Columns picker hides and persists them', async ({ degiro, settings }) => {
+  const live = alarm({ productId: 123, price: 18 });
+  const seen = alarm({ productId: 999, price: 18 });
+  const opt = await seed(settings, [live, seen], { dgAlarmState: { [seen.id]: { last: 16.5, lastAt: Date.now() - 60000 } } });
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  await expect(page.locator('[data-dg-alarms-page] thead th')).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  const seenCell = page.locator(`tr[data-dg-alarm-id="${seen.id}"] td`).nth(3);
+  await expect(seenCell).not.toHaveText('');
+  await page.click('[data-dg-alarms-page] [data-dg-columns]');
+  const menu = page.locator('[data-dg-alarms-page] [role=listbox]');
+  await expect(menu.locator('label', { hasText: 'Last' }).locator('input')).toBeChecked();
+  await expect(menu.locator('label', { hasText: 'Seen' }).locator('input')).toBeChecked();
+  await menu.locator('label', { hasText: 'Last' }).click();
+  await menu.locator('label', { hasText: 'Seen' }).click();
+  await expect(page.locator('[data-dg-alarms-page] thead th')).toHaveText(['Product', 'Price', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmHiddenColumns').then(r => r.alarmHiddenColumns))).toEqual(['last', 'seen']);
+  // Reset shows every column again
+  await page.locator('[data-dg-columns-reset]').click();
+  await expect(page.locator('[data-dg-alarms-page] thead th')).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmHiddenColumns').then(r => r.alarmHiddenColumns))).toEqual([]);
+});
+
+// stays in Playwright: clicking real dropdown toggle buttons
+test('Alarms page: the Products and Columns pickers are mutually exclusive', async ({ degiro, settings }) => {
+  await seed(settings, [alarm({ productId: 555, name: 'Other ETF' }), alarm()]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.bringToFront();
+  const productsBtn = page.locator('[data-dg-alarm-products]');
+  const columnsBtn = page.locator('[data-dg-alarms-page] [data-dg-columns]');
+  const menu = page.locator('[data-dg-alarms-page] [role=listbox]');
+  await productsBtn.click();
+  await expect(productsBtn).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu).toHaveCount(1);
+  // opening Columns must close the open Products picker, not leave both open
+  await columnsBtn.click();
+  await expect(productsBtn).toHaveAttribute('aria-expanded', 'false');
+  await expect(columnsBtn).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu).toHaveCount(1); // exactly one menu rendered, not both
+  await expect(menu.locator('[data-dg-columns-reset]')).toHaveCount(1); // it's the Columns menu, not Products
+  // and the other way round
+  await productsBtn.click();
+  await expect(columnsBtn).toHaveAttribute('aria-expanded', 'false');
+  await expect(productsBtn).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu).toHaveCount(1);
+  await expect(menu.locator('[data-dg-columns-reset]')).toHaveCount(0); // back to the Products menu
+});
+
+// stays in Playwright: second real tab, storage round-trip
+test('Alarms page columns: saved choice propagates to a second tab live', async ({ degiro, settings, context }) => {
+  const opt = await seed(settings, [alarm({ price: 18 })]);
+  const { page: a } = await degiro({ url: ALARMS });
+  const b = await context.newPage();
+  await b.goto(ALARMS);
+  const headsA = a.locator('[data-dg-alarms-page] thead th'), headsB = b.locator('[data-dg-alarms-page] thead th');
+  await expect(headsA).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect(headsB).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await opt.evaluate(() => chrome.storage.sync.set({ alarmHiddenColumns: ['last', 'seen'] }));
+  await expect(headsA).toHaveText(['Product', 'Price', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect(headsB).toHaveText(['Product', 'Price', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
 });
 
 // ---------- Status "?" hint (Alarms page) ----------

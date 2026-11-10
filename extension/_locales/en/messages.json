@@ -517,8 +517,14 @@
   "alarmColRepeat": {
     "message": "Repeat"
   },
-  "alarmColLatest": {
-    "message": "Latest"
+  "alarmColPrice": {
+    "message": "Price"
+  },
+  "alarmColLast": {
+    "message": "Last"
+  },
+  "alarmColSeen": {
+    "message": "Seen"
   },
   "alarmColDistance": {
     "message": "Distance"
@@ -567,9 +573,6 @@
   },
   "alarmTipNoTrading": {
     "message": "the product is in the list but has no price right now, for example before the market opens."
-  },
-  "alarmSeen": {
-    "message": "seen $1"
   },
   "alarmEmpty": {
     "message": "No alarms yet. Open a product in your Favourites and press Alarm."
