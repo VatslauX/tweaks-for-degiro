@@ -10,7 +10,6 @@
   // carries the row's data-id), so it has no entry here.
   const PORTFOLIO_HOOKS = {
     symbolIsin: '[data-name=symbolIsin]',
-    exchange: '[data-name=exchangeAbbr]',
     qty: '[data-field=size]',
     price: '[data-field=price]',
     currency: '[data-field=currency]',
@@ -20,7 +19,6 @@
     plPercent: '[data-field=change]',
     unrealisedPl: '[data-field=unrealizedRelativePl]',
     totalPl: '[data-field=totalPl]',
-    last: '[data-field=lastUpdate]',
     delay: '[data-name=feedQuality]'
   };
   // unrealisedPl's native <td> holds the percentage above (its PORTFOLIO_HOOKS entry, used — like
@@ -36,23 +34,23 @@
   const LOOK_HOOKS = { ...PORTFOLIO_HOOKS, product: SEL.portfolioProduct };
 
   // Merged table column order (Product and Type are never hideable).
-  const COLUMN_ORDER = ['product', 'type', 'symbolIsin', 'exchange', 'qty', 'price', 'currency', 'value',
-    'bep', 'plEuro', 'plPercent', 'unrealisedPl', 'totalPl', 'last', 'delay'];
+  const COLUMN_ORDER = ['product', 'type', 'symbolIsin', 'qty', 'price', 'currency', 'value',
+    'bep', 'plEuro', 'plPercent', 'unrealisedPl', 'totalPl', 'delay'];
   // Each header normally mirrors DEGIRO's own (localised) <th> text for that column (nativeLook()
   // below). These English labels are only the fallback while no native header text is found for a
   // column (e.g. the native tables are briefly absent).
   /** @type {Record<string, string>} */
   const COLUMN_LABEL = {
-    product: 'Product', symbolIsin: 'Symbol | ISIN', exchange: 'Exchange', qty: 'Qty', price: 'Price',
+    product: 'Product', symbolIsin: 'Symbol | ISIN', qty: 'Qty', price: 'Price',
     currency: 'Curr.', value: 'Value', bep: 'BEP', plEuro: 'P/L €', plPercent: 'P/L %',
-    unrealisedPl: 'Unrealised P/L €', totalPl: 'Total P/L€', last: 'Last'
+    unrealisedPl: 'Unrealised P/L €', totalPl: 'Total P/L€'
   };
   // Columns DEGIRO has no header text for: Type is this feature's own, and the native Delay <th> is blank.
   /** @type {Record<string, () => string>} */
   const OWN_LABEL = { type: () => t('portfolioType'), delay: () => t('portfolioDelay') };
   // Columns compared as numbers (parseNum handles both "1.234,56" and "1,234.56"); Type sorts by
-  // DEGIRO's own section order (TYPE_ORDER), everything else (Product, Symbol | ISIN, Exchange,
-  // Curr., Last, Delay) lexically as text.
+  // DEGIRO's own section order (TYPE_ORDER), everything else (Product, Symbol | ISIN,
+  // Curr., Delay) lexically as text.
   const NUMERIC_COLUMNS = new Set(['qty', 'price', 'value', 'bep', 'plEuro', 'plPercent', 'unrealisedPl', 'totalPl']);
   // DEGIRO colors each of these per ROW, by that row's own value's sign (red for a loss, green for a
   // gain, confirmed live) via its own short class on its native element — never a property of the
@@ -80,6 +78,7 @@
   /** @type {Row['type'][]} */
   const TYPE_ORDER = ['stock', 'etf', 'lox']; // Shares, Trackers (ETFs), Structured products
   const HIDDEN = 'data-dg-portfolio-hidden'; // marks DEGIRO's own section headings, tables and pagers we hide
+  const TOGGLE = 'data-dg-product-toggle'; // the Product header's expand/collapse chevron button
 
   // The Type column's coloured chip per section: a short label (DEGIRO's own section headings, e.g.
   // "Trackers (ETFs)", are too long for a column) and the approved mockup's pastel colours in the
@@ -114,6 +113,8 @@
 
   /** @type {HTMLTableElement | null} */
   let table = null; // the merged table: built once, kept (not recreated) while the feature stays on
+  /** @type {HTMLElement | null} */
+  let scroller = null; // the merged table's own horizontal-scroll wrapper (scrollWrap()), built with it
 
   /** @typedef {{ col: string, dir: 'ascending' | 'descending' }} SortState */
   const DEFAULT_SORT = /** @type {SortState} */ ({ col: 'type', dir: 'ascending' });
@@ -125,6 +126,13 @@
   // chrome.storage.sync (see hiddenColumns()/saveColumns() below).
   /** @type {string[]} */
   let sessionHidden = DG_DEFAULTS.portfolioHiddenColumns;
+  // Product column width, like DEGIRO's own name-cell chevron (data-name=toggleNameCellBtnWidth):
+  // collapsed (the default) caps the column at PRODUCT_MAX_WIDTH with an ellipsis on long names;
+  // expanded shows full names. Kept, read and written exactly like sortState: the toggle works for
+  // the session either way, and is only remembered (dgPortfolioWide) while portfolioMergedPersist is on.
+  const DEFAULT_WIDE = false;
+  const PRODUCT_MAX_WIDTH = 320; // DEGIRO's own collapsed name cell: min-width = max-width = 320px (confirmed live)
+  let productWide = DEFAULT_WIDE;
 
   // Mirrors sanitizeSort() in orders-table.js: rejects a col outside this table's own columns, or a
   // dir that isn't a real aria-sort value, so a stale (older version, now-renamed/removed column) or
@@ -146,19 +154,39 @@
   // below never writes one) — the saved value itself is left alone in chrome.storage.sync, so turning
   // the toggle on again later restores it.
   let dgPortfolioSort = /** @type {SortState | null} */ (null);
+  // The stored Product width (dgPortfolioWide): anything but a real boolean counts as "none stored".
+  let dgPortfolioWide = /** @type {boolean | null} */ (null);
+  /** @param {unknown} v @returns {boolean | null} */
+  const sanitizeWide = v => typeof v === 'boolean' ? v : null;
   try {
-    chrome.storage.sync.get({ dgPortfolioSort: null }, r => {
+    chrome.storage.sync.get({ dgPortfolioSort: null, dgPortfolioWide: null }, r => {
       dgPortfolioSort = sanitizePortfolioSort(r?.dgPortfolioSort);
+      dgPortfolioWide = sanitizeWide(r?.dgPortfolioWide);
       if (dgSettings.portfolioMergedPersist && dgPortfolioSort) sortState = dgPortfolioSort;
+      if (dgSettings.portfolioMergedPersist && dgPortfolioWide !== null) productWide = dgPortfolioWide;
       schedule();
     });
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'sync' || !changes.dgPortfolioSort) return;
-      dgPortfolioSort = sanitizePortfolioSort(changes.dgPortfolioSort.newValue);
-      if (dgSettings.portfolioMergedPersist && dgPortfolioSort) sortState = dgPortfolioSort;
+      if (area !== 'sync' || !(changes.dgPortfolioSort || changes.dgPortfolioWide)) return;
+      if (changes.dgPortfolioSort) {
+        dgPortfolioSort = sanitizePortfolioSort(changes.dgPortfolioSort.newValue);
+        if (dgSettings.portfolioMergedPersist && dgPortfolioSort) sortState = dgPortfolioSort;
+      }
+      if (changes.dgPortfolioWide) {
+        dgPortfolioWide = sanitizeWide(changes.dgPortfolioWide.newValue);
+        if (dgSettings.portfolioMergedPersist && dgPortfolioWide !== null) productWide = dgPortfolioWide;
+      }
       schedule();
     });
   } catch (e) {}
+
+  /** @param {boolean} wide */
+  function saveWide(wide) {
+    productWide = wide;
+    if (!dgSettings.portfolioMergedPersist) return; // never write while the toggle is off
+    dgPortfolioWide = wide;
+    try { chrome.storage.sync.set({ dgPortfolioWide: wide }).catch(() => {}); } catch (e) {}
+  }
 
   /** @param {string} col @param {'ascending' | 'descending'} dir */
   function saveSort(col, dir) {
@@ -175,13 +203,16 @@
   // only remembering them does. So this reacts only to the toggle itself changing: off, reset both
   // working values to the defaults; on again, pick the last-sanitized stored sort back up immediately
   // (hiddenColumns() then reads the stored columns again by itself) — no reload needed either way.
+  // The Product width (productWide) follows the very same rule as sortState.
   let sortPersistWas = dgSettings.portfolioMergedPersist;
   dgOnSettings(() => {
     const on = dgSettings.portfolioMergedPersist;
     if (on === sortPersistWas) return;
     sortPersistWas = on;
-    if (on) { if (dgPortfolioSort) sortState = dgPortfolioSort; }
-    else { sortState = DEFAULT_SORT; sessionHidden = DG_DEFAULTS.portfolioHiddenColumns; }
+    if (on) {
+      if (dgPortfolioSort) sortState = dgPortfolioSort;
+      if (dgPortfolioWide !== null) productWide = dgPortfolioWide;
+    } else { sortState = DEFAULT_SORT; sessionHidden = DG_DEFAULTS.portfolioHiddenColumns; productWide = DEFAULT_WIDE; }
     schedule(true);
   });
 
@@ -303,15 +334,39 @@
 
   // One owned style: hides the marked native elements, and draws the sort arrow after the sorted
   // header's label (blue ↑/↓, like DEGIRO's own "Product ↑") as CSS content — so it never becomes
-  // part of the header's text, which the Columns picker offers as the column's label.
+  // part of the header's text, which the Columns picker offers as the column's label. Every other
+  // header gets a faint ↕ (stronger on hover/focus), so all columns read as sortable. It also caps
+  // the Product column while it is collapsed (the table has no data-dg-product-wide), as DEGIRO's own
+  // name cell does: max-width on the cell, and an ellipsis on the name — the Buy/Sell buttons keep
+  // their size (flex:none) and the name's link/span shrink instead (min-width:0).
   function ensureStyle() {
     if (document.getElementById('dg-portfolio-style')) return;
     const style = /** @type {HTMLStyleElement} */ (own(document.createElement('style')));
     style.id = 'dg-portfolio-style';
     const arrow = 'color:' + dgUi.BLUE + ';margin-left:4px;font-weight:inherit;';
+    const sortBtn = `> button:not([${TOGGLE}])`;
+    const narrow = '[data-dg-portfolio-table]:not([data-dg-product-wide])';
+    const nameCell = `${narrow} > tbody > tr > td:first-child`;
     style.textContent = `[${HIDDEN}] { display: none !important; }\n` +
-      `[data-dg-portfolio-table] th[aria-sort=ascending] > button::after { content: "\\2191"; ${arrow} }\n` +
-      `[data-dg-portfolio-table] th[aria-sort=descending] > button::after { content: "\\2193"; ${arrow} }`;
+      `[data-dg-portfolio-table] th[aria-sort=ascending] ${sortBtn}::after { content: "\\2191"; ${arrow} }\n` +
+      `[data-dg-portfolio-table] th[aria-sort=descending] ${sortBtn}::after { content: "\\2193"; ${arrow} }\n` +
+      `[data-dg-portfolio-table] th[aria-sort=none] ${sortBtn}::after { content: "\\2195"; margin-left:4px; opacity:.35; }\n` +
+      `[data-dg-portfolio-table] th[aria-sort=none] ${sortBtn}:is(:hover, :focus-visible)::after { opacity:.8; color:${dgUi.BLUE}; }\n` +
+      // a fixed width, as DEGIRO's own (min-width = max-width = 320px): an auto-width column would
+      // also take a share of the full-width table's spare space and grow past the cap anyway.
+      // !important (and a higher specificity) to win over dgUi.columnsSetting()'s own Columns style,
+      // which otherwise gives Product `width: auto !important; max-width: none !important`.
+      `${narrow} > thead > tr > th[data-dg-col=product], ${nameCell} { width: ${PRODUCT_MAX_WIDTH}px !important; min-width: ${PRODUCT_MAX_WIDTH}px; max-width: ${PRODUCT_MAX_WIDTH}px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n` +
+      // a table cell still grows to its content's min-content width (here: the whole nowrap name)
+      // whatever its own max-width says, so the cap also goes on the cell's flex row, whose own
+      // max-width does clamp what it contributes to the column's width
+      `${nameCell} > span { max-width: ${PRODUCT_MAX_WIDTH}px; }\n` +
+      // while Product is fixed, the Columns style's `width: 1px` on every other column would make
+      // them all fixed too, and the table would spread its spare width over Product as well; auto
+      // widths let the other columns take it, as on DEGIRO's own collapsed table
+      `${narrow} tr > :not(:first-child) { width: auto !important; }\n` +
+      `${nameCell} [data-dg-actions] { flex: none; }\n` +
+      `${nameCell} a, ${nameCell} [data-name=productName] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }`;
     document.head.append(style);
   }
 
@@ -450,6 +505,7 @@
         btn.type = 'button';
         btn.style.cssText = 'font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit;';
         th.append(btn);
+        if (k === 'product') th.append(productToggle());
         tr.append(th);
       });
       thead.replaceChildren(tr);
@@ -462,6 +518,45 @@
       setLook(ths[i], look.head[k]?.className || look.repHead, css.head);
     });
     syncSortAttrs(tbl);
+    syncProductWidth(tbl);
+  }
+
+  // The Product header's chevron, DEGIRO's own name-cell toggle: a separate button from the header's
+  // sort button (so a click on it never sorts, see the click listener below), at the right end of the
+  // cell, holding a double chevron (») drawn as an inline SVG built node by node. It is always shown
+  // (unlike DEGIRO's own, shown only while a name overflows): whether a name overflows depends on the
+  // very state this button sets, and a control that comes and goes with the data is easy to miss.
+  function productToggle() {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute(TOGGLE, '');
+    btn.style.cssText = 'float:right;display:flex;align-items:center;justify-content:center;width:20px;height:20px;' +
+      `margin:0 0 0 8px;padding:0;border:0;background:none;cursor:pointer;color:${dgUi.BLUE};`;
+    // dgUi.icon() takes the SVG namespace from an <svg> already on the page; with none there it
+    // returns a bare <span>, which then shows the same double chevron as text
+    const icon = /** @type {HTMLElement | SVGElement} */ (dgUi.icon('M5 6l6 6-6 6M13 6l6 6-6 6', 16));
+    if (icon.namespaceURI === document.documentElement.namespaceURI) icon.textContent = '»';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.style.cssText = 'display:block;transition:transform .15s;';
+    btn.append(icon);
+    return btn;
+  }
+
+  // Reflects productWide on the table (data-dg-product-wide, read by ensureStyle()'s width cap) and
+  // on the chevron: pointing right (») while collapsed, left once expanded; aria-pressed and the
+  // localised label say the same. Attribute writes only on a change.
+  /** @param {HTMLTableElement} tbl */
+  function syncProductWidth(tbl) {
+    if (tbl.hasAttribute('data-dg-product-wide') !== productWide) tbl.toggleAttribute('data-dg-product-wide', productWide);
+    const btn = /** @type {HTMLElement | null} */ (tbl.querySelector(`thead [${TOGGLE}]`));
+    if (!btn) return;
+    const label = t('portfolioProductWidth');
+    if (btn.getAttribute('aria-label') !== label) { btn.setAttribute('aria-label', label); btn.title = label; }
+    const pressed = String(productWide);
+    if (btn.getAttribute('aria-pressed') !== pressed) btn.setAttribute('aria-pressed', pressed);
+    const icon = /** @type {HTMLElement | null} */ (btn.firstElementChild); // the SVG (or its text fallback)
+    const turn = productWide ? 'rotate(180deg)' : '';
+    if (icon && icon.style.transform !== turn) icon.style.transform = turn;
   }
 
   // aria-sort reflects the in-memory sortState on every render (cheap attribute writes the scheduler
@@ -506,6 +601,23 @@
       table.append(document.createElement('thead'), document.createElement('tbody'));
     }
     return table;
+  }
+
+  // The merged table's own wrapper (own()-marked, <div data-dg-portfolio-scroll>), created once:
+  // DEGIRO's own holdings tables scroll horizontally inside their wrapper when their columns don't
+  // fit, while a bare table would spill out of the section with no scrollbar of its own. A block
+  // div fills the width, so a table that fits still stretches to it (width:100%). Only the table is
+  // inside it: the toolbar (and its Columns dropdown, which would be clipped) and the pager stay
+  // outside, as its siblings.
+  function scrollWrap() {
+    if (!scroller) {
+      scroller = /** @type {HTMLElement} */ (own(document.createElement('div')));
+      scroller.setAttribute('data-dg-portfolio-scroll', '');
+      scroller.style.cssText = 'overflow-x:auto;max-width:100%;';
+    }
+    const tbl = portfolioTable();
+    if (tbl.parentElement !== scroller) scroller.append(tbl);
+    return scroller;
   }
 
   // The merged rows, kept across renders: keyed by the product's data-id (plus a counter, so a row
@@ -897,9 +1009,17 @@
   // and re-renders immediately, like filterPanel's own chip clicks in orders-table.js — it does not
   // wait for the next scheduler tick. Capture-phase, so it runs before anything else observes the
   // click; guarded by the feature's own enabled() flag, matching ordersSort's click listener.
+  // The Product header's chevron (TOGGLE) is a button in the header too, but expands/collapses the
+  // Product column instead — it never sorts.
   document.addEventListener('click', e => {
     if (!dgSettings.portfolioMergedTable || !table) return;
-    const btn = /** @type {Element} */ (e.target).closest?.('[data-dg-portfolio-table] thead button');
+    const target = /** @type {Element} */ (e.target);
+    if (target.closest?.(`[data-dg-portfolio-table] thead [${TOGGLE}]`)) {
+      saveWide(!productWide);
+      render();
+      return;
+    }
+    const btn = target.closest?.(`[data-dg-portfolio-table] thead button:not([${TOGGLE}])`);
     if (!btn) return;
     const col = btn.closest('th')?.getAttribute('data-dg-col');
     if (!col) return;
@@ -929,11 +1049,11 @@
       const nativeCount = s.table ? s.table.querySelectorAll('tbody tr').length : 0;
       return nativeCount > 0 && !rows.some(r => r.type === s.type);
     });
-    const merged = portfolioTable();
+    const wrap = scrollWrap(); // holds the merged table
     const bar = columnsToolbar();
     const pag = paginationBar();
-    if (bar.nextElementSibling !== merged || merged.nextElementSibling !== pag || anchor.previousElementSibling !== pag) {
-      anchor.before(bar, merged, pag);
+    if (bar.nextElementSibling !== wrap || wrap.nextElementSibling !== pag || anchor.previousElementSibling !== pag) {
+      anchor.before(bar, wrap, pag);
     }
     // only after the merged elements are in place: sectionShell() must see them, so it never hides
     // the first section's block that now holds them
@@ -947,6 +1067,8 @@
   function stop() {
     document.getElementById('dg-portfolio-style')?.remove();
     document.querySelectorAll(`[${HIDDEN}]`).forEach(el => el.removeAttribute(HIDDEN));
+    scroller?.remove(); // with the merged table inside it
+    scroller = null;
     table?.remove();
     table = null;
     rowEls.clear();

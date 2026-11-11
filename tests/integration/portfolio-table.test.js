@@ -172,17 +172,21 @@ test('default sort is Type in DEGIRO\'s section order; clicking Product header s
   noErrors(w);
 });
 
-test('columns: Symbol, Exchange, Last, Delay hidden by default; Product and Type never offered', async () => {
+test('columns: Symbol, Delay hidden by default; no Exchange or Last column; Product and Type never offered', async () => {
   const w = createWorld();
   const tab = await openPortfolio(w);
   await tab.setFlag('portfolioMergedTable', true);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '4 hidden ▾');
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '2 hidden ▾');
   tab.$('[data-dg-columns]').click();
   await w.advance(200);
   const items = tab.$$('[role=listbox] label').map(l => l.textContent.trim());
   assert.ok(!items.includes('Product'));
   assert.ok(!items.includes('Type'));
   assert.ok(items.includes('Symbol | ISIN'));
+  assert.ok(!items.includes('Exchange'), 'Exchange is not a merged-table column');
+  assert.ok(!tab.$('[data-dg-portfolio-table] thead th[data-dg-col=exchange]'), 'no Exchange header in the DOM');
+  assert.ok(!items.includes('Last'), 'Last is not a merged-table column');
+  assert.ok(!tab.$('[data-dg-portfolio-table] thead th[data-dg-col=last]'), 'no Last header in the DOM');
   noErrors(w);
 });
 
@@ -255,25 +259,25 @@ test('persist on: a hidden column survives reload; persist off: it resets to def
   let tab = await openPortfolio(w, { settings: { portfolioMergedTable: true, portfolioMergedPersist: true } });
   tab.$('[data-dg-columns]').click();
   await w.advance(200);
-  tab.$$('[role=listbox] label').find(l => l.textContent.trim() === 'Qty').querySelector('input').click(); // hide one more column (4 hidden by default)
+  tab.$$('[role=listbox] label').find(l => l.textContent.trim() === 'Qty').querySelector('input').click(); // hide one more column (2 hidden by default)
   await w.advance(200);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '5 hidden ▾');
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '3 hidden ▾');
 
   tab.close();
   tab = await openPortfolio(w);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '5 hidden ▾');
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '3 hidden ▾');
 
   await w.set('sync', { portfolioMergedPersist: false });
   tab.close();
   tab = await openPortfolio(w);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '4 hidden ▾'); // back to DG_DEFAULTS, Qty shown again
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '2 hidden ▾'); // back to DG_DEFAULTS, Qty shown again
 
   // Binding: switching persist off never deletes the stored choice — switching it on again later
   // restores it.
   await w.set('sync', { portfolioMergedPersist: true });
   tab.close();
   tab = await openPortfolio(w);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '5 hidden ▾');
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '3 hidden ▾');
   noErrors(w);
 });
 
@@ -281,7 +285,7 @@ test('merged Next page advances the etf section\'s native pager and re-collects 
   const w = createWorld();
   const tab = await openPortfolio(w, { settings: { portfolioMergedTable: true } });
   assert.equal(mergedRows(tab).length, 6); // 3 stock + 2 etf(page1) + 1 lox
-  const next = tab.$('[data-dg-portfolio-table] + [data-name=pagination] button[data-dg-page=next]');
+  const next = tab.$('[data-dg-portfolio-scroll] + [data-name=pagination] button[data-dg-page=next]');
   assert.equal(next.getAttribute('aria-label'), 'Next page'); // the extension's own (English) text
   next.click();
   await w.advance(200);
@@ -302,7 +306,7 @@ test('merged pagination finds DEGIRO\'s own Previous/Next by position, not by th
     b[b.length - 1].setAttribute('aria-label', 'Volgende pagina');
   });
   await tab.setFlag('portfolioMergedTable', true);
-  const pager = () => tab.$('[data-dg-portfolio-table] + [data-name=pagination]');
+  const pager = () => tab.$('[data-dg-portfolio-scroll] + [data-name=pagination]');
   assert.equal(pager().querySelector('[data-dg-page=prev]').disabled, true);
   assert.equal(pager().querySelector('[data-dg-page=next]').disabled, false);
   pager().querySelector('[data-dg-page=next]').click();
@@ -320,9 +324,9 @@ test('the merged pager shows the furthest page any section is on', async () => {
   const w = createWorld();
   const tab = await openPortfolio(w);
   await tab.setFlag('portfolioMergedTable', true);
-  const current = () => tab.$('[data-dg-portfolio-table] + [data-name=pagination] [data-dg-page=current]');
+  const current = () => tab.$('[data-dg-portfolio-scroll] + [data-name=pagination] [data-dg-page=current]');
   assert.equal(current().textContent, '1');
-  tab.$('[data-dg-portfolio-table] + [data-name=pagination] [data-dg-page=next]').click();
+  tab.$('[data-dg-portfolio-scroll] + [data-name=pagination] [data-dg-page=next]').click();
   await w.advance(200);
   assert.equal(current().textContent, '2'); // etf on page 2, stock/lox on 1
   noErrors(w);
@@ -367,7 +371,7 @@ test('the toolbar labels its picker "Columns", like Orders\' own: text includes 
   const w = createWorld();
   const tab = await openPortfolio(w);
   await tab.setFlag('portfolioMergedTable', true);
-  assert.equal(tab.$('#dg-portfolio-toolbar').textContent.trim(), 'Columns4 hidden ▾');
+  assert.equal(tab.$('#dg-portfolio-toolbar').textContent.trim(), 'Columns2 hidden ▾');
   noErrors(w);
 });
 
@@ -380,17 +384,143 @@ test('persist off: the Columns picker works for the session, and nothing is reme
   await w.advance(200);
   tab.$$('[role=listbox] label').find(l => l.textContent.trim() === 'Qty').querySelector('input').click();
   await w.advance(200);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '5 hidden ▾');
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '3 hidden ▾');
   tab.$('[data-dg-columns-reset]').click();
   await w.advance(200);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '4 hidden ▾');
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '2 hidden ▾');
   tab.$$('[role=listbox] label').find(l => l.textContent.trim() === 'Qty').querySelector('input').click();
   await w.advance(200);
-  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '5 hidden ▾');
+  assert.equal(tab.$('[data-dg-columns]').textContent.trim(), '3 hidden ▾');
   assert.deepEqual(w.stored('sync').portfolioHiddenColumns, undefined, 'never written while persist is off');
 
   tab.close();
   const tab2 = await openPortfolio(w); // "reload": nothing was persisted, so defaults come back
-  assert.equal(tab2.$('[data-dg-columns]').textContent.trim(), '4 hidden ▾');
+  assert.equal(tab2.$('[data-dg-columns]').textContent.trim(), '2 hidden ▾');
+  noErrors(w);
+});
+
+// ---------- Product column collapse/expand chevron (sizes are covered in e2e) ----------
+
+const productToggle = tab => tab.$('[data-dg-portfolio-table] th[data-dg-col=product] [data-dg-product-toggle]');
+const isWide = tab => tab.$('[data-dg-portfolio-table]').hasAttribute('data-dg-product-wide');
+
+test('Product chevron: collapsed by default, a separate labelled button that expands and collapses without sorting', async () => {
+  const w = createWorld();
+  const tab = await openPortfolio(w);
+  await tab.setFlag('portfolioMergedTable', true);
+  const toggle = productToggle(tab);
+  assert.ok(toggle, 'shown in the Product header');
+  assert.equal(toggle.tagName, 'BUTTON');
+  assert.equal(toggle.getAttribute('type'), 'button');
+  assert.equal(toggle.getAttribute('aria-label'), 'Full product names');
+  assert.equal(toggle.title, 'Full product names');
+  assert.equal(toggle.getAttribute('aria-pressed'), 'false');
+  assert.ok(toggle.querySelector('svg path'), 'an inline SVG chevron');
+  assert.equal(isWide(tab), false);
+  // the header's own label (and so the sort button and the headerByLabel lookups) is untouched
+  assert.equal(headerByLabel(tab, 'Product').querySelector('button').textContent, 'Product');
+  const order = productNames(tab);
+
+  // a click on the SVG inside the button (where a real click usually lands) expands; never sorts
+  toggle.querySelector('path').dispatchEvent(new tab.window.MouseEvent('click', { bubbles: true }));
+  await w.advance(200);
+  assert.equal(isWide(tab), true);
+  assert.equal(productToggle(tab).getAttribute('aria-pressed'), 'true');
+  assert.equal(productToggle(tab).querySelector('svg').style.transform, 'rotate(180deg)');
+  assert.equal(headerByLabel(tab, 'Product').getAttribute('aria-sort'), 'none');
+  assert.equal(headerByLabel(tab, 'Type').getAttribute('aria-sort'), 'ascending');
+  assert.deepEqual(productNames(tab), order);
+
+  productToggle(tab).click();
+  await w.advance(200);
+  assert.equal(isWide(tab), false);
+  assert.equal(productToggle(tab).getAttribute('aria-pressed'), 'false');
+  assert.equal(productToggle(tab).querySelector('svg').style.transform, '');
+  assert.equal(headerByLabel(tab, 'Type').getAttribute('aria-sort'), 'ascending');
+  // the header's sort button still sorts
+  headerByLabel(tab, 'Product').querySelector('button').click();
+  await w.advance(200);
+  assert.equal(headerByLabel(tab, 'Product').getAttribute('aria-sort'), 'ascending');
+  assert.equal(isWide(tab), false);
+  noErrors(w);
+});
+
+test('Product chevron: with no <svg> on the page to take the namespace from, it falls back to a text »', async () => {
+  const w = createWorld();
+  const tab = await openPortfolio(w);
+  tab.$$('svg').forEach(s => s.remove());
+  await tab.setFlag('portfolioMergedTable', true);
+  const icon = productToggle(tab).firstElementChild;
+  assert.equal(icon.tagName, 'SPAN');
+  assert.equal(icon.textContent, '»');
+  productToggle(tab).click();
+  await w.advance(200);
+  assert.equal(productToggle(tab).firstElementChild.style.transform, 'rotate(180deg)');
+  noErrors(w);
+});
+
+test('Product chevron, persist off: works for the session, never stored, and a reload is collapsed again', async () => {
+  const w = createWorld();
+  const tab = await openPortfolio(w, { settings: { portfolioMergedTable: true } });
+  productToggle(tab).click();
+  await w.advance(200);
+  assert.equal(isWide(tab), true);
+  assert.equal(w.stored('sync').dgPortfolioWide, undefined, 'never written while persist is off');
+  tab.close();
+  const tab2 = await openPortfolio(w);
+  assert.equal(isWide(tab2), false);
+  noErrors(w);
+});
+
+test('Product chevron, persist on: survives a reload; persist off resets it at once; on again restores it', async () => {
+  const w = createWorld();
+  let tab = await openPortfolio(w, { settings: { portfolioMergedTable: true, portfolioMergedPersist: true } });
+  productToggle(tab).click();
+  await w.advance(200);
+  assert.equal(w.stored('sync').dgPortfolioWide, true);
+
+  tab.close();
+  tab = await openPortfolio(w);
+  assert.equal(isWide(tab), true, 'restored without a user click');
+  assert.equal(productToggle(tab).getAttribute('aria-pressed'), 'true');
+
+  // mid-session, no reload: off drops back to collapsed, without deleting the stored choice
+  await w.set('sync', { portfolioMergedPersist: false });
+  assert.equal(isWide(tab), false);
+  assert.equal(w.stored('sync').dgPortfolioWide, true);
+  await w.set('sync', { portfolioMergedPersist: true });
+  assert.equal(isWide(tab), true);
+
+  // collapsing again is remembered too
+  productToggle(tab).click();
+  await w.advance(200);
+  assert.equal(w.stored('sync').dgPortfolioWide, false);
+  tab.close();
+  tab = await openPortfolio(w);
+  assert.equal(isWide(tab), false);
+  noErrors(w);
+});
+
+test('Product chevron: a malformed stored width falls back to collapsed', async () => {
+  const w = createWorld();
+  const tab = await openPortfolio(w, { settings: {
+    portfolioMergedTable: true, portfolioMergedPersist: true, dgPortfolioWide: 'yes'
+  } });
+  assert.equal(isWide(tab), false);
+  assert.equal(mergedRows(tab).length, 6);
+  noErrors(w);
+});
+
+test('Product chevron: turning the merge off removes it with the table; on again rebuilds it once', async () => {
+  const w = createWorld();
+  const tab = await openPortfolio(w, { settings: { portfolioMergedTable: true } });
+  productToggle(tab).click();
+  await w.advance(200);
+  await tab.setFlag('portfolioMergedTable', false);
+  assert.equal(tab.$$('[data-dg-product-toggle]').length, 0);
+  assert.equal(tab.$('#dg-portfolio-style'), null);
+  assert.equal(tab.$('[data-dg-product-wide]'), null);
+  await tab.setFlag('portfolioMergedTable', true);
+  assert.equal(tab.$$('[data-dg-product-toggle]').length, 1);
   noErrors(w);
 });

@@ -2,6 +2,9 @@
 
 ## Unreleased
 - **Alarms page columns**: a *Columns* menu on the Alarms page chooses which columns to show (Product and On always show); all columns are visible by default. The old *Latest* column is now separate *Price*, *Last* and *Seen* columns, each on one line.
+- **Cash on the portfolio chart** (new switch, *Cash on portfolio chart*, on by default): today's cash per currency next to the portfolio total, and a *Cash columns on the chart* switch that shows the cash as stacked columns over the selected period, EUR at the bottom. Amounts are not converted.
+- **Full product names** in the merged Portfolio table: the Product column keeps DEGIRO's own width by default; the » button in its header shows full names. Remembered only with *Remember Portfolio table sort & columns* on.
+- **Merged Portfolio table columns**: *Exchange* and *Last update* are no longer in the merged table. *Symbol/ISIN* and *Delay* are hidden by default.
 
 ## 1.22.0 — 2026-11-06
 - **Merged Portfolio table** (optional): a new switch in Settings, *Merge holdings into one table*, combines Shares, Trackers (ETFs) and Structured products into one sortable table on the Portfolio page, with a *Type* column and a *Columns* menu. Off by default.

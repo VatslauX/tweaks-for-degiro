@@ -304,6 +304,9 @@
   "portfolioNextPage": {
     "message": "Volgende pagina"
   },
+  "portfolioProductWidth": {
+    "message": "Volledige productnamen"
+  },
   "badgeBuy": {
     "message": "KOOP"
   },
@@ -321,6 +324,21 @@
   },
   "portfolioTitle": {
     "message": "Verandering van de portefeuillewaarde over de gekozen periode. Inclusief stortingen en opnames, dus niet hetzelfde als rendement."
+  },
+  "optPortfolioCash": {
+    "message": "Contanten in de portefeuillegrafiek"
+  },
+  "optPortfolioCashHelp": {
+    "message": "Contanten van vandaag per valuta naast het totaal. De schakelaar ervan toont je contanten als gestapelde kolommen in de grafiek: EUR groen, bedragen niet omgerekend."
+  },
+  "cashLabel": {
+    "message": "Contanten"
+  },
+  "cashTitle": {
+    "message": "Contanten per valuta, van je rekening. Niet omgerekend: de kolommen in de grafiek tellen de bedragen op zoals ze zijn."
+  },
+  "cashLinesToggle": {
+    "message": "Contantenkolommen in de grafiek"
   },
   "badgeAria": {
     "message": "Order aanpassen: $1 $2 tegen $3",

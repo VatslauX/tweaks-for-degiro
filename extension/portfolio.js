@@ -1,6 +1,7 @@
 // Portfolio value chart (Portfolio page):
 //  • change over the selected period next to the total, e.g. "1Y € +49.641,12 (+54,07%)"
 //  • drag-to-select a range, like on product charts
+//  • cash per currency: today's cash next to the total, and a switch for stacked cash columns on the chart (EUR in green)
 // The chart is drawn on a <canvas>, so values come from the same endpoint DEGIRO uses for it
 // (/portfolio-metrics/.../portfolio/value), and pixel positions from the drawn line.
 // Runs in page context (world: MAIN).
@@ -16,7 +17,7 @@
   const CHANGE_ID = 'dg-portfolio-change';
 
 
-  const { flags, pageTheme, fmt, SEL, page, own, feature, schedule } = __dgt; // common.js
+  const { flags, pageTheme, fmt, decimalSep, cashByDay, SEL, page, own, feature, schedule, ownRequests } = __dgt; // common.js
   /** @type {(sel: string) => HTMLElement | null} */
   const $ = sel => document.querySelector(sel);
 
@@ -42,6 +43,7 @@
     let ok = false;
     try {
       // time out a hung request, so the chart isn't stuck waiting (then retried after 30 s)
+      ownRequests.add(target.href); // orders.js doesn't take the session from our requests
       const r = await fetch(target.pathname + target.search, { credentials: 'include', signal: AbortSignal.timeout(15000) });
       if (r.ok) {
         const j = await r.json();
@@ -107,13 +109,349 @@
     value.style.filter = hide; // amount and percentage
     value.append(amount, ` (${pctTxt(pct)})`);
     el.append(label, value);
-    anchor.append(el); // inside the value block, right after the total
+    // inside the value block, right after the total (and before the cash amounts)
+    const cash = document.getElementById(CASH_ID);
+    if (cash?.parentElement === anchor) anchor.insertBefore(el, cash); else anchor.append(el);
+  }
+
+  // ---------- cash per currency ----------
+  // Today's cash per currency comes from DEGIRO's update request (cashFunds, refreshed every minute);
+  // the history from the account statement over the chart's dates (reloaded with the chart data, and
+  // when today's cash changes). On the chart: one stacked column per day in its lower part, a segment
+  // per currency. Amounts are not converted: the stack adds them as they are (€ 100 + $ 100 = 200).
+  const CASH_ID = 'dg-portfolio-cash';
+  const GOLD = '#e0a100'; // the alarm badges' gold
+  const GREEN = '#078307'; // DEGIRO's green: EUR
+  const OTHERS = [GOLD, '#a87800', '#f0c75e', '#7a5a00']; // the other currencies, in stack order
+  const STACK_SHARE = 0.4; // the columns use the lower 40 % of the chart
+  /** @param {string[]} order @returns {Record<string, string>} */
+  const colorsFor = order => {
+    let k = 0;
+    return Object.fromEntries(order.map(cur => [cur, cur === 'EUR' ? GREEN : OTHERS[k++ % OTHERS.length]]));
+  };
+  const SYM = { EUR: '€', USD: '$', GBP: '£', JPY: '¥' };
+  // the lines are shown with the switch next to "Cash"; off until switched on. The choice is a
+  // convenience kept in this browser (page world: no chrome.storage); without storage it starts off.
+  const LINES_KEY = 'dgTweaksCashLines';
+  let linesOn = false;
+  try { linesOn = localStorage.getItem(LINES_KEY) === '1'; } catch (e) {}
+  const setLines = on => {
+    linesOn = on;
+    try { if (on) localStorage.setItem(LINES_KEY, '1'); else localStorage.removeItem(LINES_KEY); } catch (e) {}
+    schedule();
+  };
+  // account and session of DEGIRO's own chart request: used for the requests below, kept in memory only
+  const ids = () => {
+    const a = url?.searchParams.get('intAccount') || '', s = url?.searchParams.get('sessionId') || '';
+    return /^\d+$/.test(a) && /^[\w.-]+$/.test(s) ? { a, s } : null;
+  };
+  /** @typedef {{ busy: boolean, failed: boolean, retryAt: number, retryMs: number }} ReqState */
+  /** @returns {ReqState} */
+  const reqState = () => ({ busy: false, failed: false, retryAt: 0, retryMs: 0 });
+  // GET a same-origin path; undefined when busy, waiting to retry, or failed. A failure is retried
+  // after 30 s, doubling (up to 10 min) while it keeps failing.
+  /** @param {ReqState} st @param {string} path */
+  async function getJson(st, path) {
+    if (st.busy || (st.failed && Date.now() < st.retryAt)) return undefined;
+    st.busy = true;
+    let j = /** @type {any} */ (null);
+    try {
+      ownRequests.add(path); // orders.js doesn't take the session from our requests
+      const r = await fetch(path, { credentials: 'include', signal: AbortSignal.timeout(15000) });
+      if (r.ok) j = await r.json();
+    } catch (e) {}
+    st.busy = false;
+    if (j && typeof j === 'object') { st.failed = false; st.retryMs = 0; }
+    else { st.retryMs = st.failed ? Math.min(600000, st.retryMs * 2) : 30000; st.failed = true; st.retryAt = Date.now() + st.retryMs; j = null; }
+    schedule(); // draw the new data now
+    return j || undefined;
+  }
+
+  /** @type {[string, number][] | null} */
+  let funds = null;
+  let fundsSig = '', fundsAt = 0, fundsChanged = 0;
+  const fundsReq = reqState();
+  async function loadFunds() {
+    const id = ids();
+    if (!id || Date.now() - fundsAt < 60000) return;
+    const path = `/trading/secure/v5/update/${id.a};jsessionid=${encodeURIComponent(id.s)}?cashFunds=0`;
+    const j = await getJson(fundsReq, path);
+    if (!j) return;
+    fundsAt = Date.now();
+    /** @type {[string, number][]} */
+    const out = [];
+    const list = j.cashFunds?.value;
+    for (const f of Array.isArray(list) ? list : []) {
+      const o = Object.fromEntries((Array.isArray(f?.value) ? f.value : []).map(x => [x?.name, x?.value]));
+      if (typeof o.currencyCode === 'string' && /^[A-Z]{3}$/.test(o.currencyCode) && typeof o.value === 'number' && isFinite(o.value))
+        out.push([o.currencyCode, o.value]);
+    }
+    const sig = out.map(x => x.join(':')).join(',');
+    if (funds && sig !== fundsSig) fundsChanged++; // cash moved: reload the statement for the chart
+    funds = out; fundsSig = sig;
+  }
+
+  let moves = /** @type {any[] | null} */ (null), movesKey = '', cashVersion = 0;
+  const movesReq = reqState();
+  async function loadStatement() {
+    const id = ids(), first = data[0]?.date, last = data[data.length - 1]?.date;
+    const day = /^\d{4}-\d\d-\d\d$/;
+    if (!id || data.length < 2 || !day.test(first) || !day.test(last)) return;
+    const key = [version, fundsChanged].join('|');
+    if (key === movesKey) return;
+    const dmy = d => d.split('-').reverse().join('/'); // DD/MM/YYYY, as DEGIRO's Account statement asks
+    const path = `/portfolio-reports/secure/v6/accountoverview?fromDate=${dmy(first)}&toDate=${dmy(last)}&intAccount=${id.a}&sessionId=${encodeURIComponent(id.s)}`;
+    const j = await getJson(movesReq, path);
+    if (!j) return;
+    const list = j.data?.cashMovements;
+    moves = Array.isArray(list) ? list : [];
+    movesKey = key;
+    cashVersion++;
+  }
+
+  // a series per currency with cash in the chart period: [currency, balance per chart day]; EUR first
+  // (the bottom of the stack), then the largest
+  /** @returns {[string, number[]][]} */
+  function cashLines() {
+    if (!moves || data.length < 2) return [];
+    const days = data.map(p => p.date);
+    const by = cashByDay(moves, days);
+    // no movements in the period: the balance stayed what it is today
+    for (const [cur, v] of funds || []) if (!by[cur] && v) by[cur] = days.map(() => v);
+    return Object.entries(by)
+      .filter(([, v]) => v.some(x => Math.abs(x) >= 0.005))
+      .sort((a, b) => +(b[0] === 'EUR') - +(a[0] === 'EUR') ||
+        Math.abs(b[1][b[1].length - 1]) - Math.abs(a[1][a[1].length - 1]) || (a[0] < b[0] ? -1 : 1));
+  }
+  const cashText = (cur, v) => `${SYM[cur] || cur} ${fmt(v)}`;
+
+  // today's cash next to the total: "Cash ■ € 26.876,16 ■ $ 1.204,00"
+  let cashTopKey = '';
+  /** @param {[string, number[]][]} lines */
+  function renderCashTop(lines) {
+    const anchor = $(SEL.perfValue);
+    let el = document.getElementById(CASH_ID);
+    const order = lines.map(l => l[0]);
+    /** @type {[string, number][]} */
+    const items = (funds || lines.map(([c, v]) => /** @type {[string, number]} */ ([c, v[v.length - 1]])))
+      .filter(([, v]) => Math.abs(v) >= 0.005)
+      .sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99));
+    if (!flags()?.portfolioCash || !anchor || !items.length) { el?.remove(); cashTopKey = ''; return; }
+    const hide = hideFilter();
+    const key = [items.map(x => x.join(':')).join(','), order.join(','), hide, decimalSep(), linesOn].join('|');
+    if (el && key === cashTopKey && el.parentElement === anchor) return;
+    cashTopKey = key;
+    el?.remove();
+    el = own(document.createElement('span'));
+    el.id = CASH_ID;
+    el.style.cssText = `display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-left:16px;font-family:${DG.font};`;
+    el.title = __dgt.t('cashTitle');
+    const label = document.createElement('span');
+    label.textContent = __dgt.t('cashLabel');
+    label.style.cssText = `color:${DG.muted};font-size:12px;font-weight:500;`;
+    el.append(label, lineSwitch());
+    const colors = colorsFor(order);
+    items.forEach(([cur, v]) => {
+      const item = document.createElement('span');
+      item.style.cssText = 'display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:500;';
+      item.setAttribute('data-currency', cur);
+      if (colors[cur]) { // the colour of its part of the columns
+        const sw = document.createElement('span');
+        sw.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:2px;background:${colors[cur]};`;
+        item.append(sw);
+      }
+      const amount = document.createElement('span');
+      amount.textContent = cashText(cur, v);
+      amount.style.filter = hide;
+      item.append(amount);
+      el.append(item);
+    });
+    anchor.append(el);
+  }
+
+  // toggle switch for the cash columns: grey track when off, gold when on
+  function lineSwitch() {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'switch');
+    b.setAttribute('aria-checked', String(linesOn));
+    b.setAttribute('data-dg-cash-switch', '');
+    b.setAttribute('aria-label', __dgt.t('cashLinesToggle'));
+    b.title = __dgt.t('cashLinesToggle');
+    b.style.cssText = `position:relative;flex:none;align-self:center;width:26px;height:14px;padding:0;margin:0;border:0;border-radius:7px;cursor:pointer;` +
+      `background:${linesOn ? GOLD : '#C4CBCE'};transition:background .15s;`;
+    const knob = document.createElement('span');
+    knob.style.cssText = `position:absolute;top:2px;left:${linesOn ? 14 : 2}px;width:10px;height:10px;border-radius:50%;background:#fff;` +
+      'box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s;';
+    b.append(knob);
+    b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setLines(!linesOn); });
+    return b;
+  }
+
+  // the cash columns: our own canvas over DEGIRO's. Its data-dg-cash lists the currencies, bottom up
+  // (the colours are explained by the swatches next to the amounts and in the tooltip).
+  let layer = /** @type {{ area: HTMLElement, canvas: HTMLCanvasElement } | null} */ (null), layerKey = '';
+  const removeLayer = () => { layer?.canvas.remove(); layer = null; layerKey = ''; };
+  /** @param {[string, number[]][]} lines */
+  function renderCashLines(lines) {
+    const area = $(SEL.perfArea);
+    let geo = /** @type {Geometry | null} */ (null);
+    if (flags()?.portfolioCash && area && lines.length) {
+      refreshGeometry(false); // drops a cache of a replaced canvas
+      if (!geoCache) refreshGeometry(true);
+      // nothing measured unhovered yet: DEGIRO greys the line right of the cursor, so measuring now
+      // would end the line there. Wait for the pointer to leave; keep what is drawn meanwhile.
+      if (!geoCache && area.matches(':hover')) return;
+      geo = geoCache || geometry();
+    }
+    if (!area || !geo || !geo.canvas.isConnected) { removeLayer(); return; }
+    const c = geo.canvas.getBoundingClientRect(), a = area.getBoundingClientRect();
+    if (c.width < 100) { removeLayer(); return; }
+    const ox = c.left - a.left, oy = c.top - a.top, dpr = window.devicePixelRatio || 1;
+    const key = [cashVersion, version, fundsSig, geo.left, geo.right, geo.height, c.width, ox, oy, dpr].join('|');
+    if (layer && layer.area === area && layer.canvas.isConnected && key === layerKey) return;
+    removeLayer();
+    layerKey = key;
+    if (getComputedStyle(area).position === 'static') area.style.position = 'relative';
+    const canvas = own(document.createElement('canvas'));
+    canvas.setAttribute('data-dg-cash', lines.map(l => l[0]).join(','));
+    canvas.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${c.width}px;height:${geo.height}px;pointer-events:none;z-index:4;`;
+    canvas.width = Math.round(c.width * dpr); canvas.height = Math.round(geo.height * dpr);
+    area.appendChild(canvas);
+    layer = { area, canvas };
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    const n = data.length, bottom = 4, base = geo.height - bottom, h = base * STACK_SHARE;
+    const step = (geo.right - geo.left) / (n - 1), w = Math.max(1, step * 0.7);
+    const X = i => geo.left + step * i;
+    // one shared scale: the highest day's stack (amounts added as they are, not converted)
+    const totals = data.map((_, i) => lines.reduce((s, [, v]) => s + Math.max(0, v[i]), 0));
+    const hi = Math.max(...totals) || 1;
+    const colors = colorsFor(lines.map(l => l[0]));
+    ctx.globalAlpha = 0.55; // the portfolio line stays visible through the columns
+    for (let i = 0; i < n; i++) {
+      let y = base;
+      for (const [cur, v] of lines) {
+        const seg = Math.max(0, v[i]) / hi * h;
+        if (seg <= 0) continue;
+        ctx.fillStyle = colors[cur];
+        ctx.fillRect(X(i) - w / 2, y - seg, w, seg);
+        y -= seg;
+      }
+    }
+  }
+
+  // ---------- cash in DEGIRO's hover tooltip ----------
+  // Under its "Portfolio value" row: a row per currency with the cash of the hovered day, in the same
+  // style (copied from DEGIRO's row). The day comes from the pointer's place along the line, like the
+  // range selection, so it doesn't depend on the tooltip's date format.
+  const TIP = 'data-dg-cash-tip';
+  let tipLines = /** @type {[string, number[]][]} */ ([]), tipArea = /** @type {HTMLElement | null} */ (null),
+    tipX = /** @type {number | null} */ (null), tipFrame = 0, tipKey = '';
+  const removeTip = () => { document.querySelectorAll(`[${TIP}]`).forEach(r => r.remove()); tipKey = ''; };
+  function updateTip() {
+    tipFrame = 0;
+    const area = $(SEL.perfArea), tip = area?.querySelector(SEL.perfTooltip);
+    const geo = geoCache; // measured while not hovered (DEGIRO greys part of the line while hovered)
+    if (!area || !tip || !tipLines.length || !geo || tipX == null || data.length < 2) { removeTip(); return; }
+    const n = data.length, x = tipX - geo.canvas.getBoundingClientRect().left;
+    const i = Math.max(0, Math.min(n - 1, Math.round((x - geo.left) / (geo.right - geo.left) * (n - 1))));
+    const row = [...tip.children].find(c => !c.hasAttribute(TIP) && c.children.length >= 2); // "Portfolio value  € …"
+    if (!row) { removeTip(); return; }
+    const hide = hideFilter();
+    const key = [i, hide, cashVersion, tipLines.map(l => l[0]).join(',')].join('|');
+    const shown = tip.querySelectorAll(`[${TIP}]`);
+    if (key === tipKey && shown.length === tipLines.length && tip.lastElementChild === shown[shown.length - 1]) return;
+    removeTip();
+    tipKey = key;
+    const colors = colorsFor(tipLines.map(l => l[0]));
+    for (const [cur, v] of tipLines) {
+      const r = own(/** @type {HTMLElement} */ (row.cloneNode(false)));
+      r.setAttribute(TIP, cur);
+      const label = /** @type {HTMLElement} */ (row.children[0].cloneNode(false));
+      label.style.display = 'inline-flex'; label.style.alignItems = 'center'; label.style.gap = '5px';
+      const sw = document.createElement('span');
+      sw.style.cssText = `display:inline-block;width:8px;height:8px;border-radius:2px;background:${colors[cur]};`;
+      label.append(sw, `${__dgt.t('cashLabel')} ${cur}`);
+      const value = /** @type {HTMLElement} */ (row.children[1].cloneNode(false));
+      value.textContent = cashText(cur, v[i]);
+      value.style.filter = hide;
+      r.append(label, value);
+      tip.append(r);
+    }
+  }
+  function attachTip() {
+    const area = $(SEL.perfArea);
+    if (!area || area === tipArea) return;
+    tipArea = area;
+    // after DEGIRO's own handler has drawn the tooltip for this position
+    area.addEventListener('pointermove', e => { tipX = e.clientX; if (!tipFrame) tipFrame = requestAnimationFrame(updateTip); }, { passive: true });
+    area.addEventListener('pointerleave', () => { tipX = null; });
+  }
+
+  function renderCash() {
+    const lines = flags()?.portfolioCash && linesOn ? cashLines() : [];
+    renderCashTop(lines);
+    renderCashLines(lines);
+    tipLines = lines;
+    if (lines.length) attachTip(); else removeTip();
+  }
+  const stopCash = () => { document.getElementById(CASH_ID)?.remove(); cashTopKey = ''; removeLayer(); tipLines = []; removeTip(); };
+
+  // ---------- steady row ----------
+  // While the chart is hovered DEGIRO shows the value and date under the cursor in place of the total
+  // and "Today". Their width changes with the text, which moved our items along the row. Both get a
+  // fixed width: the amount fits the period's largest value (digits of equal width), the caption the
+  // longest of "Today" and any date it has shown, at least the longest date of the year.
+  const FIXED_STYLE = /** @type {const} */ (['minWidth', 'fontVariantNumeric', 'display']);
+  let measurer = /** @type {CanvasRenderingContext2D | null} */ (null), steadyKey = '', captionMax = 0;
+  /** @type {HTMLElement[]} */
+  let steadied = [];
+  const textWidth = (el, text) => {
+    try { measurer ||= document.createElement('canvas').getContext('2d'); } catch (e) {}
+    if (!measurer) return 0;
+    const s = getComputedStyle(el);
+    measurer.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+    return measurer.measureText(text).width;
+  };
+  // the longest short date in the page's language, e.g. "Sep 28, 2026"
+  const longestDate = el => {
+    const lang = document.documentElement.lang || navigator.language || 'en';
+    let w = 0;
+    for (let m = 0; m < 12; m++) {
+      let t = '';
+      try { t = new Date(new Date().getFullYear(), m, 28).toLocaleDateString(lang, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {}
+      w = Math.max(w, textWidth(el, t.replace(/\d/g, '0')));
+    }
+    return w;
+  };
+  function unsteady() { steadied.forEach(el => FIXED_STYLE.forEach(p => { el.style[p] = ''; })); steadied = []; steadyKey = ''; captionMax = 0; }
+  function steadyRow() {
+    const amount = $(SEL.perfAmount), caption = $(SEL.perfCaption);
+    if (!amount || data.length < 2) return;
+    if (steadied.length && !steadied.every(el => el.isConnected)) unsteady(); // DEGIRO built a new chart
+    const max = Math.max(...data.map(p => Math.abs(p.value)));
+    const font = getComputedStyle(amount).font;
+    // digits of equal width: measure them all as '0'
+    const amountW = Math.ceil(Math.max(textWidth(amount, `${currency()} ${fmt(max)}`.replace(/\d/g, '0')), textWidth(amount, (amount.textContent || '').replace(/\d/g, '0'))));
+    if (caption) captionMax = Math.max(captionMax, Math.ceil(Math.max(longestDate(caption), textWidth(caption, (caption.textContent || '').replace(/\d/g, '0')))));
+    const key = [amountW, captionMax, font].join('|');
+    if (key === steadyKey && steadied.length) return;
+    steadyKey = key;
+    /** @type {[HTMLElement | null, number][]} */ ([[amount, amountW], [caption, captionMax]]).forEach(([el, w]) => {
+      if (!el || !w) return;
+      el.style.display = 'inline-block';
+      el.style.minWidth = w + 'px';
+      el.style.fontVariantNumeric = 'tabular-nums';
+      if (!steadied.includes(el)) steadied.push(el);
+    });
   }
 
   // ---------- canvas geometry: where the line is drawn ----------
   const lineCanvas = () => {
     const area = $(SEL.perfArea);
-    return area && [...area.querySelectorAll('canvas')].find(c => c.getBoundingClientRect().width > 100);
+    return area && [...area.querySelectorAll('canvas:not([data-dg-own])')].find(/** @returns {c is HTMLCanvasElement} */ c => c.getBoundingClientRect().width > 100);
   };
   const isLine = (d, i) => d[i + 3] > 200 && Math.abs(d[i] - LINE[0]) < 40 && Math.abs(d[i + 1] - LINE[1]) < 40 && Math.abs(d[i + 2] - LINE[2]) < 40;
 
@@ -296,14 +634,17 @@
     if (clear && sel.hide != null && sel.hide !== hideFilter()) clear(); // hide values toggled
     refreshGeometry(false);
     renderChange();
+    if (flags()?.portfolioCash) { loadFunds(); if (linesOn) loadStatement(); }
+    steadyRow();
+    renderCash();
     return url && area ? 'ok' : 'missing'; // DEGIRO's chart request or chart area not found
   }
 
   feature({
     name: 'portfolio',
-    enabled: () => flags()?.periodChange || flags()?.chartSelect,
+    enabled: () => flags()?.periodChange || flags()?.chartSelect || flags()?.portfolioCash,
     run,
-    stop: () => { document.getElementById(CHANGE_ID)?.remove(); lastKey = ''; sel.clear?.(); },
+    stop: () => { document.getElementById(CHANGE_ID)?.remove(); lastKey = ''; sel.clear?.(); stopCash(); unsteady(); },
     throttle: 250,
     every: 500 // the chart is a canvas and its data comes over the network: no DOM changes to wait for
   });

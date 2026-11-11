@@ -349,6 +349,9 @@
   "portfolioNextPage": {
     "message": "Next page"
   },
+  "portfolioProductWidth": {
+    "message": "Full product names"
+  },
   "badgeBuy": {
     "message": "BUY",
     "description": "Order badge on the chart, short and upper case"
@@ -369,6 +372,24 @@
   },
   "portfolioTitle": {
     "message": "Change in portfolio value over the selected period. Includes deposits and withdrawals, so it is not the same as return."
+  },
+  "optPortfolioCash": {
+    "message": "Cash on portfolio chart",
+    "description": "Feature name"
+  },
+  "optPortfolioCashHelp": {
+    "message": "Today's cash per currency next to the total. Its switch shows your cash as stacked columns on the chart: EUR in green, amounts not converted."
+  },
+  "cashLabel": {
+    "message": "Cash",
+    "description": "Label before today's cash per currency, next to the portfolio total"
+  },
+  "cashTitle": {
+    "message": "Cash per currency, from your account. Not converted: the columns on the chart add the amounts as they are."
+  },
+  "cashLinesToggle": {
+    "message": "Cash columns on the chart",
+    "description": "Accessible name and tooltip of the switch that shows or hides the cash columns"
   },
   "badgeAria": {
     "message": "Adjust $1 order $2 at $3",

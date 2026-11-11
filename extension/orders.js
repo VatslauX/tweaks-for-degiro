@@ -7,7 +7,7 @@
     orders = [], version = 0, loading = false, last = 0;
   // A session DEGIRO rejected (401/403) is never used again, and after a rejection the next
   // request waits (20 s, doubling up to 5 min), so an expired session can't cause a request loop.
-  const rejected = new Set(), mine = new Set(), RETRY_MIN_MS = 20000, RETRY_MAX_MS = 300000;
+  const rejected = new Set(), RETRY_MIN_MS = 20000, RETRY_MAX_MS = 300000;
   let retryAt = 0, retryMs = 0;
   let lastMain = null; // cheap cache for the redraw hook; updated in run() so the handler avoids mainChart()
   const EXTRA_MIN_MS = 5000; let rowCount = /** @type {number | null} */ (null), rowsChanged = false; // see run()
@@ -15,7 +15,7 @@
   // feature flags, bridged from the extension by flags.js (null = not loaded yet)
   /** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean }} DgPageFlags */
   let F = /** @type {DgPageFlags | null} */ (null);
-  const { flags: readFlags, pageTheme, mainChart, parseNum: num, fmt, SEL, LABELS, page, own, feature, schedule, t } = __dgt; // common.js
+  const { flags: readFlags, pageTheme, mainChart, parseNum: num, fmt, SEL, LABELS, page, own, feature, schedule, t, ownRequests } = __dgt; // common.js
   // per chart: our plot line ids, badge layer, render signature (charts are DEGIRO's objects)
   /** @type {WeakMap<object, { ids: string[], layer: HTMLElement | null, sig: string, hooked: boolean }>} */
   const state = new WeakMap();
@@ -28,7 +28,7 @@
   function grab(name) {
     try {
       const u = new URL(name, location.href);
-      if (u.origin !== location.origin || mine.has(u.href)) return; // not our own requests
+      if (u.origin !== location.origin || ownRequests.has(u.href)) return; // not the extension's own requests (any script's)
       const had = !!(sid && acc);
       useSid(u.searchParams.get('sessionId') || (u.pathname.match(/;jsessionid=([^/?;]+)/i) || [])[1]);
       acc = u.searchParams.get('intAccount') || (u.pathname.match(/account\/info\/(\d+)/) || [])[1] || acc;
@@ -68,7 +68,7 @@
     loading = true; last = Date.now();
     try {
       const path = `/trading/secure/v5/update/${acc};jsessionid=${sid}?orders=0`;
-      mine.add(new URL(path, location.href).href);
+      ownRequests.add(path);
       const r = await fetch(path, { credentials: 'include', signal: AbortSignal.timeout(TIMEOUT_MS) });
       if (r.status === 401 || r.status === 403) {
         // session expired: wait for a new one from DEGIRO's requests or the fallback

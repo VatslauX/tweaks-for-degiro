@@ -304,6 +304,9 @@
   "portfolioNextPage": {
     "message": "Pagina successiva"
   },
+  "portfolioProductWidth": {
+    "message": "Nomi completi dei prodotti"
+  },
   "badgeBuy": {
     "message": "ACQUISTO"
   },
@@ -321,6 +324,21 @@
   },
   "portfolioTitle": {
     "message": "Variazione del valore del portafoglio nel periodo scelto. Include versamenti e prelievi, quindi non è il rendimento."
+  },
+  "optPortfolioCash": {
+    "message": "Liquidità sul grafico del portafoglio"
+  },
+  "optPortfolioCashHelp": {
+    "message": "Liquidità di oggi per valuta accanto al totale. Il suo interruttore mostra la liquidità come colonne impilate sul grafico: EUR in verde, importi non convertiti."
+  },
+  "cashLabel": {
+    "message": "Liquidità"
+  },
+  "cashTitle": {
+    "message": "Liquidità per valuta, dal tuo conto. Non convertita: le colonne del grafico sommano gli importi così come sono."
+  },
+  "cashLinesToggle": {
+    "message": "Colonne della liquidità sul grafico"
   },
   "badgeAria": {
     "message": "Modifica ordine: $1 $2 a $3",

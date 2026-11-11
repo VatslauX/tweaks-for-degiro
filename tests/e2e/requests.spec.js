@@ -1,6 +1,6 @@
 // Failed DEGIRO requests must not turn into a request loop: an expired session is never reused,
 // and failed requests are retried only after a pause.
-const { test, expect, advanceUntilVisible } = require('./fixtures');
+const { test, expect, advanceUntilVisible, CASH_TODAY, cashFundsApi } = require('./fixtures');
 
 const badge = page => page.locator('#chart div', { hasText: /^BUY 100 · 15,50$/ });
 
@@ -85,3 +85,78 @@ for (const [what, answer] of [['an error', { status: 500, body: '' }], ['bad JSO
     expect(calls.portfolio).toBeLessThanOrEqual(2);
   });
 }
+
+// ---------- Portfolio cash: today's cash (/update?cashFunds=0) and the account statement ----------
+const URL_P = 'https://trader.degiro.nl/trader/?mock=portfolio#/portfolio';
+const CASH = u => u.pathname.startsWith('/trading/secure/v5/update/') && u.searchParams.has('cashFunds');
+const STATEMENT = u => u.pathname === '/portfolio-reports/secure/v6/accountoverview';
+// AbortSignal.timeout runs on a browser timer the fake clock can't reach: route it through setTimeout
+const fakeTimeout = () => {
+  AbortSignal.timeout = ms => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('signal timed out', 'TimeoutError')), ms); return c.signal; };
+};
+// answers arrive in real time: a later request through the same mock comes back after an earlier
+// answer has been handled by the page
+const settle = page => page.evaluate(() => fetch('/mock/ping/secure/x').then(r => r.text()));
+// advance the fake clock by `ms` per poll, returning calls[key]
+const stepper = (page, calls) => (key, ms = 250) => async () => { await page.clock.fastForward(ms); return calls[key]; };
+// advance by `ms` in 5 jumps, letting the scheduler run and any request it makes reach the mock after each
+const pass = async (page, ms) => { for (let i = 0; i < 5; i++) { await page.clock.fastForward(ms / 5); await settle(page); } };
+
+test('today\'s cash is asked for at most once a minute', async ({ degiro }) => {
+  const { page, calls } = await degiro({ url: URL_P, clock: true });
+  const step = stepper(page, calls);
+  await advanceUntilVisible(page, page.locator('#dg-portfolio-cash')); // the first answer is in
+  expect(calls.cashFunds).toBe(1);
+  await pass(page, 56000);
+  expect(calls.cashFunds).toBe(1);
+  await expect.poll(step('cashFunds', 500), { timeout: 10000 }).toBe(2); // a minute after the first
+  await pass(page, 40000);
+  expect(calls.cashFunds).toBe(2);
+});
+
+for (const [name, is, key] of /** @type {const} */ ([['today\'s cash', CASH, 'cashFunds'], ['account statement', STATEMENT, 'statement']])) {
+  for (const [what, answer] of /** @type {const} */ ([
+    ['401', { status: 401, body: '' }], ['503', { status: 503, body: '' }],
+    ['bad JSON', { status: 200, contentType: 'application/json', body: 'not json' }], ['no answer', 'hang']
+  ])) {
+    test(`${name} request answering ${what}: retried after 30 s, then 60 s, not in a loop`, async ({ degiro }) => {
+      test.setTimeout(60000);
+      const { page, calls } = await degiro({ url: URL_P, clock: true, cashLines: true, initScript: fakeTimeout, respond: u => is(u) ? answer : undefined });
+      const step = stepper(page, calls);
+      const failed = async () => {
+        if (answer === 'hang') await page.clock.fastForward(15000); // the hung request times out
+        await settle(page);
+      };
+      await expect.poll(step(key), { timeout: 10000 }).toBe(1);
+      await failed();
+      await pass(page, 25000);
+      expect(calls[key]).toBe(1); // nothing before the 30 s pause is over
+      await expect.poll(step(key, 1000), { timeout: 15000 }).toBe(2);
+      await failed();
+      await pass(page, 50000);
+      expect(calls[key]).toBe(2); // the pause doubled to 60 s
+      await expect.poll(step(key, 1000), { timeout: 15000 }).toBe(3);
+    });
+  }
+}
+
+test('a change in today\'s cash reloads the statement once', async ({ degiro }) => {
+  let today = CASH_TODAY;
+  const { page, calls } = await degiro({
+    url: URL_P, clock: true, cashLines: true,
+    respond: u => CASH(u) ? { status: 201, contentType: 'application/json', body: JSON.stringify(cashFundsApi(today)) } : undefined
+  });
+  const step = stepper(page, calls), cash = page.locator('#dg-portfolio-cash');
+  await advanceUntilVisible(page, cash.getByText('€ 26.876,16'));
+  await expect.poll(step('statement'), { timeout: 10000 }).toBe(1);
+  today = { ...CASH_TODAY, EUR: 25000 }; // cash moved
+  await page.clock.fastForward(61000);
+  await expect.poll(step('cashFunds'), { timeout: 10000 }).toBe(2);
+  await expect.poll(step('statement'), { timeout: 10000 }).toBe(2);
+  await expect(cash).toContainText('€ 25.000,00');
+  // the next minute's answer is the same: no further reload
+  await page.clock.fastForward(61000);
+  await expect.poll(step('cashFunds'), { timeout: 10000 }).toBe(3);
+  await pass(page, 2500);
+  expect(calls.statement).toBe(2);
+});

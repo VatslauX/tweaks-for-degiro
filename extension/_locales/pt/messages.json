@@ -304,6 +304,9 @@
   "portfolioNextPage": {
     "message": "Página seguinte"
   },
+  "portfolioProductWidth": {
+    "message": "Nomes completos dos produtos"
+  },
   "badgeBuy": {
     "message": "COMPRA"
   },
@@ -321,6 +324,21 @@
   },
   "portfolioTitle": {
     "message": "Variação do valor da carteira no período escolhido. Inclui depósitos e levantamentos, por isso não é a rentabilidade."
+  },
+  "optPortfolioCash": {
+    "message": "Dinheiro no gráfico da carteira"
+  },
+  "optPortfolioCashHelp": {
+    "message": "Dinheiro de hoje por moeda junto ao total. O seu interruptor mostra o dinheiro em colunas empilhadas no gráfico: EUR a verde, montantes sem conversão."
+  },
+  "cashLabel": {
+    "message": "Dinheiro"
+  },
+  "cashTitle": {
+    "message": "Dinheiro por moeda, da sua conta. Sem conversão: as colunas do gráfico somam os montantes tal como estão."
+  },
+  "cashLinesToggle": {
+    "message": "Colunas de dinheiro no gráfico"
   },
   "badgeAria": {
     "message": "Adaptar a ordem: $1 $2 a $3",

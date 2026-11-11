@@ -8,6 +8,7 @@ const DG_DEFAULTS = {
   compactPricing: true, // tighter row spacing in Pricing data
   periodChange: true,  // change over the selected chart period next to the daily change
   chartSelect: true,   // drag-to-select range on the chart
+  portfolioCash: true, // Portfolio chart: today's cash next to the total, and stacked cash columns per currency
   orders: true,        // open orders on the chart
   ordersClick: true,   // click an order badge to open "Adjust order"
   adjustClose: true,   // click outside "Adjust order" closes it
@@ -22,7 +23,7 @@ const DG_DEFAULTS = {
   txHiddenColumns: ['exchange', 'venue', 'exchangeRate', 'autoFxFee'], // Transactions columns to hide (DG_TX_COLUMNS)
   portfolioMergedTable: false, // Portfolio page: merge the three holdings tables into one
   portfolioMergedPersist: false, // Portfolio merged table: remember the setting across visits
-  portfolioHiddenColumns: ['symbolIsin', 'exchange', 'last', 'delay'], // Portfolio columns to hide (DG_PORTFOLIO_COLUMNS)
+  portfolioHiddenColumns: ['symbolIsin', 'delay'], // Portfolio columns to hide (DG_PORTFOLIO_COLUMNS)
   alarmHiddenColumns: /** @type {string[]} */ ([]), // Alarms page columns to hide (DG_ALARM_COLUMNS); all visible by default
   hideSections: true,  // hide sections listed below
   // DEGIRO's Cash compensation section is also found by its hook, in any language
@@ -38,14 +39,14 @@ const DG_ORDER_COLUMNS = ['date', 'symbolIsin', 'exchange', 'action', 'qty', 'li
   'outstanding', 'executed'];
 
 // Portfolio holdings-table columns that can be hidden (Product and Type never can).
-const DG_PORTFOLIO_COLUMNS = ['symbolIsin', 'exchange', 'qty', 'price', 'currency', 'value', 'bep', 'plEuro',
-  'plPercent', 'unrealisedPl', 'totalPl', 'last', 'delay'];
+const DG_PORTFOLIO_COLUMNS = ['symbolIsin', 'qty', 'price', 'currency', 'value', 'bep', 'plEuro',
+  'plPercent', 'unrealisedPl', 'totalPl', 'delay'];
 
 // Alarms page columns that can be hidden (Product and On never can).
 const DG_ALARM_COLUMNS = ['price', 'last', 'seen', 'alarm', 'distance', 'repeat', 'status'];
 
 // Flags read by the page-context scripts — the only ones exposed to the page.
-const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'orders', 'ordersClick', 'alarmLines', 'alarmLinesClick'];
+const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'portfolioCash', 'orders', 'ordersClick', 'alarmLines', 'alarmLinesClick'];
 
 const dgSettings = { ...DG_DEFAULTS };
 const dgListeners = [];

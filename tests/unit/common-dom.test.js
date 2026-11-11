@@ -14,7 +14,7 @@ globalThis.window = /** @type {any} */ (dom.window);
 globalThis.document = dom.window.document;
 globalThis.location = /** @type {any} */ (dom.window.location);
 globalThis.getComputedStyle = el => dom.window.getComputedStyle(el);
-const { decimalSep, flags, t, pageTheme, isPriceDt, priceDts, mainChart, page, own, OWN, SEL } =
+const { decimalSep, flags, t, pageTheme, isPriceDt, priceDts, mainChart, page, own, OWN, SEL, ownRequests } =
   require('../../extension/common.js');
 
 /** replace the page body with this markup */
@@ -274,4 +274,17 @@ test('SEL.portfolioSection and SEL.portfolioProduct find a holdings row (markup 
   assert.ok(row, 'the stock section heading leads to its table row');
   assert.equal(row.querySelector(SEL.portfolioProduct).dataset.id, '332108');
   assert.equal(document.querySelector(SEL.portfolioSection.etf), null, 'no etf section on this page');
+});
+
+// ── the extension's own request URLs (skipped by orders.js's session watcher) ──────────────
+
+test('own requests: a path is known by its absolute href; frozen; the oldest are dropped past 200', () => {
+  assert.ok(Object.isFrozen(ownRequests));
+  ownRequests.add('/portfolio-reports/secure/v6/accountoverview?intAccount=1&sessionId=S');
+  assert.equal(ownRequests.has('https://trader.degiro.nl/portfolio-reports/secure/v6/accountoverview?intAccount=1&sessionId=S'), true);
+  assert.equal(ownRequests.has('https://trader.degiro.nl/portfolio-reports/secure/v6/accountoverview?intAccount=1&sessionId=T'), false);
+  for (let i = 0; i < 200; i++) ownRequests.add('/x?n=' + i);
+  assert.equal(ownRequests.has('https://trader.degiro.nl/portfolio-reports/secure/v6/accountoverview?intAccount=1&sessionId=S'), false, 'oldest dropped');
+  assert.equal(ownRequests.has('https://trader.degiro.nl/x?n=199'), true);
+  assert.equal(ownRequests.has('https://trader.degiro.nl/x?n=0'), true);
 });

@@ -137,6 +137,7 @@ function loadOrders({ flagOrders = true, twoCharts = false, session = false } = 
       page: { productId: () => 123, isProduct: () => true, isOrders: () => false },
       own:     el => el,
       schedule: () => {},
+      ownRequests: { add: () => {}, has: () => false },
       feature: cfg => { featureConfig = cfg; },
       t:       key => key,
     },

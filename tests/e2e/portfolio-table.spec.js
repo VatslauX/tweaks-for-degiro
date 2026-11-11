@@ -29,7 +29,7 @@ test('enabling the feature hides the native tables and renders a merged header',
   await expect(page.locator('#dg-portfolio-toolbar')).toBeVisible();
   await expect(page.locator('[data-dg-portfolio-table]')).toBeVisible();
   // every column is in the DOM (Columns dropdown needs them all, see the "columns:" test below);
-  // the default-hidden ones (Symbol | ISIN, Exchange, Last, Delay) are hidden with CSS, like Orders'
+  // the default-hidden ones (Symbol | ISIN, Delay) are hidden with CSS, like Orders'
   // own columns feature, so only the visible headers are asserted here. Each header is DEGIRO's own
   // (localised) native header text; Type is this feature's own column, so its label is ours.
   const heads = () => page.$$eval('[data-dg-portfolio-table] thead th',
@@ -51,7 +51,7 @@ test('Buy/Sell lead the Product cell, before the name, as on DEGIRO\'s own rows;
     const order = [...td.querySelectorAll('button[data-action], [data-name=productName]')]
       .map(el => el.getAttribute('data-action') || el.textContent);
     return { order, elsewhere: tr.querySelectorAll('td:not(:first-child) button[data-action]').length, cells: tr.children.length };
-  })).toEqual({ order: ['buy', 'sell', 'Mock Software SE'], elsewhere: 0, cells: 15 });
+  })).toEqual({ order: ['buy', 'sell', 'Mock Software SE'], elsewhere: 0, cells: 13 });
   // the native name's class (DEGIRO's own bold) is copied onto the merged name
   const name = row.locator('[data-name=productName]');
   await expect(name).toHaveClass('holdingsName');
@@ -170,19 +170,27 @@ test('without a native class to copy, plEuro/plPercent/unrealisedPl/totalPl fall
   await expect(lossRow.locator(`[data-field=${field}]`)).toHaveCSS('color', 'rgb(228, 1, 1)'); // dgUi.theme().sell, light theme
 });
 
-test('the sorted header shows a visible arrow, which is not part of its label', async ({ degiro, settings }) => {
+test('the sorted header shows a visible arrow, every other one a faint ↕; neither is part of its label', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings();
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
   const arrow = col => page.$eval(`[data-dg-portfolio-table] th[data-dg-col=${col}] > button`, b => getComputedStyle(b, '::after').content);
+  const faint = col => page.$eval(`[data-dg-portfolio-table] th[data-dg-col=${col}] > button`, b => Number(getComputedStyle(b, '::after').opacity));
   await expect.poll(() => arrow('type')).toBe('"↑"');
-  expect(await arrow('product')).toBe('none');
+  // every unsorted visible column reads as sortable: a faint ↕, stronger on hover
+  for (const col of ['product', 'qty', 'price', 'currency', 'value', 'bep', 'plEuro', 'plPercent', 'unrealisedPl', 'totalPl']) {
+    expect(await arrow(col)).toBe('"↕"');
+  }
+  expect(await faint('value')).toBeLessThan(0.5);
+  await page.locator('[data-dg-portfolio-table] th[data-dg-col=value] > button').hover();
+  await expect.poll(() => faint('value')).toBeGreaterThan(0.5);
   await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Type' }).click();
   await expect.poll(() => arrow('type')).toBe('"↓"');
   await page.locator('[data-dg-portfolio-table] thead button', { hasText: 'Product' }).click();
   await expect.poll(() => arrow('product')).toBe('"↑"');
-  expect(await arrow('type')).toBe('none');
+  expect(await arrow('type')).toBe('"↕"');
   await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=product]')).toHaveText('Product');
+  await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=value]')).toHaveText('Value');
 });
 
 test('the toolbar labels its picker "Columns", like Orders\' own', async ({ degiro, settings }) => {
@@ -309,12 +317,12 @@ test('nested sections (the real page\'s own shape): the merged table gets rows f
   // (they never check DOM containment or layout position), so it's asserted explicitly here.
   expect(await page.evaluate(() =>
     document.querySelector('[data-dg-portfolio-table]').parentElement !== document.querySelector('h3[data-name=stock]').parentElement)).toBe(true);
-  for (const sel of ['#dg-portfolio-toolbar', '[data-dg-portfolio-table]', '[data-dg-portfolio-table] + [data-name=pagination]']) {
+  for (const sel of ['#dg-portfolio-toolbar', '[data-dg-portfolio-scroll]', '[data-dg-portfolio-scroll] + [data-name=pagination]']) {
     expect(await page.$eval(sel, t => t.parentElement.getAttribute('data-holdings'))).toBe('stock');
   }
 
   // the merged pager drives etf's real (nested) pagination, same as the flat-shape test above
-  const next = page.locator('[data-dg-portfolio-table] + [data-name=pagination] button[data-dg-page=next]');
+  const next = page.locator('[data-dg-portfolio-scroll] + [data-name=pagination] button[data-dg-page=next]');
   await next.click();
   await expect(page.locator('[data-holdings=etf] > nav button', { hasText: '2' })).toHaveAttribute('aria-current', 'true');
   await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(5); // 3 stock + 1 etf(page2) + 1 lox
@@ -326,7 +334,7 @@ test('ETF-only portfolio (no Shares section): the merge still engages, anchored 
   const opt = await settings();
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
   await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(3); // 2 etf (page 1) + 1 lox
-  expect(await page.$eval('[data-dg-portfolio-table]', t => t.parentElement.getAttribute('data-holdings'))).toBe('etf');
+  expect(await page.$eval('[data-dg-portfolio-scroll]', t => t.parentElement.getAttribute('data-holdings'))).toBe('etf');
   await expect(page.locator('h3[data-name=etf]')).toBeHidden();
   await expect.poll(async () => (await rawStatus(page, opt)).portfolioTable).toBe('ok');
 });
@@ -372,7 +380,7 @@ test('the merged rows are updated in place: a live tick keeps its buttons, focus
 test('the merged pager stays visible, with both buttons disabled, while every section is on its only page', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   const opt = await settings(); await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  const pager = page.locator('[data-dg-portfolio-table] + [data-name=pagination]');
+  const pager = page.locator('[data-dg-portfolio-scroll] + [data-name=pagination]');
   await expect(pager).toBeVisible(); // etf has a second page
   await expect(pager.locator('[data-dg-page=current]')).toHaveText('1');
   // etf's third holding is sold: every section now fits on one page — DEGIRO's own pager stays
@@ -415,11 +423,14 @@ test('disabling the merge restores the native tables and removes the merged UI; 
     await expect(page.locator('#dg-portfolio-toolbar')).toBeVisible();
     await expect(page.locator('[data-dg-portfolio-table]')).toBeVisible();
     await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+    await expect(page.locator('[data-dg-portfolio-scroll]')).toHaveCount(1); // never duplicated on a rebuild
+    await expect(page.locator('[data-dg-portfolio-scroll] > [data-dg-portfolio-table]')).toHaveCount(1);
   };
   const mergedAbsent = async () => {
     await expect(page.locator('#dg-portfolio-toolbar')).toHaveCount(0);
     await expect(page.locator('[data-dg-portfolio-table]')).toHaveCount(0);
-    await expect(page.locator('[data-dg-portfolio-table] + [data-name=pagination]')).toHaveCount(0);
+    await expect(page.locator('[data-dg-portfolio-scroll]')).toHaveCount(0);
+    await expect(page.locator('[data-dg-own][data-name=pagination]')).toHaveCount(0);
   };
 
   await nativeVisible();
@@ -439,6 +450,114 @@ test('disabling the merge restores the native tables and removes the merged UI; 
   await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
   await nativeHidden();
   await mergedPresent();
+});
+
+test('a merged table wider than its container scrolls horizontally in its own wrapper, like DEGIRO\'s own; a narrow one still fills the width', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const opt = await settings();
+  await page.setViewportSize({ width: 700, height: 800 });
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+  // The holdings block itself must not overflow (the document can't be measured: the mock's 900px
+  // performance chart already overflows a 700px viewport). Without a scroll wrapper the merged table
+  // spilled out of it, cut off with no horizontal scrollbar of its own.
+  const overflow = (/** @type {string} */ sel) => page.$eval(sel, el => el.scrollWidth - el.clientWidth);
+  await expect.poll(() => overflow('.holdings')).toBeLessThanOrEqual(0);
+  // instead the table's own wrapper scrolls; the toolbar and pager stay outside it
+  const wrap = await page.$eval('[data-dg-portfolio-table]', t => {
+    const p = /** @type {HTMLElement} */ (t.parentElement);
+    return { scroll: p.hasAttribute('data-dg-portfolio-scroll'), overflowX: getComputedStyle(p).overflowX, over: p.scrollWidth - p.clientWidth };
+  });
+  expect(wrap).toEqual({ scroll: true, overflowX: 'auto', over: expect.any(Number) });
+  expect(wrap.over).toBeGreaterThan(0);
+  await expect(page.locator('[data-dg-portfolio-scroll] + [data-name=pagination]')).toBeVisible();
+  expect(await page.$eval('#dg-portfolio-toolbar', t => t.nextElementSibling?.hasAttribute('data-dg-portfolio-scroll'))).toBe(true);
+  // the wrapper scrolls the table for real
+  await page.$eval('[data-dg-portfolio-scroll]', w => { w.scrollLeft = 100; });
+  expect(await page.$eval('[data-dg-portfolio-scroll]', w => w.scrollLeft)).toBeGreaterThan(0);
+
+  // wide enough: no scrolling, and the table still fills the whole width (no narrow-table regression)
+  await page.setViewportSize({ width: 2400, height: 800 });
+  await expect.poll(() => overflow('[data-dg-portfolio-scroll]')).toBe(0);
+  expect(await page.$eval('[data-dg-portfolio-scroll]', w =>
+    Math.abs(/** @type {Element} */ (w.firstElementChild).getBoundingClientRect().width - w.clientWidth))).toBeLessThan(1);
+});
+
+test('the Product column is collapsed to 320px with an ellipsis by default; its chevron expands and collapses it without sorting', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  await page.setViewportSize({ width: 1600, height: 800 });
+  const LONG = 'Mock iShares Core MSCI World UCITS ETF USD (Acc) Extra Long Product Name';
+  // a long name, as DEGIRO's own Trackers section has (the merged row follows the native one)
+  await page.evaluate(n => { document.querySelector('[data-name=productName][data-id="441201"]').textContent = n; }, LONG);
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  const name = page.locator('[data-dg-portfolio-table] tbody [data-name=productName]', { hasText: 'Mock iShares' });
+  await expect(name).toHaveText(LONG);
+  const measure = () => name.evaluate(el => {
+    const td = /** @type {HTMLElement} */ (el.closest('td'));
+    const th = /** @type {HTMLElement} */ (document.querySelector('[data-dg-portfolio-table] th[data-dg-col=product]'));
+    return { td: parseFloat(getComputedStyle(td).width), th: parseFloat(getComputedStyle(th).width),
+      truncated: el.scrollWidth > el.clientWidth, ellipsis: getComputedStyle(el).textOverflow };
+  });
+  // collapsed: capped (content box, as DEGIRO's own max-width: 320px) and the long name cut with an ellipsis
+  await expect.poll(async () => (await measure()).truncated).toBe(true);
+  let m = await measure();
+  expect(m.td).toBeLessThanOrEqual(320);
+  expect(m.th).toBeLessThanOrEqual(320);
+  expect(m.ellipsis).toBe('ellipsis');
+  // short names in the same column are not cut
+  const short = page.locator('[data-dg-portfolio-table] tbody [data-name=productName]', { hasText: 'Mock Software SE' });
+  expect(await short.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(false);
+
+  // the chevron: DEGIRO blue, at the right end of the Product header, pointing right (»)
+  const toggle = page.locator('[data-dg-portfolio-table] th[data-dg-col=product] [data-dg-product-toggle]');
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveCSS('color', 'rgb(0, 149, 210)');
+  await expect(toggle).toHaveAttribute('aria-label', 'Full product names');
+  expect(await toggle.evaluate(b => {
+    const th = /** @type {Element} */ (b.closest('th')).getBoundingClientRect(), r = b.getBoundingClientRect();
+    return th.right - r.right < 20 && r.left > /** @type {Element} */ (b.previousElementSibling).getBoundingClientRect().right;
+  })).toBe(true);
+  await expect(toggle.locator('svg')).toHaveCSS('transform', 'none');
+  const arrow = col => page.$eval(`[data-dg-portfolio-table] th[data-dg-col=${col}] > button:first-child`, b => getComputedStyle(b, '::after').content);
+
+  // expanded: full name, no width cap, chevron pointing left; the sort is unchanged
+  await toggle.click();
+  await expect.poll(async () => (await measure()).truncated).toBe(false);
+  m = await measure();
+  expect(m.td).toBeGreaterThan(320);
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(toggle.locator('svg')).not.toHaveCSS('transform', 'none');
+  await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=type]')).toHaveAttribute('aria-sort', 'ascending');
+  await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=product]')).toHaveAttribute('aria-sort', 'none');
+  expect(await arrow('product')).toBe('"↕"'); // unsorted, so only the faint hint
+  // the chevron itself never draws the sort arrow
+  expect(await toggle.evaluate(b => getComputedStyle(b, '::after').content)).toBe('none');
+
+  // and back to collapsed
+  await toggle.click();
+  await expect.poll(async () => (await measure()).truncated).toBe(true);
+  expect((await measure()).td).toBeLessThanOrEqual(320);
+  await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=type]')).toHaveAttribute('aria-sort', 'ascending');
+
+  // turning the merge off removes the chevron and the width rule with the table
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: false }));
+  await expect(page.locator('[data-dg-product-toggle]')).toHaveCount(0);
+  await expect(page.locator('#dg-portfolio-style')).toHaveCount(0);
+  const native = page.locator('[data-name=productName][data-id="441201"]');
+  await expect(native).toBeVisible();
+  expect(await native.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(false);
+});
+
+test('persist on: an expanded Product column survives a reload', async ({ degiro, settings }) => {
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true, portfolioMergedPersist: true }));
+  let { page } = await degiro({ url: URL_P });
+  await page.locator('[data-dg-product-toggle]').click();
+  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('dgPortfolioWide'))).toEqual({ dgPortfolioWide: true });
+  await page.reload();
+  await expect(page.locator('[data-dg-portfolio-table]')).toHaveAttribute('data-dg-product-wide', '');
+  await expect(page.locator('[data-dg-product-toggle]')).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('portfolio merge toggles are present and save', async ({ settings }) => {

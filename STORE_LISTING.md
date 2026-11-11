@@ -33,6 +33,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Change for the selected period next to the daily change, e.g. 1M +2,06%
 > • Drag across any product chart to see the % and price change between two points, Google Finance style, with start/end prices and dates
 > • Portfolio chart: change for the selected period in € and %, and drag to measure any custom date range
+> • Portfolio chart: today's cash per currency next to the total, and optional cash columns over the period
 > • Respects DEGIRO's "hide values" mode. Your amounts stay hidden when you hide them
 >
 > YOUR ORDERS WHERE THEY BELONG: ON THE CHART
@@ -95,14 +96,14 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort and hidden columns (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort, hidden columns and full-name choice (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.
 
 **Remote code:** No, I am not using remote code. All JavaScript is included in the package.
 
 **Data usage — select:**
-- **Financial and payment information** — the user's open orders and portfolio value history are read from DEGIRO to draw them on the charts, and the orders and transactions shown on DEGIRO's Orders and Transactions pages are read from the page for filters and totals, and the holdings on the Portfolio page are read from the page for the merged table (when that setting is on). Used locally only.
-- **Authentication information** — the DEGIRO session identifier and internal account number are used, locally, to request the user's own orders from DEGIRO. If DEGIRO's request URLs don't contain them, they are read from DEGIRO's own session and client endpoints (only the account number is read from the client answer).
+- **Financial and payment information** — the user's open orders, portfolio value history and cash balances (and, with the cash columns switch on, the account statement for the chart period) are read from DEGIRO to draw them on the charts, and the orders and transactions shown on DEGIRO's Orders and Transactions pages are read from the page for filters and totals, and the holdings on the Portfolio page are read from the page for the merged table (when that setting is on). Used locally only.
+- **Authentication information** — the DEGIRO session identifier and internal account number are used, locally, to request the user's own orders, portfolio history and cash from DEGIRO. If DEGIRO's request URLs don't contain them, they are read from DEGIRO's own session and client endpoints (only the account number is read from the client answer).
 - **Personally identifiable information** — only in that fallback case: DEGIRO's client answer also contains the user's profile (name, contact details). It is received and parsed in page memory; only the account number is kept, the rest is discarded and never stored or sent anywhere. (Alternative, if you'd rather not tick this: remove the `/pa/secure/client` request from `orders.js` and wait for the account number to appear in DEGIRO's own request URLs.)
 
 The Web Store also asks about **Website content**, because the extension reads prices from the page. Select it if the dashboard wording covers reading page content.

@@ -50,7 +50,7 @@
 <div data-name="app-layout">
   <div data-name="performance-chart">
     <div class="top">
-      <div data-name="performance-chart-value"><span id="total" data-name="performance-chart-amount">€ 0,00</span><button data-name="tooltipButton">i</button></div>
+      <div data-name="performance-chart-value"><span id="total" data-name="performance-chart-amount">€ 0,00</span><span data-name="performance-chart-caption">Today</span><button data-name="tooltipButton">i</button></div>
       <button data-name="chartHideButton">–</button>
     </div>
     <div data-name="performance-chart-interaction-area">
@@ -91,7 +91,8 @@
       <div class="tableWrap">
         <table>
           <thead><tr>
-            <th>Product</th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
+            <!-- DEGIRO's own name-width toggle, shown live in a section whose names overflow (Trackers) -->
+            <th>Product<button type="button" data-name="toggleNameCellBtnWidth"><svg data-name="icon-doubleChevronRight" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 6l6 6-6 6M13 6l6 6-6 6" fill="none" stroke="currentColor"/></svg></button></th><th>Symbol | ISIN</th><th>Exchange</th><th>Qty</th><th>Price</th><th>Curr.</th>
             <th>Value</th><th>Break Even Price</th><th>Today's P&amp;L</th><th>Today's P&amp;L %</th>
             <th>P&amp;L Unrealized</th><th>P&amp;L Total</th><th>Last update</th><th></th>
           </tr></thead>
@@ -130,7 +131,27 @@
   // Draw like DEGIRO: DEGIRO-blue line, equally spaced points, light fill.
   const PAD = 7;
   let cursorX = null;
-  window.addEventListener('pointermove', e => { cursorX = e.clientX; if (window.__points && document.getElementById('c1')) draw(window.__points); });
+  window.addEventListener('pointermove', e => { cursorX = e.clientX; if (window.__points && document.getElementById('c1')) { draw(window.__points); tooltip(); } });
+  // DEGIRO's hover tooltip: the nearest point's date, then a "Portfolio value" row. Shown while the
+  // chart is hovered; its text is updated in place on each move, and it is removed when the pointer leaves.
+  function tooltip() {
+    const area = document.querySelector('[data-name="performance-chart-interaction-area"]'), c = document.getElementById('c1');
+    let tip = area.querySelector('[data-name="performance-plot-tooltip"]');
+    if (!area.matches(':hover')) { tip?.remove(); return; }
+    const pts = window.__points, x = cursorX - c.getBoundingClientRect().left;
+    const i = Math.max(0, Math.min(pts.length - 1, Math.round((x - PAD) / (c.width - 2 * PAD) * (pts.length - 1))));
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.setAttribute('data-name', 'performance-plot-tooltip');
+      tip.className = 'mockTip';
+      tip.style.cssText = 'position:absolute;top:10px;left:10px;z-index:8;display:flex;flex-direction:column;gap:4px;padding:8px 12px;background:#fff;font:12px Roboto,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.2)';
+      tip.innerHTML = '<div class="tipDate" style="font-weight:600"></div><div class="tipRow" style="display:flex;gap:16px;justify-content:space-between"><span class="tipLabel" style="color:#65757B">Portfolio value</span><span class="tipValue" style="font-weight:600"></span></div>';
+      area.appendChild(tip);
+    }
+    tip.dataset.date = pts[i].date;
+    tip.querySelector('.tipDate').textContent = new Date(pts[i].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    tip.querySelector('.tipValue').textContent = '€ ' + pts[i].value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
   function draw(points) {
     const c = document.getElementById('c1'), ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);

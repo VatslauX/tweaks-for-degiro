@@ -1,7 +1,40 @@
 // Shared helpers in extension/common.js: one number parser/formatter for every script.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseNum, fmt, xs, ys, isPriceSeries, priceSeries, page } = require('../../extension/common.js');
+const { parseNum, fmt, xs, ys, isPriceSeries, priceSeries, page, cashByDay } = require('../../extension/common.js');
+
+// ── cash per currency from the account statement (Portfolio chart) ──────────────────────────
+// Shaped like DEGIRO's cashMovements: newest first; a cash sweep is a pair with one timestamp, and
+// its entry without `change` (listed first) holds the day's closing balance.
+const mv = (date, currency, total, change) => ({ date, currency, balance: { total, flatexCash: total, unsettledCash: 0 }, ...(change === undefined ? {} : { change }) });
+const STATEMENT = [
+  mv('2026-10-05T15:21:28+02:00', 'EUR', 900),           // sweep: closing balance
+  mv('2026-10-05T15:21:28+02:00', 'EUR', 500, -100),     // sweep (intermediate)
+  mv('2026-10-05T14:42:14+02:00', 'EUR', 900, 300),      // trade
+  mv('2026-10-03T09:00:00+02:00', 'USD', 50, 50),
+  mv('2026-10-02T10:00:00+02:00', 'EUR', 600, -400)      // first movement: 1000 before it
+];
+
+test('cash per day: closing balance, carried over days without movements', () => {
+  const days = ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06'];
+  assert.deepStrictEqual(cashByDay(STATEMENT, days), {
+    EUR: [1000, 600, 600, 600, 900, 900], // before the first movement: the balance before it
+    USD: [0, 0, 50, 50, 50, 50] // 0 before its first deposit
+  });
+});
+
+test('cash per day: the movement date is DEGIRO\'s own day, not converted to UTC', () => {
+  const late = [mv('2026-10-02T23:30:00+02:00', 'EUR', 10, 10)]; // 21:30 UTC on the same day
+  assert.deepStrictEqual(cashByDay(late, ['2026-10-02', '2026-10-03']), { EUR: [10, 10] });
+});
+
+test('cash per day: malformed movements are skipped; no data gives nothing', () => {
+  const bad = [{}, null, { date: 'x', currency: 'EUR', balance: { total: 1 } }, { date: '2026-10-02T10:00:00Z', currency: 'eur', balance: { total: 1 } },
+    { date: '2026-10-02T10:00:00Z', currency: 'EUR', balance: { total: '5' } }, { date: '2026-10-02T10:00:00Z', currency: 'EUR', balance: { total: NaN } }];
+  assert.deepStrictEqual(cashByDay(bad, ['2026-10-02']), {});
+  assert.deepStrictEqual(cashByDay(undefined, ['2026-10-02']), {});
+  assert.deepStrictEqual(cashByDay({ data: [] }, ['2026-10-02']), {});
+});
 
 test('parses DEGIRO prices in both formats', () => {
   assert.strictEqual(parseNum('€ 1.234,56', ','), 1234.56);

@@ -304,6 +304,9 @@
   "portfolioNextPage": {
     "message": "Página siguiente"
   },
+  "portfolioProductWidth": {
+    "message": "Nombres completos de los productos"
+  },
   "badgeBuy": {
     "message": "COMPRA"
   },
@@ -321,6 +324,21 @@
   },
   "portfolioTitle": {
     "message": "Variación del valor de la cartera en el periodo elegido. Incluye depósitos y retiradas, así que no es la rentabilidad."
+  },
+  "optPortfolioCash": {
+    "message": "Efectivo en el gráfico de cartera"
+  },
+  "optPortfolioCashHelp": {
+    "message": "Efectivo de hoy por divisa junto al total. Su interruptor muestra tu efectivo como columnas apiladas en el gráfico: EUR en verde, importes sin convertir."
+  },
+  "cashLabel": {
+    "message": "Efectivo"
+  },
+  "cashTitle": {
+    "message": "Efectivo por divisa, de tu cuenta. Sin convertir: las columnas del gráfico suman los importes tal cual."
+  },
+  "cashLinesToggle": {
+    "message": "Columnas de efectivo en el gráfico"
   },
   "badgeAria": {
     "message": "Ajustar orden: $1 $2 a $3",

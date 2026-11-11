@@ -38,6 +38,8 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - Next to the portfolio total: the change over the selected period (1M / 3M / YTD / 1Y), in € and %. It includes deposits and withdrawals.
 - Drag on the portfolio chart to see the € and % change between two dates.
 - When DEGIRO's eye button hides your amounts, the extension's € amounts and percentages are hidden too; only dates stay readable.
+- **Cash** next to the total: today's cash per currency from your account (e.g. `Cash € 26.876,16 · $ 1.204,00`). It is not converted between currencies.
+- A *Cash columns on the chart* switch shows the cash per currency as stacked columns over the selected period, EUR at the bottom. The switch is remembered in this browser.
 
 **Open orders on the chart**
 - Each open order for the product is drawn as a dashed line at its price, with a badge on the left (e.g. `BUY 200 · 14,10`). Buy orders are green, sell orders red.
@@ -77,9 +79,10 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - Combines DEGIRO's *Shares*, *Trackers (ETFs)* and *Structured products* tables into one table on the Portfolio page, with a *Type* column naming each holding's section. DEGIRO's three tables are hidden while it is on.
 - Click a column header to sort. The table starts sorted by Type, so each section stays together.
 - Click a product name to open that product's page. The Buy and Sell buttons before each name work as on DEGIRO's own tables.
-- **Columns**: a *Columns* menu chooses which columns to show (Product and Type always show). *Symbol/ISIN*, *Exchange*, *Last update* and *Delay* are hidden by default.
+- **Columns**: a *Columns* menu chooses which columns to show (Product and Type always show). *Symbol/ISIN* and *Delay* are hidden by default.
+- The Product column is capped at DEGIRO's own width, with long names cut off. The **»** button in its header shows full names instead.
 - *Previous page* and *Next page* step through the rows.
-- **Remember Portfolio table sort & columns** (a sub-setting): keeps your sort and hidden columns across reloads and navigation, and syncs them with your Chrome profile. Off, the table starts again from the default each time.
+- **Remember Portfolio table sort & columns** (a sub-setting): keeps your sort, hidden columns and full-name choice across reloads and navigation, and syncs them with your Chrome profile. Off, the table starts again from the default each time.
 
 **Cleaner portfolio**
 - Hides the *Cash compensation* section by default, in any DEGIRO language. You can add your own section titles in Settings. A section is hidden only on its own: never the price chart, Pricing data or a box holding other sections.
@@ -99,6 +102,7 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | Compact Pricing data | On |
 | Change for selected period (products and portfolio) | On |
 | Range selection (products and portfolio) | On |
+| Cash on portfolio chart | On |
 | Open orders on chart | On |
 | ↳ Click badge to adjust | On |
 | Click outside or Esc closes Adjust order | On |
@@ -128,6 +132,7 @@ Requires Chrome 111 or newer.
 ## Privacy & safety
 
 - Runs only on `https://trader.degiro.nl/trader/`, in the main page (not in frames). The only permission is `storage`, used to save your settings. Nothing is sent anywhere else, and there is no analytics or remote code.
+- Portfolio cash is **read** the same way: today's balance per currency from DEGIRO's own cash endpoint, and, only while the *Cash columns on the chart* switch is on, the account statement for the chart's period. Kept in page memory only.
 - Open orders are **read** from DEGIRO's own endpoint using your current logged-in session, the same request the DEGIRO web app makes. The session is normally taken from DEGIRO's own requests; only if they don't contain it, the extension asks DEGIRO for it the way the DEGIRO website does, and reads nothing else from that answer but your account number. A session DEGIRO rejects is not used again, and failed requests are retried only after a pause, so the extension never floods DEGIRO with requests.
 - The extension never places, changes or cancels orders. Clicking a badge only opens DEGIRO's own edit form; you confirm any change yourself.
 

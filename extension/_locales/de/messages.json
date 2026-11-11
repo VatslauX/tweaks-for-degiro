@@ -304,6 +304,9 @@
   "portfolioNextPage": {
     "message": "Nächste Seite"
   },
+  "portfolioProductWidth": {
+    "message": "Vollständige Produktnamen"
+  },
   "badgeBuy": {
     "message": "KAUF"
   },
@@ -321,6 +324,21 @@
   },
   "portfolioTitle": {
     "message": "Änderung des Portfoliowerts im gewählten Zeitraum. Enthält Ein- und Auszahlungen, ist also nicht die Rendite."
+  },
+  "optPortfolioCash": {
+    "message": "Bargeld im Portfolio-Chart"
+  },
+  "optPortfolioCashHelp": {
+    "message": "Heutiges Bargeld je Währung neben dem Gesamtwert. Sein Schalter zeigt Ihr Bargeld als gestapelte Säulen im Chart: EUR grün, Beträge nicht umgerechnet."
+  },
+  "cashLabel": {
+    "message": "Bargeld"
+  },
+  "cashTitle": {
+    "message": "Bargeld je Währung aus Ihrem Konto. Nicht umgerechnet: Die Säulen im Chart addieren die Beträge, wie sie sind."
+  },
+  "cashLinesToggle": {
+    "message": "Bargeld-Säulen im Chart"
   },
   "badgeAria": {
     "message": "Order anpassen: $1 $2 zu $3",

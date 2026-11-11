@@ -124,7 +124,7 @@ test('hidden columns: only known ones, always in the table\'s own order', () => 
 
 test('portfolio settings default and sanitize', () => {
   assert.equal(sanitize({}).portfolioMergedTable, false);
-  assert.deepEqual(sanitize({}).portfolioHiddenColumns, ['symbolIsin', 'exchange', 'last', 'delay']);
+  assert.deepEqual(sanitize({}).portfolioHiddenColumns, ['symbolIsin', 'delay']);
   assert.deepEqual(sanitize({ portfolioHiddenColumns: ['bogus', 'qty'] }).portfolioHiddenColumns, ['qty']);
   assert.equal(sanitize({ portfolioMergedPersist: 'yes' }).portfolioMergedPersist, true);
 });

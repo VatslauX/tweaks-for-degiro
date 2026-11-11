@@ -304,6 +304,9 @@
   "portfolioNextPage": {
     "message": "Page suivante"
   },
+  "portfolioProductWidth": {
+    "message": "Noms complets des produits"
+  },
   "badgeBuy": {
     "message": "ACHAT"
   },
@@ -321,6 +324,21 @@
   },
   "portfolioTitle": {
     "message": "Variation de la valeur du portefeuille sur la période choisie. Inclut dépôts et retraits : ce n'est donc pas le rendement."
+  },
+  "optPortfolioCash": {
+    "message": "Espèces sur le graphique du portefeuille"
+  },
+  "optPortfolioCashHelp": {
+    "message": "Espèces du jour par devise à côté du total. Son interrupteur affiche vos espèces en colonnes empilées sur le graphique : EUR en vert, montants non convertis."
+  },
+  "cashLabel": {
+    "message": "Espèces"
+  },
+  "cashTitle": {
+    "message": "Espèces par devise, de votre compte. Non converties : les colonnes du graphique additionnent les montants tels quels."
+  },
+  "cashLinesToggle": {
+    "message": "Colonnes d'espèces sur le graphique"
   },
   "badgeAria": {
     "message": "Modifier l'ordre : $1 $2 à $3",

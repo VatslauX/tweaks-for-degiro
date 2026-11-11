@@ -28,7 +28,9 @@ test('no remote code or third-party network calls', () => {
 // fetch arguments that aren't literals, each checked by hand: both are built from a same-origin path
 const FETCH_VARS = {
   'orders.js': ['path'], // `/trading/secure/v5/update/...` built just above
-  'portfolio.js': ['target.pathname + target.search'] // DEGIRO's own request URL, origin checked in seen()
+  // DEGIRO's own request URL, origin checked in seen(); getJson(st, path) gets only the literal
+  // `const path = '/...'` statements of loadFunds and loadStatement (checked below)
+  'portfolio.js': ['target.pathname + target.search', 'path']
 };
 test('fetch is only used for DEGIRO same-origin paths', () => {
   for (const [f, s] of Object.entries(src)) {

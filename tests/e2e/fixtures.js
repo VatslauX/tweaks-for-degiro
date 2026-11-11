@@ -6,7 +6,8 @@ const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 
-const EXT = path.resolve(__dirname, '../../extension');
+// DGT_EXTENSION_DIR points at a scratch copy of extension/ (used to prove a test fails against broken code)
+const EXT = path.resolve(process.env.DGT_EXTENSION_DIR || path.join(__dirname, '../../extension'));
 const MOCK = fs.readFileSync(path.resolve(__dirname, '../fixtures/degiro.html'), 'utf8');
 const PORTFOLIO = fs.readFileSync(path.resolve(__dirname, '../fixtures/portfolio.html'), 'utf8');
 const ORDERS_PAGE = fs.readFileSync(path.resolve(__dirname, '../fixtures/orders.html'), 'utf8');
@@ -24,6 +25,27 @@ function portfolioSeries(period) {
   }
   return out.reverse();
 }
+// Cash: today's balance per currency (DEGIRO's /update?cashFunds=0) and the account statement's
+// cashMovements (newest first, with a sweep pair sharing a timestamp). GBP has no movements: its
+// line is flat at today's balance. CHF is 0 and is left out.
+const CASH_TODAY = { EUR: 26876.16, USD: 1204, GBP: 12.5, CHF: 0 };
+const cashFundsApi = (today = CASH_TODAY) => ({
+  cashFunds: { value: Object.entries(today).map(([cur, v], i) => ({ id: i, value: [
+    { name: 'id', value: i }, { name: 'currencyCode', value: cur }, { name: 'value', value: v }, { name: 'handling', value: 'FLATEX' }] })) }
+});
+const mv = (date, currency, total, change) => ({ id: 1, date: `${date}T12:00:00+02:00`, valueDate: date, description: 'x', currency, type: 'TRANSACTION',
+  balance: { total, flatexCash: total, unsettledCash: 0 }, ...(change === undefined ? {} : { change }) });
+const CASH_MOVEMENTS = [
+  mv('2026-10-15', 'EUR', 26876.16), mv('2026-10-15', 'EUR', 20000, -5000), mv('2026-10-15', 'EUR', 26876.16, 6876.16),
+  mv('2026-08-01', 'USD', 1204, 1204),
+  mv('2026-05-01', 'EUR', 20000, -10000), // before it: 30000
+  mv('2025-01-01', 'EUR', 30000, 30000)   // outside every chart period
+];
+const accountOverview = u => {
+  const iso = s => (s || '').split('/').reverse().join('-');
+  const from = iso(u.searchParams.get('fromDate')), to = iso(u.searchParams.get('toDate'));
+  return { data: { cashMovements: CASH_MOVEMENTS.filter(m => m.valueDate >= from && m.valueDate <= to) } };
+};
 const HIGHCHARTS = fs.readFileSync(require.resolve('highcharts/highcharts.js'), 'utf8');
 
 // Chrome derives an unpacked extension's ID from its absolute path.
@@ -108,13 +130,18 @@ const test = base.extend({
   // route.fulfill options, e.g. { status: 401 }, or 'hang' to never answer), or return nothing
   // for the normal mock answer.
   degiro: async ({ context }, use) => {
-    await use(async ({ orders = DEFAULT_ORDERS, url = 'https://trader.degiro.nl/trader/#/products/123/overview', initScript, respond, clock } = {}) => {
-      const calls = { update: 0, config: 0, client: 0, portfolio: 0 };
+    await use(async ({ orders = DEFAULT_ORDERS, url = 'https://trader.degiro.nl/trader/#/products/123/overview', initScript, respond, clock, cashLines } = {}) => {
+      // update: the orders requests (/update/…?orders=0); cashFunds: portfolio.js's cash request on the same endpoint
+      const calls = { update: 0, cashFunds: 0, config: 0, client: 0, portfolio: 0, statement: 0, lastStatementUrl: '', lastCashFundsUrl: '' };
       await context.route('https://trader.degiro.nl/**', async route => {
         const u = new URL(route.request().url());
         if (u.pathname === '/mock/highcharts.js') return route.fulfill({ contentType: 'application/javascript', body: HIGHCHARTS });
-        if (u.pathname.startsWith('/trading/secure/v5/update/')) { calls.update++; calls.lastUpdateUrl = u.pathname + u.search; }
+        if (u.pathname.startsWith('/trading/secure/v5/update/')) {
+          if (u.searchParams.has('cashFunds')) { calls.cashFunds++; calls.lastCashFundsUrl = u.pathname + u.search; }
+          else { calls.update++; calls.lastUpdateUrl = u.pathname + u.search; }
+        }
         if (u.pathname === '/portfolio-metrics/secure/api/v1/portfolio/value') calls.portfolio++;
+        if (u.pathname === '/portfolio-reports/secure/v6/accountoverview') { calls.statement++; calls.lastStatementUrl = u.pathname + u.search; }
         const custom = respond?.(u);
         if (custom === 'hang') return; // left pending: the page's request never completes
         if (custom) return route.fulfill(custom);
@@ -127,6 +154,12 @@ const test = base.extend({
           calls.client++;
           calls.lastClientUrl = u.pathname + u.search;
           return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { intAccount: 4242, firstContact: { firstName: 'x' } } }) });
+        }
+        if (u.pathname === '/portfolio-reports/secure/v6/accountoverview') {
+          return route.fulfill({ contentType: 'application/json', body: JSON.stringify(accountOverview(u)) });
+        }
+        if (u.pathname.startsWith('/trading/secure/v5/update/') && u.searchParams.has('cashFunds')) {
+          return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(cashFundsApi()) });
         }
         if (u.pathname.startsWith('/trading/secure/v5/update/')) {
           return route.fulfill({ contentType: 'application/json', body: JSON.stringify(toApi(orders)) });
@@ -144,6 +177,8 @@ const test = base.extend({
       const page = await context.newPage();
       if (clock) await page.clock.install(); // before goto so extension timers are fake from the start
       await page.addInitScript(o => { window.__MOCK_ORDERS = o; }, orders);
+      // cashLines: the Portfolio chart's cash-lines switch starts on (portfolio.js keeps it in localStorage)
+      if (cashLines) await page.addInitScript(() => { try { localStorage.setItem('dgTweaksCashLines', '1'); } catch (e) {} });
       if (initScript) await page.addInitScript(initScript);
       await page.goto(url);
       return { page, calls };
@@ -176,4 +211,4 @@ async function advanceUntilVisible(page, locator, step = 100) {
   await expect(locator).toBeVisible();
 }
 
-module.exports = { test, expect, setFlag, advanceUntilVisible, DEFAULT_ORDERS, EXT, portfolioSeries };
+module.exports = { test, expect, setFlag, advanceUntilVisible, DEFAULT_ORDERS, EXT, portfolioSeries, CASH_TODAY, cashFundsApi };

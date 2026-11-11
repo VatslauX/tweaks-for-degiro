@@ -2,7 +2,7 @@
 // global `__dgt`; in Node (unit tests) it is exported instead. No chrome.* here.
 // Chrome injects a file only once per page, so the isolated world loads an identical copy,
 // common-isolated.js. Edit this file, then run `npm run sync-common` (a test checks they match).
-/** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean }} DgPageFlags */
+/** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean, portfolioCash: boolean }} DgPageFlags */
 (() => {
   // ---------- numbers ----------
   // Decimal separator DEGIRO uses on this page: ',' ("€ 1.234,56") or '.' ("$1,234.56").
@@ -116,6 +116,8 @@
     perfChart: '[data-name="performance-chart"]',
     perfValue: '[data-name="performance-chart-value"]',
     perfAmount: '[data-name="performance-chart-amount"]',
+    perfCaption: '[data-name="performance-chart-caption"]', // "Today", or the hovered date
+    perfTooltip: '[data-name="performance-plot-tooltip"]', // hover tooltip: date, then "Portfolio value" row
     perfArea: '[data-name="performance-chart-interaction-area"]',
     // portfolio holdings tables: one <h3> per section; its table is the next sibling wrapper.
     // The row's product id lives on this span (kept separate from productName above: this one
@@ -223,6 +225,40 @@
 
   // The chart's main price series: the visible price series with the most points.
   const priceSeries = chart => (chart?.series || []).filter(isPriceSeries).sort((a, b) => xs(b).length - xs(a).length)[0];
+
+  // ---------- cash per currency (Portfolio chart) ----------
+  // Cash balance per currency at the end of each chart day, from DEGIRO's account statement
+  // (cashMovements). DEGIRO lists movements newest first, and its first entry of a day is that day's
+  // closing balance (cash-sweep pairs share a timestamp, so its order is kept, not re-sorted by time).
+  // `days` are the chart's 'YYYY-MM-DD' dates, oldest first. Before a currency's first movement the
+  // balance is the one just before that movement. Returns { [currency]: balance per day }.
+  /** @param {any} movements @param {string[]} days @returns {Record<string, number[]>} */
+  function cashByDay(movements, days) {
+    /** @type {Record<string, Map<string, { close: number, open: number }>>} */
+    const byCur = {};
+    for (const m of Array.isArray(movements) ? movements : []) {
+      const day = typeof m?.date === 'string' ? m.date.slice(0, 10) : '', total = m?.balance?.total;
+      if (!/^\d{4}-\d\d-\d\d$/.test(day) || typeof m.currency !== 'string' || !/^[A-Z]{3}$/.test(m.currency) ||
+        typeof total !== 'number' || !isFinite(total)) continue;
+      const map = byCur[m.currency] ||= new Map();
+      // the balance before this movement; each older entry of the day replaces it
+      const open = typeof m.change === 'number' && isFinite(m.change) ? Math.round((total - m.change) * 100) / 100 : total;
+      const d = map.get(day);
+      if (d) d.open = open; else map.set(day, { close: total, open });
+    }
+    /** @type {Record<string, number[]>} */
+    const out = {};
+    for (const [cur, map] of Object.entries(byCur)) {
+      const list = [...map.keys()].sort();
+      let i = -1;
+      out[cur] = days.map(day => {
+        while (i + 1 < list.length && list[i + 1] <= day) i++;
+        const d = map.get(list[Math.max(i, 0)]);
+        return d ? (i < 0 ? d.open : d.close) : 0;
+      });
+    }
+    return out;
+  }
 
   // ---------- scheduler: one observer and one timer per world ----------
   // Features register with feature({...}) instead of running their own observers and timers.
@@ -334,7 +370,7 @@
   // The page world has no chrome.i18n: the isolated world copies the texts it needs to data-dg-i18n.
   // The page can rewrite that attribute, so these texts are only ever set as textContent or title.
   const I18N = 'data-dg-i18n';
-  const PAGE_TEXTS = ['badgeBuy', 'badgeSell', 'badgeEdit', 'badgeAria', 'badgeMerged', 'badgeNotFound', 'periodTitle', 'portfolioTitle'];
+  const PAGE_TEXTS = ['badgeBuy', 'badgeSell', 'badgeEdit', 'badgeAria', 'badgeMerged', 'badgeNotFound', 'periodTitle', 'portfolioTitle', 'cashLabel', 'cashTitle', 'cashLinesToggle'];
   let pageTexts = null;
   /** @param {string} key @param {...(string | number)} subs */
   function t(key, ...subs) {
@@ -348,8 +384,22 @@
   if (!pageWorld && typeof document !== 'undefined')
     document.documentElement.setAttribute(I18N, JSON.stringify(Object.fromEntries(PAGE_TEXTS.map(k => [k, ext.i18n.getMessage(k, KEEP)]))));
 
-  const api = Object.freeze({ decimalSep, parseNum, fmt, flags, pageTheme, xs, ys, isPriceSeries, mainChart, priceSeries,
-    SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS });
+  // URLs of the extension's own requests (absolute href, as PerformanceObserver reports them), so the
+  // page-world scripts that read DEGIRO's session from DEGIRO's requests skip ours. Memory only, and
+  // nothing can be read back from it but yes/no for a given URL.
+  const ownUrls = new Set();
+  const ownRequests = Object.freeze({
+    /** @param {string} path a same-origin path or URL the extension requests */
+    add: path => {
+      try { ownUrls.add(new URL(path, location.href).href); } catch (e) { return; }
+      if (ownUrls.size > 200) ownUrls.delete(ownUrls.values().next().value); // oldest first
+    },
+    /** @param {string} href */
+    has: href => ownUrls.has(href)
+  });
+
+  const api = Object.freeze({ decimalSep, parseNum, fmt, flags, pageTheme, xs, ys, isPriceSeries, mainChart, priceSeries, cashByDay,
+    SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS, ownRequests });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else if (!(/** @type {any} */ (globalThis).__dgt)) Object.defineProperty(globalThis, '__dgt', { value: api });
 })();
