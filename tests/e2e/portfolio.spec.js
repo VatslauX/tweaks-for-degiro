@@ -43,14 +43,14 @@ test('drag selects a range: € and % change, dates, dots on the line', async ({
   await drag(page, 0.25, 0.75);
   const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
   await expect(label).toBeVisible();
-  await expect(label).toHaveText(/€ [+-][\d.]+,\d{2} \([+-]\d+,\d{2}%\)€ [\d.]+,\d{2} → € [\d.]+,\d{2} · .+ → .+/);
+  await expect(label).toHaveText(/€ [+-][\d.]+ \([+-]\d+,\d{2}%\)€ [\d.]+ → € [\d.]+ · .+ → .+/);
 
-  // numbers match the data at the selected points
+  // numbers match the data at the selected points, rounded to whole euros (half away from zero)
   const ok = await page.evaluate(() => {
     const label = [...document.querySelectorAll('[data-name="performance-chart-interaction-area"] > div')].find(d => /→/.test(d.textContent));
-    const m = label.textContent.match(/€ ([\d.]+,\d{2}) → € ([\d.]+,\d{2})/);
-    const v = s => parseFloat(s.replace(/\./g, '').replace(',', '.'));
-    const values = window.__points.map(p => p.value);
+    const m = label.textContent.match(/€ ([\d.]+) → € ([\d.]+)(?![\d,])/);
+    const v = s => parseInt(s.replace(/\./g, ''), 10);
+    const values = window.__points.map(p => Math.sign(p.value) * Math.round(Math.abs(p.value)));
     return values.includes(v(m[1])) && values.includes(v(m[2]));
   });
   expect(ok).toBe(true);

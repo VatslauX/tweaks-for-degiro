@@ -1,7 +1,8 @@
 // Portfolio value chart (Portfolio page):
-//  • change over the selected period next to the total, e.g. "1Y € +49.641,12 (+54,07%)"
+//  • change over the selected period next to the total, e.g. "1Y € +49.641 (+54,07%)"
 //  • drag-to-select a range, like on product charts
 //  • cash per currency: today's cash next to the total, and a switch for stacked cash columns on the chart (EUR in green)
+//    and, with the same setting, DEGIRO's "Portfolio value" in its hover tooltip in whole units
 // The chart is drawn on a <canvas>, so values come from the same endpoint DEGIRO uses for it
 // (/portfolio-metrics/.../portfolio/value), and pixel positions from the drawn line.
 // Runs in page context (world: MAIN).
@@ -17,7 +18,7 @@
   const CHANGE_ID = 'dg-portfolio-change';
 
 
-  const { flags, pageTheme, fmt, decimalSep, cashByDay, SEL, page, own, feature, schedule, ownRequests } = __dgt; // common.js
+  const { flags, pageTheme, fmt, fmtWhole, parseNum, decimalSep, cashByDay, SEL, page, own, feature, schedule, ownRequests } = __dgt; // common.js
   /** @type {(sel: string) => HTMLElement | null} */
   const $ = sel => document.querySelector(sel);
 
@@ -68,8 +69,9 @@
   }
 
   // ---------- formatting ----------
-  const money = (n, cur) => `${cur} ${n >= 0 ? '+' : '-'}${fmt(Math.abs(n))}`;
-  const plain = (n, cur) => `${cur} ${fmt(n)}`;
+  // Every amount this file shows is in whole units (fmtWhole); the percentages keep their cents.
+  const money = (n, cur) => `${cur} ${fmtWhole(n, true)}`;
+  const plain = (n, cur) => `${cur} ${fmtWhole(n)}`;
   const pctTxt = p => `${p >= 0 ? '+' : ''}${fmt(p)}%`;
   const dateTxt = d => { const t = new Date(d); return isNaN(t.getTime()) ? String(d) : t.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }); };
   // DEGIRO's "hide values" mode blurs the portfolio total with a CSS filter.
@@ -223,9 +225,10 @@
       .sort((a, b) => +(b[0] === 'EUR') - +(a[0] === 'EUR') ||
         Math.abs(b[1][b[1].length - 1]) - Math.abs(a[1][a[1].length - 1]) || (a[0] < b[0] ? -1 : 1));
   }
-  const cashText = (cur, v) => `${SYM[cur] || cur} ${fmt(v)}`;
+  // next to the total and in the chart tooltip: whole units ("€ 15.254")
+  const cashWhole = (cur, v) => `${SYM[cur] || cur} ${fmtWhole(v)}`;
 
-  // today's cash next to the total: "Cash ■ € 26.876,16 ■ $ 1.204,00"
+  // today's cash next to the total: "Cash ■ € 26.876 ■ $ 1.204"
   let cashTopKey = '';
   /** @param {[string, number[]][]} lines */
   function renderCashTop(lines) {
@@ -236,7 +239,11 @@
     const items = (funds || lines.map(([c, v]) => /** @type {[string, number]} */ ([c, v[v.length - 1]])))
       .filter(([, v]) => Math.abs(v) >= 0.005)
       .sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99));
-    if (!flags()?.portfolioCash || !anchor || !items.length) { el?.remove(); cashTopKey = ''; return; }
+    // "Cash" and its switch stay reachable without amounts (all balances 0, or today's cash can't be
+    // loaded); they appear once the cash request has answered or failed, not before (no flash of an
+    // empty label while it loads)
+    const settled = !!funds || fundsReq.failed || items.length > 0;
+    if (!flags()?.portfolioCash || !anchor || !settled) { el?.remove(); cashTopKey = ''; return; }
     const hide = hideFilter();
     const key = [items.map(x => x.join(':')).join(','), order.join(','), hide, decimalSep(), linesOn].join('|');
     if (el && key === cashTopKey && el.parentElement === anchor) return;
@@ -261,7 +268,7 @@
         item.append(sw);
       }
       const amount = document.createElement('span');
-      amount.textContent = cashText(cur, v);
+      amount.textContent = cashWhole(cur, v);
       amount.style.filter = hide;
       item.append(amount);
       el.append(item);
@@ -349,9 +356,12 @@
   const TIP = 'data-dg-cash-tip';
   let tipLines = /** @type {[string, number[]][]} */ ([]), tipArea = /** @type {HTMLElement | null} */ (null),
     tipX = /** @type {number | null} */ (null), tipFrame = 0, tipKey = '';
-  const removeTip = () => { document.querySelectorAll(`[${TIP}]`).forEach(r => r.remove()); tipKey = ''; };
+  // rows exist only while tipKey is set (it is set before they are added and cleared with them), so
+  // without one there is nothing to look for: hovering with the columns off stays free
+  const removeTip = () => { if (!tipKey) return; document.querySelectorAll(`[${TIP}]`).forEach(r => r.remove()); tipKey = ''; };
   function updateTip() {
     tipFrame = 0;
+    if (!tipLines.length) { removeTip(); return; } // columns off: no tooltip rows to place
     const area = $(SEL.perfArea), tip = area?.querySelector(SEL.perfTooltip);
     const geo = geoCache; // measured while not hovered (DEGIRO greys part of the line while hovered)
     if (!area || !tip || !tipLines.length || !geo || tipX == null || data.length < 2) { removeTip(); return; }
@@ -375,7 +385,7 @@
       sw.style.cssText = `display:inline-block;width:8px;height:8px;border-radius:2px;background:${colors[cur]};`;
       label.append(sw, `${__dgt.t('cashLabel')} ${cur}`);
       const value = /** @type {HTMLElement} */ (row.children[1].cloneNode(false));
-      value.textContent = cashText(cur, v[i]);
+      value.textContent = cashWhole(cur, v[i]);
       value.style.filter = hide;
       r.append(label, value);
       tip.append(r);
@@ -388,6 +398,52 @@
     // after DEGIRO's own handler has drawn the tooltip for this position
     area.addEventListener('pointermove', e => { tipX = e.clientX; if (!tipFrame) tipFrame = requestAnimationFrame(updateTip); }, { passive: true });
     area.addEventListener('pointerleave', () => { tipX = null; });
+  }
+
+  // ---------- whole units in DEGIRO's own tooltip row ----------
+  // "Portfolio value  € 124.288,34" -> "€ 124.288", like the cash rows under it. DEGIRO rewrites the
+  // tooltip on every move, so a MutationObserver on the chart area rounds it before it is painted
+  // (its callback runs before rendering). Only the number in the row's value cell changes: the
+  // currency symbol and spacing stay as DEGIRO wrote them. The text node is changed in place
+  // (DEGIRO keeps updating its own node). The total, the max/min labels and the announcement for
+  // screen readers keep their cents.
+  /** @type {{ obs: MutationObserver | null, area: HTMLElement | null, node: Text | null, original: string, written: string }} */
+  const whole = { obs: null, area: null, node: null, original: '', written: '' };
+  function roundTipValue() {
+    const tip = whole.area?.querySelector(SEL.perfTooltip);
+    const row = tip && [...tip.children].find(c => !c.hasAttribute(TIP) && c.children.length >= 2); // "Portfolio value  € …"
+    const cell = row?.lastElementChild;
+    if (!cell) return;
+    const walk = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+    let node = /** @type {Text | null} */ (null);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (/\d/.test(/** @type {Text} */ (n).data)) { node = /** @type {Text} */ (n); break; }
+    if (!node) return;
+    const text = node.data;
+    if (node === whole.node && text === whole.written) return; // our own write
+    const run = text.match(/\d[\d.,]*\d|\d/)?.[0] || '';
+    const n = parseNum(run);
+    if (!isFinite(n)) return; // not a number we understand: left as DEGIRO wrote it
+    const out = text.replace(run, fmtWhole(n));
+    if (out === text) return;
+    node.data = out;
+    Object.assign(whole, { node, original: text, written: out });
+    whole.obs?.takeRecords(); // our own change: nothing to look at again
+  }
+  function attachWhole() {
+    const area = $(SEL.perfArea);
+    if (!area || area === whole.area) return;
+    detachWhole();
+    whole.area = area;
+    whole.obs = new MutationObserver(roundTipValue);
+    whole.obs.observe(area, { childList: true, subtree: true, characterData: true });
+    roundTipValue(); // a tooltip already shown
+  }
+  // stop rounding; the value shown goes back to DEGIRO's text
+  function detachWhole() {
+    whole.obs?.disconnect();
+    const { node, original, written } = whole;
+    if (node?.isConnected && node.data === written) node.data = original;
+    Object.assign(whole, { obs: null, area: null, node: null, original: '', written: '' });
   }
 
   function renderCash() {
@@ -408,22 +464,28 @@
   let measurer = /** @type {CanvasRenderingContext2D | null} */ (null), steadyKey = '', captionMax = 0;
   /** @type {HTMLElement[]} */
   let steadied = [];
-  const textWidth = (el, text) => {
+  /** @param {CSSStyleDeclaration} s */
+  const fontOf = s => `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+  const textWidth = (font, text) => {
     try { measurer ||= document.createElement('canvas').getContext('2d'); } catch (e) {}
     if (!measurer) return 0;
-    const s = getComputedStyle(el);
-    measurer.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+    measurer.font = font;
     return measurer.measureText(text).width;
   };
-  // the longest short date in the page's language, e.g. "Sep 28, 2026"
-  const longestDate = el => {
-    const lang = document.documentElement.lang || navigator.language || 'en';
+  // the longest short date in the page's language, e.g. "Sep 28, 2026"; it depends only on the
+  // language, the font and the year, so it is measured again only when one of them changes
+  let dateW = 0, dateKey = '';
+  const longestDate = font => {
+    const lang = document.documentElement.lang || navigator.language || 'en', year = new Date().getFullYear();
+    const key = [lang, font, year].join('|');
+    if (key === dateKey) return dateW;
     let w = 0;
     for (let m = 0; m < 12; m++) {
       let t = '';
-      try { t = new Date(new Date().getFullYear(), m, 28).toLocaleDateString(lang, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {}
-      w = Math.max(w, textWidth(el, t.replace(/\d/g, '0')));
+      try { t = new Date(year, m, 28).toLocaleDateString(lang, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {}
+      w = Math.max(w, textWidth(font, t.replace(/\d/g, '0')));
     }
+    if (measurer) { dateW = w; dateKey = key; } // no canvas yet: try again next time
     return w;
   };
   function unsteady() { steadied.forEach(el => FIXED_STYLE.forEach(p => { el.style[p] = ''; })); steadied = []; steadyKey = ''; captionMax = 0; }
@@ -432,10 +494,13 @@
     if (!amount || data.length < 2) return;
     if (steadied.length && !steadied.every(el => el.isConnected)) unsteady(); // DEGIRO built a new chart
     const max = Math.max(...data.map(p => Math.abs(p.value)));
-    const font = getComputedStyle(amount).font;
+    const s = getComputedStyle(amount), font = s.font, amountFont = fontOf(s);
     // digits of equal width: measure them all as '0'
-    const amountW = Math.ceil(Math.max(textWidth(amount, `${currency()} ${fmt(max)}`.replace(/\d/g, '0')), textWidth(amount, (amount.textContent || '').replace(/\d/g, '0'))));
-    if (caption) captionMax = Math.max(captionMax, Math.ceil(Math.max(longestDate(caption), textWidth(caption, (caption.textContent || '').replace(/\d/g, '0')))));
+    const amountW = Math.ceil(Math.max(textWidth(amountFont, `${currency()} ${fmt(max)}`.replace(/\d/g, '0')), textWidth(amountFont, (amount.textContent || '').replace(/\d/g, '0'))));
+    if (caption) {
+      const captionFont = fontOf(getComputedStyle(caption));
+      captionMax = Math.max(captionMax, Math.ceil(Math.max(longestDate(captionFont), textWidth(captionFont, (caption.textContent || '').replace(/\d/g, '0')))));
+    }
     const key = [amountW, captionMax, font].join('|');
     if (key === steadyKey && steadied.length) return;
     steadyKey = key;
@@ -624,7 +689,8 @@
 
   let seenVersion = -1;
   function run() {
-    if (!page.isPortfolio()) return 'idle';
+    if (!page.isPortfolio()) { detachWhole(); return 'idle'; }
+    if (flags()?.portfolioCash) attachWhole(); else detachWhole(); // the feature runs while any of its flags is on
     load();
     attachSelect();
     const area = $(SEL.perfArea);
@@ -644,7 +710,7 @@
     name: 'portfolio',
     enabled: () => flags()?.periodChange || flags()?.chartSelect || flags()?.portfolioCash,
     run,
-    stop: () => { document.getElementById(CHANGE_ID)?.remove(); lastKey = ''; sel.clear?.(); stopCash(); unsteady(); },
+    stop: () => { document.getElementById(CHANGE_ID)?.remove(); lastKey = ''; sel.clear?.(); stopCash(); detachWhole(); unsteady(); },
     throttle: 250,
     every: 500 // the chart is a canvas and its data comes over the network: no DOM changes to wait for
   });

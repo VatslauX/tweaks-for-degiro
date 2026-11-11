@@ -38,7 +38,8 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 - Next to the portfolio total: the change over the selected period (1M / 3M / YTD / 1Y), in € and %. It includes deposits and withdrawals.
 - Drag on the portfolio chart to see the € and % change between two dates.
 - When DEGIRO's eye button hides your amounts, the extension's € amounts and percentages are hidden too; only dates stay readable.
-- **Cash** next to the total: today's cash per currency from your account (e.g. `Cash € 26.876,16 · $ 1.204,00`). It is not converted between currencies.
+- Amounts the extension shows on the chart (the period change, the drag-selection label and cash) are in whole units, e.g. `€ +49.641`; with *Cash on portfolio chart* on, so is DEGIRO's *Portfolio value* in the hover tooltip. Percentages keep their two decimals.
+- **Cash** next to the total: today's cash per currency from your account (e.g. `Cash € 26.876 · $ 1.204`). It is not converted between currencies.
 - A *Cash columns on the chart* switch shows the cash per currency as stacked columns over the selected period, EUR at the bottom. The switch is remembered in this browser.
 
 **Open orders on the chart**

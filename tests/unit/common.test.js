@@ -1,7 +1,7 @@
 // Shared helpers in extension/common.js: one number parser/formatter for every script.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseNum, fmt, xs, ys, isPriceSeries, priceSeries, page, cashByDay } = require('../../extension/common.js');
+const { parseNum, fmt, fmtWhole, xs, ys, isPriceSeries, priceSeries, page, cashByDay } = require('../../extension/common.js');
 
 // ── cash per currency from the account statement (Portfolio chart) ──────────────────────────
 // Shaped like DEGIRO's cashMovements: newest first; a cash sweep is a pair with one timestamp, and
@@ -70,6 +70,26 @@ test('formats like the page', () => {
   assert.strictEqual(fmt(17.65, 2, 4, ','), '17,65');
   assert.strictEqual(fmt(0.12345, 2, 4, ','), '0,1235');
   assert.strictEqual(fmt(1000, 0, 4, ','), '1.000');
+});
+
+test('fmtWhole: whole units, half away from zero, grouped like the page, never "-0"', () => {
+  // the Portfolio chart's amounts: cash, period change, tooltip, range selection
+  assert.strictEqual(fmtWhole(15253.66, false, ','), '15.254');
+  assert.strictEqual(fmtWhole(31049.19, false, ','), '31.049');
+  assert.strictEqual(fmtWhole(31049.19, false, '.'), '31,049');
+  assert.strictEqual(fmtWhole(-15253.66, false, ','), '-15.254');
+  assert.strictEqual(fmtWhole(1000.5, false, ','), '1.001'); // half rounds up...
+  assert.strictEqual(fmtWhole(-1000.5, false, ','), '-1.001'); // ...and away from zero when negative
+  assert.strictEqual(fmtWhole(12.49, false, ','), '12');
+  assert.strictEqual(fmtWhole(0, false, ','), '0');
+  assert.strictEqual(fmtWhole(-0.4, false, ','), '0', 'rounds to 0: no "-0"');
+  assert.strictEqual(fmtWhole(-0, false, ','), '0');
+  // signed: the period change ("€ +18.049")
+  assert.strictEqual(fmtWhole(18049.29, true, ','), '+18.049');
+  assert.strictEqual(fmtWhole(-18049.5, true, ','), '-18.050');
+  assert.strictEqual(fmtWhole(-0.4, true, ','), '+0', 'a change that rounds to 0 is "+0", never "-0"');
+  assert.strictEqual(fmtWhole(0, true, '.'), '+0');
+  assert.strictEqual(fmtWhole(1234567.8, true, '.'), '+1,234,568');
 });
 
 test('series data: getColumn() when available (newer Highcharts), xData/yData otherwise', () => {

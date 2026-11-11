@@ -147,13 +147,13 @@ test('a change in today\'s cash reloads the statement once', async ({ degiro }) 
     respond: u => CASH(u) ? { status: 201, contentType: 'application/json', body: JSON.stringify(cashFundsApi(today)) } : undefined
   });
   const step = stepper(page, calls), cash = page.locator('#dg-portfolio-cash');
-  await advanceUntilVisible(page, cash.getByText('€ 26.876,16'));
+  await advanceUntilVisible(page, cash.getByText('€ 26.876', { exact: true })); // whole units next to the total
   await expect.poll(step('statement'), { timeout: 10000 }).toBe(1);
   today = { ...CASH_TODAY, EUR: 25000 }; // cash moved
   await page.clock.fastForward(61000);
   await expect.poll(step('cashFunds'), { timeout: 10000 }).toBe(2);
   await expect.poll(step('statement'), { timeout: 10000 }).toBe(2);
-  await expect(cash).toContainText('€ 25.000,00');
+  await expect(cash.getByText('€ 25.000', { exact: true })).toBeVisible();
   // the next minute's answer is the same: no further reload
   await page.clock.fastForward(61000);
   await expect.poll(step('cashFunds'), { timeout: 10000 }).toBe(3);

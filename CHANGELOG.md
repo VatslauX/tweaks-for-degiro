@@ -1,8 +1,9 @@
 # Release notes
 
-## Unreleased
+## 1.23.0 — 2026-11-11
 - **Alarms page columns**: a *Columns* menu on the Alarms page chooses which columns to show (Product and On always show); all columns are visible by default. The old *Latest* column is now separate *Price*, *Last* and *Seen* columns, each on one line.
 - **Cash on the portfolio chart** (new switch, *Cash on portfolio chart*, on by default): today's cash per currency next to the portfolio total, and a *Cash columns on the chart* switch that shows the cash as stacked columns over the selected period, EUR at the bottom. Amounts are not converted.
+- **Whole units on the portfolio chart**: the period change, the drag-selection label, the cash and (with *Cash on portfolio chart* on) DEGIRO's *Portfolio value* in the hover tooltip are shown in whole units (e.g. € 124.288). The portfolio total keeps its cents.
 - **Full product names** in the merged Portfolio table: the Product column keeps DEGIRO's own width by default; the » button in its header shows full names. Remembered only with *Remember Portfolio table sort & columns* on.
 - **Merged Portfolio table columns**: *Exchange* and *Last update* are no longer in the merged table. *Symbol/ISIN* and *Delay* are hidden by default.
 

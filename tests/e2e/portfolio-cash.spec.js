@@ -1,7 +1,7 @@
 // Portfolio chart: today's cash per currency next to the total, and (with its switch) the cash as
 // stacked columns on the chart plus a row per currency in DEGIRO's hover tooltip.
 // Mock data: CASH_TODAY and CASH_MOVEMENTS in fixtures.js.
-const { test, expect, setFlag, advanceUntilVisible, portfolioSeries } = require('./fixtures');
+const { test, expect, setFlag, advanceUntilVisible, portfolioSeries, cashFundsApi } = require('./fixtures');
 
 const URL_P = 'https://trader.degiro.nl/trader/?mock=portfolio#/portfolio';
 const cash = page => page.locator('#dg-portfolio-cash');
@@ -11,7 +11,7 @@ const tipRows = page => page.locator('[data-name="performance-plot-tooltip"] [da
 
 test('today\'s cash per currency follows the period change, zero balances left out', async ({ degiro }) => {
   const { page, calls } = await degiro({ url: URL_P });
-  await expect(cash(page)).toHaveText(/^Cash.*€ 26\.876,16.*\$ 1\.204,00.*£ 12,50$/);
+  await expect(cash(page)).toHaveText(/^Cash.*€ 26\.876(?!,).*\$ 1\.204(?!,).*£ 13$/); // whole units, half away from zero
   await expect(cash(page)).not.toContainText('CHF');
   // inside DEGIRO's value block, after the period change
   const order = await page.$eval('#dg-portfolio-cash', el => [el.parentElement.getAttribute('data-name'), el.previousElementSibling?.id]);
@@ -49,7 +49,7 @@ test('the switch next to "Cash" shows and hides the columns, and is remembered',
   await lineSwitch(page).click();
   await expect(lineSwitch(page)).toHaveAttribute('aria-checked', 'false');
   await expect(layer(page)).toHaveCount(0);
-  await expect(cash(page)).toContainText('€ 26.876,16'); // today's cash stays
+  await expect(cash(page)).toContainText(/€ 26\.876(?!,)/); // today's cash stays
 });
 
 test('hovering other dates doesn\'t move the items along the row', async ({ degiro }) => {
@@ -82,7 +82,7 @@ test('stacked cash columns in the lower part of the chart: EUR green at the bott
   expect([q.get('fromDate'), q.get('toDate'), q.get('intAccount'), q.get('sessionId')]).toEqual([dmy(s[s.length - 1].date), dmy(s[0].date), '42', 'TESTSID']);
 
   // the highest stack: EUR 30.000 + GBP 12,50 (USD 0 before August) is the top of the shared scale,
-  // which spans the lower 40 % of the chart. On the last day: EUR 26.876,16 green, then USD 1.204 gold.
+  // which spans the lower 40 % of the chart. On the last day: EUR 26.876 green, then USD 1.204 gold.
   const px = await page.evaluate(() => {
     const cv = /** @type {HTMLCanvasElement} */ (document.querySelector('canvas[data-dg-cash]'));
     const ctx = cv.getContext('2d'), dpr = cv.width / cv.getBoundingClientRect().width;
@@ -119,12 +119,12 @@ test('the hover tooltip gets a row per currency with that day\'s cash, in DEGIRO
   // the last day (after the October movements): today's balances
   await page.mouse.move(box.x + box.width - 7, box.y + 100);
   await expect(tip).toHaveAttribute('data-date', '2026-10-21');
-  await expect(tipRows(page)).toHaveText(['Cash EUR€ 26.876,16', 'Cash USD$ 1.204,00', 'Cash GBP£ 12,50']);
+  await expect(tipRows(page)).toHaveText(['Cash EUR€ 26.876', 'Cash USD$ 1.204', 'Cash GBP£ 13']);
   // the first day: EUR 30.000 (before May), no USD yet
   await page.mouse.move(box.x + 7, box.y + 100);
   const first = await tip.getAttribute('data-date');
   expect(first).toBe(portfolioSeries('ONE_YEAR').slice(-1)[0].date);
-  await expect(tipRows(page)).toHaveText(['Cash EUR€ 30.000,00', 'Cash USD$ 0,00', 'Cash GBP£ 12,50']);
+  await expect(tipRows(page)).toHaveText(['Cash EUR€ 30.000', 'Cash USD$ 0', 'Cash GBP£ 13']);
   // the rows sit under DEGIRO's "Portfolio value" row and copy its look
   const look = await page.evaluate(() => {
     const t = document.querySelector('[data-name="performance-plot-tooltip"]');
@@ -166,7 +166,7 @@ test('follows its setting; hide-values mode blurs the amounts', async ({ degiro,
   await setFlag(opt, 'portfolioCash', true);
   await page.bringToFront();
   await page.mouse.move(5, 5);
-  await expect(cash(page)).toHaveText(/^Cash.*€ 26\.876,16/);
+  await expect(cash(page)).toHaveText(/^Cash.*€ 26\.876(?!,)/);
   await expect(layer(page)).toHaveAttribute('data-dg-cash', 'EUR,USD,GBP');
 });
 
@@ -223,4 +223,162 @@ test('a chart hovered from the start gets its columns once the pointer leaves, u
   });
   expect(ends.end).toBeGreaterThan(0);
   expect(ends.past).toBe(0);
+});
+
+// the page's localStorage outlives a test in a reused browser: start with the columns off
+const linesOff = () => { try { localStorage.removeItem('dgTweaksCashLines'); } catch (e) {} };
+
+test('the switch stays reachable when today\'s cash can\'t be loaded', async ({ degiro }) => {
+  const { page, calls } = await degiro({ url: URL_P, initScript: linesOff, respond: u => u.searchParams.has('cashFunds') ? { status: 500, body: '' } : undefined });
+  await expect(lineSwitch(page)).toHaveAttribute('aria-checked', 'false');
+  await expect(cash(page)).toHaveText('Cash');
+  expect(calls.cashFunds).toBeGreaterThan(0);
+  // switched on: the columns and the amounts come from the account statement
+  await page.mouse.move(5, 5);
+  await lineSwitch(page).click();
+  await page.mouse.move(5, 5);
+  await expect(lineSwitch(page)).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(() => calls.statement).toBe(1);
+  // (GBP has no movements in the period: only today's cash would show it)
+  await expect(layer(page)).toHaveAttribute('data-dg-cash', 'EUR,USD');
+  await expect(cash(page)).toContainText(/€ 26\.876(?!,)/);
+});
+
+test('the switch stays reachable when every balance is 0', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_P, initScript: linesOff, respond: u => u.searchParams.has('cashFunds')
+    ? { status: 201, contentType: 'application/json', body: JSON.stringify(cashFundsApi({ EUR: 0, USD: 0 })) } : undefined });
+  await expect(lineSwitch(page)).toHaveAttribute('aria-checked', 'false');
+  await expect(cash(page)).toHaveText('Cash');
+  await expect(cash(page).locator('[data-currency]')).toHaveCount(0);
+});
+
+test('hovering with the columns off doesn\'t look for tooltip rows', async ({ degiro }) => {
+  const { page } = await degiro({
+    url: URL_P, cashLines: true,
+    initScript: () => {
+      window.__tipQueries = 0;
+      const qsa = Document.prototype.querySelectorAll;
+      Document.prototype.querySelectorAll = function (s) { if (String(s).includes('data-dg-cash-tip')) window.__tipQueries++; return qsa.call(this, s); };
+    }
+  });
+  await page.mouse.move(5, 5);
+  await expect(layer(page)).toHaveCount(1);
+  const box = await page.locator('#c1').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + 100); // the tooltip listener is attached
+  await expect(tipRows(page)).toHaveCount(3);
+  await page.mouse.move(5, 5);
+  await lineSwitch(page).click();
+  await expect(layer(page)).toHaveCount(0);
+  await expect(tipRows(page)).toHaveCount(0);
+  await page.evaluate(() => { window.__tipQueries = 0; });
+  // a fixed number of hovered frames: each move waits for the next frame
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(box.x + box.width * i / 12, box.y + 100);
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  }
+  await expect(page.locator('[data-name="performance-plot-tooltip"]')).toBeVisible();
+  expect(await page.evaluate(() => window.__tipQueries)).toBe(0);
+});
+
+test('the longest date of the year is measured once, not on every run', async ({ degiro }) => {
+  const { page } = await degiro({
+    url: URL_P, clock: true,
+    initScript: () => {
+      window.__dates = 0;
+      const f = Date.prototype.toLocaleDateString;
+      Date.prototype.toLocaleDateString = function (...a) { if (/portfolio\.js/.test(new Error().stack || '')) window.__dates++; return f.apply(this, a); };
+    }
+  });
+  await advanceUntilVisible(page, cash(page));
+  await expect.poll(() => page.evaluate(() => window.__dates)).toBe(12);
+  for (let i = 0; i < 6; i++) await page.clock.fastForward(500); // more of the feature's runs
+  expect(await page.evaluate(() => window.__dates)).toBe(12);
+});
+
+test('the cash and the period change next to the total are in whole units, negative balances too; the percentage keeps its cents', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_P, initScript: linesOff, respond: u => u.searchParams.has('cashFunds')
+    ? { status: 201, contentType: 'application/json', body: JSON.stringify(cashFundsApi({ EUR: -15253.66, USD: 31049.19, GBP: 1000.5 })) } : undefined });
+  await expect(cash(page).locator('[data-currency]')).toHaveText(['€ -15.254', '$ 31.049', '£ 1.001']);
+  await expect(page.locator('#dg-portfolio-change')).toHaveText(/€ [+-][\d.]+ \([+-]\d+,\d\d%\)$/);
+});
+
+// DEGIRO's own "Portfolio value" in its hover tooltip, in whole units like the cash rows under it
+const tipValue = page => page.locator('[data-name="performance-plot-tooltip"] .tipRow:not([data-dg-cash-tip]) .tipValue');
+const wholeAt = date => '€ ' + Math.round(portfolioSeries('ONE_YEAR').find(p => p.date === date).value).toLocaleString('nl-NL');
+const CENTS = /,\d\d$/;
+
+test('the tooltip\'s portfolio value is in whole units, never painted with cents; the total, max/min and announcement keep theirs', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_P, cashLines: true });
+  await page.mouse.move(5, 5); // measured unhovered first
+  await expect(layer(page)).toHaveCount(1);
+  const box = await page.locator('#c1').boundingBox();
+  const tip = page.locator('[data-name="performance-plot-tooltip"]');
+  // what each frame paints: sampled just before painting, after DEGIRO's update and ours
+  await page.evaluate(() => {
+    window.__painted = [];
+    const sample = () => {
+      const v = document.querySelector('[data-name="performance-plot-tooltip"] .tipRow:not([data-dg-cash-tip]) .tipValue');
+      if (v) window.__painted.push(v.textContent);
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  // a fixed number of moves along the line, each to another day
+  for (let i = 1; i <= 12; i++) {
+    await page.mouse.move(box.x + box.width * i / 13, box.y + 100, { steps: 3 });
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const date = await tip.getAttribute('data-date');
+    await expect(tipValue(page)).toHaveText(wholeAt(date));
+  }
+  const painted = await page.evaluate(() => window.__painted);
+  expect(painted.length).toBeGreaterThan(12);
+  expect(painted.filter(t => CENTS.test(t))).toEqual([]);
+  expect(new Set(painted).size).toBeGreaterThan(6); // it really followed the pointer
+  // the cash rows are still added under it, and the label is DEGIRO's
+  await expect(tipRows(page)).toHaveCount(3);
+  await expect(tip.locator('.tipRow:not([data-dg-cash-tip]) .tipLabel')).toHaveText('Portfolio value');
+  // everything else keeps its cents
+  await expect(page.locator('[data-name="performance-chart-amount"]')).toHaveText(CENTS);
+  await expect(page.locator('[data-name="performance-plot-max"]')).toHaveText(CENTS);
+  await expect(page.locator('[data-name="performance-plot-min"]')).toHaveText(CENTS);
+  await expect(page.locator('[data-name="performance-plot-announcement"]')).toHaveText(CENTS);
+});
+
+test('the tooltip\'s whole units follow the cash setting, and come back on a rebuilt chart', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  await expect(cash(page)).toBeVisible();
+  const box = await page.locator('#c1').boundingBox();
+  const tip = page.locator('[data-name="performance-plot-tooltip"]');
+  const hover = async f => {
+    await page.mouse.move(5, 5);
+    await page.mouse.move(box.x + box.width * f, box.y + 100);
+    return tip.getAttribute('data-date');
+  };
+  await expect(tipValue(page)).toHaveCount(0);
+  let date = await hover(0.4);
+  await expect(tipValue(page)).toHaveText(wholeAt(date));
+  // off: DEGIRO's text with cents
+  const opt = await settings();
+  await setFlag(opt, 'portfolioCash', false);
+  await page.bringToFront();
+  await expect(cash(page)).toHaveCount(0);
+  date = await hover(0.6);
+  const s = portfolioSeries('ONE_YEAR');
+  const cents = '€ ' + s.find(p => p.date === date).value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  await expect(tipValue(page)).toHaveText(cents);
+  // back on
+  await setFlag(opt, 'portfolioCash', true);
+  await page.bringToFront();
+  await expect(cash(page)).toBeVisible();
+  date = await hover(0.5);
+  await expect(tipValue(page)).toHaveText(wholeAt(date));
+  // DEGIRO builds a new chart when Portfolio is reached from another page
+  await page.mouse.move(5, 5);
+  await page.evaluate(() => { location.hash = '#/favourites'; });
+  await expect(page.locator('[data-name="performance-chart"]')).toHaveCount(0);
+  await page.evaluate(() => { location.hash = '#/portfolio'; });
+  await expect(page.locator('[data-name="performance-chart-interaction-area"][data-dg-sel]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => !!window.__points)).toBe(true);
+  date = await hover(0.3);
+  await expect(tipValue(page)).toHaveText(wholeAt(date));
 });

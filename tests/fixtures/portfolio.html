@@ -58,6 +58,10 @@
         <canvas id="c1" width="900" height="200" style="width:900px;height:200px;z-index:1"></canvas>
         <canvas id="c2" width="900" height="200" style="width:900px;height:200px;z-index:2"></canvas>
       </div>
+      <!-- DEGIRO's labels of the period's highest and lowest value, and the hovered value for screen readers: they keep their cents -->
+      <span data-name="performance-plot-max" style="position:absolute;right:4px;top:0;font:11px Roboto,sans-serif;pointer-events:none">€ 0,00</span>
+      <span data-name="performance-plot-min" style="position:absolute;right:4px;bottom:0;font:11px Roboto,sans-serif;pointer-events:none">€ 0,00</span>
+      <p data-name="performance-plot-announcement" style="position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0)"></p>
     </div>
     <div data-name="performance-period-switcher">
       <button data-p="ONE_MONTH">1 M</button><button data-p="THREE_MONTHS">3 M</button><button data-p="YEAR_TO_DATE">YTD</button><button data-p="ONE_YEAR" class="on">1 Y</button>
@@ -150,8 +154,12 @@
     }
     tip.dataset.date = pts[i].date;
     tip.querySelector('.tipDate').textContent = new Date(pts[i].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    tip.querySelector('.tipValue').textContent = '€ ' + pts[i].value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // like a UI framework, the value's text node is created once and then updated in place
+    const v = tip.querySelector('.tipValue'), text = '€ ' + nl(pts[i].value);
+    if (v.firstChild) v.firstChild.data = text; else v.append(text);
+    area.querySelector('[data-name="performance-plot-announcement"]').textContent = `${tip.querySelector('.tipDate').textContent}, Portfolio value ${text}`;
   }
+  const nl = n => n.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function draw(points) {
     const c = document.getElementById('c1'), ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
@@ -174,6 +182,8 @@
       ctx.restore();
     });
     document.getElementById('total').textContent = '€ ' + points[points.length - 1].value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    area.querySelector('[data-name="performance-plot-max"]').textContent = '€ ' + nl(max);
+    area.querySelector('[data-name="performance-plot-min"]').textContent = '€ ' + nl(min);
   }
   async function load(period) {
     // same request shape as DEGIRO (returns newest first)

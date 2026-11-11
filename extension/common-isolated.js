@@ -46,6 +46,13 @@
     return n.toLocaleString(sep === '.' ? 'en-US' : 'nl-NL', { minimumFractionDigits: min, maximumFractionDigits: Math.max(min, max) });
   }
 
+  // An amount in whole units, rounded half away from zero ("15.254", "-1.001"); `sign` adds a "+" to
+  // anything not negative. An amount that rounds to 0 is never "-0".
+  function fmtWhole(n, sign = false, sep = decimalSep()) {
+    const r = Math.round(Math.abs(n));
+    return (n < 0 && r > 0 ? '-' : sign ? '+' : '') + fmt(r, 0, 0, sep);
+  }
+
   // ---------- DEGIRO page hooks ----------
   // Everything the extension relies on in DEGIRO's page, in one place: DEGIRO's own data-field /
   // data-name hooks first, label text (several UI languages) only as a fallback.
@@ -398,7 +405,7 @@
     has: href => ownUrls.has(href)
   });
 
-  const api = Object.freeze({ decimalSep, parseNum, fmt, flags, pageTheme, xs, ys, isPriceSeries, mainChart, priceSeries, cashByDay,
+  const api = Object.freeze({ decimalSep, parseNum, fmt, fmtWhole, flags, pageTheme, xs, ys, isPriceSeries, mainChart, priceSeries, cashByDay,
     SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS, ownRequests });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else if (!(/** @type {any} */ (globalThis).__dgt)) Object.defineProperty(globalThis, '__dgt', { value: api });

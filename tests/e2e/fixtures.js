@@ -79,7 +79,13 @@ async function reset(context) {
   await context.clearCookies();
   await keep.goto(`chrome-extension://${extensionId(EXT)}/options.html`); // writes storage only on a change
   await keep.evaluate(() => Promise.all([chrome.storage.sync.clear(), chrome.storage.local.clear()]));
-  await keep.goto('about:blank');
+  // the mock DEGIRO origin's own localStorage (e.g. portfolio.js's dgTweaksCashLines switch), served
+  // from a blank local route so no request leaves the machine
+  await keep.route('https://trader.degiro.nl/**', route => route.fulfill({ contentType: 'text/html', body: '' }));
+  await keep.goto('https://trader.degiro.nl/trader/');
+  await keep.evaluate(() => localStorage.clear());
+  await keep.goto('about:blank'); // leave the DEGIRO origin while its requests are still answered locally
+  await keep.unrouteAll({ behavior: 'ignoreErrors' });
 }
 
 const test = base.extend({
