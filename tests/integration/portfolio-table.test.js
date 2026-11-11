@@ -139,6 +139,31 @@ test('merged table shows all rows from all three sections and tracks a live upda
   noErrors(w);
 });
 
+test('the Cash compensation section after the holdings is not a holdings section: the merge leaves it alone', async () => {
+  const w = createWorld();
+  await w.set('sync', { hideSections: false }); // only the merge acts on the page
+  const tab = await openPortfolio(w);
+  await tab.setFlag('portfolioMergedTable', true);
+  assert.equal(mergedRows(tab).length, 6, 'no compensation row in the merged table');
+  const cash = tab.$('[data-name=cashFundCompensations]');
+  const touched = [cash, ...cash.querySelectorAll('*')].filter(el => el.closest('[data-dg-portfolio-hidden]') || el.hasAttribute('style'));
+  assert.deepEqual(touched, [], 'nothing in or around it is hidden or styled');
+  assert.equal(tab.$('[data-name=positions]').closest('[data-dg-portfolio-hidden]'), null);
+  // the last section (lox) still finds its own table, not the cash table that follows it
+  assert.ok(tab.$('[data-holdings=lox] table').hasAttribute('data-dg-portfolio-hidden'));
+  assert.equal(cash.querySelector('table').hasAttribute('data-dg-portfolio-hidden'), false);
+  noErrors(w);
+});
+
+test('hideSections hides the Cash compensation section on the Portfolio page by its hook, and only it', async () => {
+  const w = createWorld();
+  await w.set('sync', { hiddenTitles: ['Barausgleich'] }); // a default title, in another language than the page's
+  const tab = await openPortfolio(w);
+  assert.deepEqual(tab.$$('[data-dg-hidden-box]').map(el => el.getAttribute('data-name')), ['positions']);
+  assert.ok(tab.$$('[data-holdings]').every(s => !s.closest('[data-dg-hidden-box]')), 'the holdings stay');
+  noErrors(w);
+});
+
 test('clicking a merged row\'s Buy button clicks the real hidden Buy button', async () => {
   const w = createWorld();
   const tab = await openPortfolio(w);

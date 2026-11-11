@@ -130,6 +130,25 @@
       <hr class="sectionDivider">
     </section>
   </div>
+  <!-- DEGIRO's Cash compensation (accounts with a cash fund; SEL.cashCompensation), after the holdings.
+       Live, the section is the only child of its div[data-name=positions] wrapper. Not a holdings
+       section: the merged table must leave it alone; hide.js hides it by its hook (hideSections). -->
+  <div data-name="positions">
+    <section data-name="cashFundCompensations">
+      <div>
+        <div>
+          <h3>Cash compensation</h3>
+          <button type="button" data-name="tooltipButton"><div><svg data-name="icon-question-20" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16z" fill="none" stroke="currentColor"/></svg></div></button>
+        </div>
+        <table>
+          <thead><tr><th><span>Date</span></th><th><span>Fund</span></th><th><span>Amount</span></th></tr></thead>
+          <tbody>
+            <tr data-name="compensationItem"><td>01-11-2026</td><td>Mock Money Market Fund EUR</td><td><span data-field="amount">12,34</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </div>
 <script>
   // Draw like DEGIRO: DEGIRO-blue line, equally spaced points, light fill.

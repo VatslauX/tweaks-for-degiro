@@ -229,6 +229,19 @@ test('a fully merged section\'s whole block (its divider included) is hidden; th
   await expect(page.locator('[data-holdings=lox] hr')).toBeVisible();
 });
 
+test('DEGIRO\'s Cash compensation section stays visible under the merged table', async ({ degiro, settings }) => {
+  const { page } = await degiro({ url: URL_P });
+  const cash = page.locator('[data-name=cashFundCompensations]');
+  await expect(cash).toBeHidden(); // hideSections (on by default) hides it by its hook
+  const opt = await settings();
+  await opt.evaluate(() => chrome.storage.sync.set({ hideSections: false, portfolioMergedTable: true }));
+  await expect(page.locator('[data-dg-portfolio-table] tbody tr')).toHaveCount(6);
+  await expect(page.locator('[data-holdings=lox]')).toBeHidden();
+  await expect(cash.locator('h3')).toBeVisible();
+  await expect(cash.locator('tr[data-name=compensationItem]')).toBeVisible();
+  await expect(cash.locator('[data-field=amount]')).toHaveText('12,34');
+});
+
 test('without native classes, the merged table falls back to theme-based inline styles', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   await page.evaluate(() => document.querySelectorAll('.holdings [class]').forEach(el => el.removeAttribute('class')));
