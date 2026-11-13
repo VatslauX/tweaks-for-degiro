@@ -121,3 +121,18 @@ test('our Alarms item opens the Alarms page; DEGIRO\'s Favourites item leaves it
   await expect(page.locator('[data-name=favourites]')).toBeVisible();
   await expect(page.locator('a[data-name=favouriteProductsMenuItem]')).toHaveClass(/\bcurrent\b/);
 });
+
+// DEGIRO marks its Inbox item current on Orders and Transactions too (the mocks do the same), so
+// two items looked selected.
+test('on Orders and Transactions DEGIRO\'s Inbox item does not look current beside ours', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_O });
+  const inbox = page.locator('[data-name=accountActivityMenuItem]');
+  await expect(link(page, 'orders')).toHaveClass(/\bcurrent\b/);
+  await expect(inbox).not.toHaveClass(/\bcurrent\b/);
+  await expect(inbox).not.toHaveAttribute('aria-current', 'page');
+  expect(await inbox.evaluate(a => getComputedStyle(a).color)).not.toBe('rgb(0, 149, 210)');
+  await link(page, 'transactions').click();
+  await page.evaluate(() => document.body.appendChild(document.createElement('div')));
+  await expect(link(page, 'transactions')).toHaveClass(/\bcurrent\b/);
+  await expect(inbox).not.toHaveClass(/\bcurrent\b/);
+});

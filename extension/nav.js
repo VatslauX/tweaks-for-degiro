@@ -1,8 +1,9 @@
 // Orders, Transactions and Alarms links in DEGIRO's left sidebar, below Products (Alarms only while
 // Price alarms is on, with a badge counting open alarm banners). Each is a copy of DEGIRO's
 // own Products item (same look in either theme) that points at DEGIRO's page; a plain link, so the
-// page's own router does the rest. DEGIRO's items are never changed, except that on the Alarms page
-// Favourites loses its "current" look (and gets it back).
+// page's own router does the rest. DEGIRO's items are never changed, except that where one of ours
+// is current, DEGIRO's item that is also marked current (Favourites on Alarms, Inbox on Orders and
+// Transactions) loses its "current" look (and gets it back).
 (() => {
   const { SEL, page, own, feature, t, schedule } = __dgt; // common.js
   const ITEMS = [
@@ -143,14 +144,20 @@
   }
 
   // On the Alarms page DEGIRO's route is still Favourites, so DEGIRO marks its Favourites item current
-  // too and two items would look current. While the Alarms item is shown there, the current class (and
-  // aria-current) is taken off Favourites and what was taken is noted on the element, so exactly that
-  // is put back: when the page is left for Favourites itself (DEGIRO won't re-add it), or when the
-  // item goes away. Only a class and an attribute change; its link and listeners are untouched.
+  // too; on Orders and Transactions it marks Inbox current. Two items would look current. While our
+  // item is shown and current there, the current class (and aria-current) is taken off DEGIRO's item
+  // and what was taken is noted on the element, so exactly that is put back: when the page is left for
+  // the item's own page (DEGIRO won't re-add it), or when our item goes away. Only a class and an
+  // attribute change; its link and listeners are untouched.
   const TAKEN = 'data-dg-nav-uncurrent'; // "<class>" or "<class> aria"
+  const ownsInbox = () => INBOX_PAGES.includes(section(location.hash));
   /** @param {boolean} take */
-  function favouritesLook(take) {
-    const fav = document.querySelector(SEL.favouritesMenuItem);
+  const favouritesLook = take => uncurrent(SEL.favouritesMenuItem, take, page.isFavourites);
+  /** @param {boolean} take */
+  const inboxLook = take => uncurrent(SEL.inboxMenuItem, take, ownsInbox);
+  /** @param {string} selector @param {boolean} take @param {() => boolean} owns the page is DEGIRO's item's own */
+  function uncurrent(selector, take, owns) {
+    const fav = document.querySelector(selector);
     if (!fav) return;
     const taken = (fav.getAttribute(TAKEN) || '').split(' ').filter(Boolean);
     if (take && currentClass) {
@@ -161,7 +168,7 @@
       const note = cls ? cls + (aria ? ' aria' : '') : '';
       if (note && fav.getAttribute(TAKEN) !== note) fav.setAttribute(TAKEN, note);
     } else if (taken.length) {
-      if (page.isFavourites() && !(take && page.isAlarms())) {
+      if (owns() && !take) {
         fav.classList.add(taken[0]);
         if (taken[1] === 'aria') fav.setAttribute('aria-current', 'page');
       }
@@ -172,7 +179,7 @@
   function run() {
     const nav = document.querySelector(SEL.sideNav);
     const products = nav?.querySelector(SEL.productsMenuItem);
-    if (!nav || !products) { ours().forEach(el => el.remove()); favouritesLook(false); return nav ? 'missing' : 'idle'; }
+    if (!nav || !products) { ours().forEach(el => el.remove()); favouritesLook(false); inboxLook(false); return nav ? 'missing' : 'idle'; }
     // DEGIRO's own item: the child of the nav holding the Products link
     /** @type {Element} */
     let wrap = products;
@@ -223,6 +230,7 @@
       after = el;
     }
     favouritesLook(!!dgSettings.priceAlarms && page.isAlarms() && !!nav.querySelector('[data-dg-nav="alarms"]'));
+    inboxLook(ITEMS.some(item => (item.key === 'orders' || item.key === 'transactions') && item.current() && !!nav.querySelector(`[data-dg-nav="${item.key}"]`)));
     const bar = nav.closest(SEL.sideBar);
     if (bar) fit(bar, /** @type {HTMLElement[]} */ ([...ours()]));
     return 'ok';
@@ -232,7 +240,7 @@
     name: 'navLinks',
     enabled: () => dgSettings.navLinks,
     run,
-    stop: () => { ours().forEach(el => el.remove()); favouritesLook(false); cloneSig = ''; hiddenAt = 0; removeEventListener('resize', onResize); cancelAnimationFrame(resizeFrame); resizeFrame = 0; }
+    stop: () => { ours().forEach(el => el.remove()); favouritesLook(false); inboxLook(false); cloneSig = ''; hiddenAt = 0; removeEventListener('resize', onResize); cancelAnimationFrame(resizeFrame); resizeFrame = 0; }
   });
   dgOnSettings(() => schedule(true)); // priceAlarms isn't bridged to the page: nudge
 })();

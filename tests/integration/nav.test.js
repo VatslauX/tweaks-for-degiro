@@ -354,3 +354,32 @@ test('can be switched off and on', async () => {
   assert.deepEqual(keys(A), ['orders', 'transactions', 'alarms'], 'links restored');
   assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 });
+
+// DEGIRO marks Inbox current on its sub-pages (the mock's Inbox is statically current), so on
+// Orders and Transactions two items looked current.
+const inboxLink = tab => tab.$('a[data-name=accountActivityMenuItem]');
+
+test('on Orders only our Orders item looks current; Inbox gets it back on its own page', async () => {
+  const { w, tab } = await openOrders();
+  const inbox = inboxLink(tab);
+  assert.ok(tab.$('[data-dg-nav=orders] a').classList.contains('current'), 'our Orders is current');
+  assert.ok(!inbox.classList.contains('current'), 'Inbox is not current on Orders');
+  assert.ok(!inbox.hasAttribute('aria-current'), 'Inbox has no aria-current on Orders');
+  await tab.go('#/transactions'); // still an Inbox sub-page: stays taken
+  await w.advance(300);
+  assert.ok(!inbox.classList.contains('current'), 'Inbox is not current on Transactions either');
+  await tab.go('#/inbox'); // DEGIRO does not re-add the class to the item it kept
+  await w.advance(300);
+  assert.ok(inbox.classList.contains('current'), 'Inbox is current on its own page');
+  assert.equal(inbox.hasAttribute('data-dg-nav-uncurrent'), false, 'no marker left');
+  noErrors(w);
+});
+
+test('switching navLinks off gives Inbox its class back', async () => {
+  const { w, tab } = await openOrders();
+  assert.ok(!inboxLink(tab).classList.contains('current'));
+  await tab.setFlag('navLinks', false);
+  await w.advance(300);
+  assert.ok(inboxLink(tab).classList.contains('current'), 'Inbox current again when our items go away');
+  noErrors(w);
+});

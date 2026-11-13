@@ -1,5 +1,9 @@
 # Release notes
 
+## 1.23.1 — 2026-11-13
+- **Portfolio chart ends at today**: the line gets a point for today at the current portfolio total, as DEGIRO's own chart does, so the period change matches the total shown next to *Today*.
+- **Fix**: on the Orders and Transactions pages, DEGIRO's *Inbox* item no longer looks current next to the extension's Orders or Transactions link (two items looked selected at once).
+
 ## 1.23.0 — 2026-11-11
 - **Alarms page columns**: a *Columns* menu on the Alarms page chooses which columns to show (Product and On always show); all columns are visible by default. The old *Latest* column is now separate *Price*, *Last* and *Seen* columns, each on one line.
 - **Cash on the portfolio chart** (new switch, *Cash on portfolio chart*, on by default): today's cash per currency next to the portfolio total, and a *Cash columns on the chart* switch that shows the cash as stacked columns over the selected period, EUR at the bottom. Amounts are not converted.

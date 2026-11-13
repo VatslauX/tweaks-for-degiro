@@ -4,7 +4,8 @@
 //  • cash per currency: today's cash next to the total, and a switch for stacked cash columns on the chart (EUR in green)
 //    and, with the same setting, DEGIRO's "Portfolio value" in its hover tooltip in whole units
 // The chart is drawn on a <canvas>, so values come from the same endpoint DEGIRO uses for it
-// (/portfolio-metrics/.../portfolio/value), and pixel positions from the drawn line.
+// (/portfolio-metrics/.../portfolio/value) plus, like DEGIRO's line, a point for today at the live
+// total, and pixel positions from the drawn line.
 // Runs in page context (world: MAIN).
 (() => {
   const ENDPOINT = '/portfolio-metrics/secure/api/v1/portfolio/value';
@@ -23,7 +24,9 @@
   const $ = sel => document.querySelector(sel);
 
   // ---------- data: follow DEGIRO's own requests for the chart ----------
-  let url = /** @type {URL | null} */ (null), data = [], period = /** @type {string | null} */ (null),
+  // `points` is the endpoint's history (it has no entry for today); `data` is the line DEGIRO draws:
+  // that history without any entry dated today, plus a point for today at the live total.
+  let url = /** @type {URL | null} */ (null), points = [], data = [], period = /** @type {string | null} */ (null),
     version = 0, versionAt = 0, loading = false;
 
   function seen(name) {
@@ -50,10 +53,12 @@
         const j = await r.json();
         const list = Array.isArray(j) ? j : (j?.data || j?.values || []);
         // DEGIRO returns newest first — sort oldest → newest to match the chart
-        data = list.map(p => ({ date: p.date, value: +p.value, t: Date.parse(p.date) }))
+        points = list.map(p => ({ date: p.date, value: +p.value, t: Date.parse(p.date) }))
           .filter(p => p.date && isFinite(p.value))
           .sort((a, b) => (a.t || 0) - (b.t || 0));
         period = PERIODS[target.searchParams.get('period')] || target.searchParams.get('period');
+        today = localDay(); // the day DEGIRO dates its point for today, drawing this same data
+        drawnLine();
         loadedHref = target.href;
         version++; versionAt = Date.now();
         ok = true;
@@ -66,6 +71,31 @@
     }
     loading = false;
     schedule(); // draw the new data now, not on the next timer run
+  }
+
+  // DEGIRO's value line ends with a point for today (the browser's local date) at the live portfolio
+  // total, the amount shown next to "Today" above the chart; any endpoint entry for today is dropped
+  // first. While the chart is hovered that amount is the hovered day's (with its date in the caption),
+  // so the total is read only when it isn't, and the last reading is kept meanwhile. A total of 0 is
+  // taken as a placeholder (the amount before DEGIRO has the total) unless the history is all 0 too:
+  // a line ending at 0 would read as a -100 % change. Without a total the line is the history alone.
+  // The day is the one when the data loaded, as DEGIRO drew it then (it doesn't move at midnight).
+  let total = NaN, today = '';
+  const localDay = () => {
+    const t = new Date(), p = n => String(n).padStart(2, '0');
+    return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+  };
+  function readTotal() {
+    const amount = $(SEL.perfAmount), caption = $(SEL.perfCaption);
+    if (!amount || $(SEL.perfArea)?.matches(':hover') || /\d/.test(caption?.textContent || '')) return; // a hovered day
+    const n = parseNum(amount.textContent);
+    if (!isFinite(n) || (n === 0 && !(points.length && points.every(p => p.value === 0)))) return; // not (yet) the total
+    total = n;
+  }
+  function drawnLine() {
+    data = points.length && today && isFinite(total)
+      ? [...points.filter(p => p.date !== today), { date: today, value: total, t: Date.parse(today) }]
+      : points;
   }
 
   // ---------- formatting ----------
@@ -195,11 +225,15 @@
 
   let moves = /** @type {any[] | null} */ (null), movesKey = '', cashVersion = 0;
   const movesReq = reqState();
+  const TOTAL_WAIT = 5000; // ms after the chart data loaded
   async function loadStatement() {
     const id = ids(), first = data[0]?.date, last = data[data.length - 1]?.date;
     const day = /^\d{4}-\d\d-\d\d$/;
     if (!id || data.length < 2 || !day.test(first) || !day.test(last)) return;
-    const key = [version, fundsChanged].join('|');
+    // asked up to today's point: wait for the total (one request, not one before and one after it),
+    // but not for ever, so the columns still come without it
+    if (!isFinite(total) && Date.now() - versionAt < TOTAL_WAIT) return;
+    const key = [version, fundsChanged, last].join('|');
     if (key === movesKey) return;
     const dmy = d => d.split('-').reverse().join('/'); // DD/MM/YYYY, as DEGIRO's Account statement asks
     const path = `/portfolio-reports/secure/v6/accountoverview?fromDate=${dmy(first)}&toDate=${dmy(last)}&intAccount=${id.a}&sessionId=${encodeURIComponent(id.s)}`;
@@ -315,7 +349,7 @@
     const c = geo.canvas.getBoundingClientRect(), a = area.getBoundingClientRect();
     if (c.width < 100) { removeLayer(); return; }
     const ox = c.left - a.left, oy = c.top - a.top, dpr = window.devicePixelRatio || 1;
-    const key = [cashVersion, version, fundsSig, geo.left, geo.right, geo.height, c.width, ox, oy, dpr].join('|');
+    const key = [cashVersion, version, data.length, data[data.length - 1]?.date, fundsSig, geo.left, geo.right, geo.height, c.width, ox, oy, dpr].join('|');
     if (layer && layer.area === area && layer.canvas.isConnected && key === layerKey) return;
     removeLayer();
     layerKey = key;
@@ -692,6 +726,8 @@
     if (!page.isPortfolio()) { detachWhole(); return 'idle'; }
     if (flags()?.portfolioCash) attachWhole(); else detachWhole(); // the feature runs while any of its flags is on
     load();
+    readTotal();
+    drawnLine();
     attachSelect();
     const area = $(SEL.perfArea);
     const clear = area && area === sel.area ? sel.clear : null;

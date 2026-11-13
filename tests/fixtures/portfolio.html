@@ -160,7 +160,7 @@
   function tooltip() {
     const area = document.querySelector('[data-name="performance-chart-interaction-area"]'), c = document.getElementById('c1');
     let tip = area.querySelector('[data-name="performance-plot-tooltip"]');
-    if (!area.matches(':hover')) { tip?.remove(); return; }
+    if (!area.matches(':hover')) { tip?.remove(); header(); return; }
     const pts = window.__points, x = cursorX - c.getBoundingClientRect().left;
     const i = Math.max(0, Math.min(pts.length - 1, Math.round((x - PAD) / (c.width - 2 * PAD) * (pts.length - 1))));
     if (!tip) {
@@ -177,6 +177,15 @@
     const v = tip.querySelector('.tipValue'), text = '€ ' + nl(pts[i].value);
     if (v.firstChild) v.firstChild.data = text; else v.append(text);
     area.querySelector('[data-name="performance-plot-announcement"]').textContent = `${tip.querySelector('.tipDate').textContent}, Portfolio value ${text}`;
+    header(text, tip.querySelector('.tipDate').textContent); // the hovered day's value and date in place of the total and "Today"
+  }
+  // DEGIRO's header: the live total and "Today", or (while the chart is hovered) the hovered day's
+  // value and date (confirmed live)
+  function header(amount, caption) {
+    const total = document.getElementById('total'), cap = document.querySelector('[data-name="performance-chart-caption"]');
+    if (!total || !cap) return;
+    total.textContent = amount || '€ ' + nl(TOTAL() ?? 0); // no total yet: the placeholder "€ 0,00"
+    cap.textContent = caption || 'Today';
   }
   const nl = n => n.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function draw(points) {
@@ -200,7 +209,7 @@
       ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(X(i), Y(p.value)) : ctx.moveTo(X(i), Y(p.value))); ctx.stroke();
       ctx.restore();
     });
-    document.getElementById('total').textContent = '€ ' + points[points.length - 1].value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (!area.matches(':hover')) header();
     area.querySelector('[data-name="performance-plot-max"]').textContent = '€ ' + nl(max);
     area.querySelector('[data-name="performance-plot-min"]').textContent = '€ ' + nl(min);
   }
@@ -208,9 +217,23 @@
     // same request shape as DEGIRO (returns newest first)
     const r = await fetch(`/portfolio-metrics/secure/api/v1/portfolio/value?period=${period}&intAccount=42&sessionId=TESTSID`);
     const list = await r.json();
-    window.__points = list.slice().reverse();
+    // Like DEGIRO's value chart (confirmed live and in its bundle): the endpoint has no entry for
+    // today, and the drawn line drops any entry dated today and ends with a point for today (the
+    // browser's local date) at the live total shown in the header.
+    window.__history = list.slice().reverse();
+    line();
+  }
+  // the drawn line: the history, then today at the total (none while the total isn't known)
+  function line() {
+    const day = localDay(), t = TOTAL();
+    window.__points = [...window.__history.filter(p => p.date !== day), ...(t == null ? [] : [{ date: day, value: t }])];
     draw(window.__points);
   }
+  // the live portfolio total (DEGIRO's totalPortfolio.total); window.__MOCK_TOTAL overrides it, null
+  // for not known yet. window.__setTotal(v) changes it while the page is open (line and header follow).
+  const TOTAL = () => window.__MOCK_TOTAL === undefined ? 141234.56 : window.__MOCK_TOTAL;
+  window.__setTotal = v => { window.__MOCK_TOTAL = v; if (window.__history) line(); };
+  const localDay = () => { const t = new Date(), p = n => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; };
   function wire() {
     document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(b => b.onclick = () => {
       document.querySelectorAll('[data-name="performance-period-switcher"] button').forEach(x => x.classList.toggle('on', x === b));

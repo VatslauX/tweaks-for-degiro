@@ -8,6 +8,8 @@ const cash = page => page.locator('#dg-portfolio-cash');
 const layer = page => page.locator('canvas[data-dg-cash]'); // data-dg-cash: the currencies, bottom up
 const lineSwitch = page => page.locator('#dg-portfolio-cash [role="switch"]');
 const tipRows = page => page.locator('[data-name="performance-plot-tooltip"] [data-dg-cash-tip]');
+// the browser's local date: DEGIRO's line (and the mock's) ends with a point for it
+const today = page => page.evaluate(() => { const t = new Date(), p = k => String(k).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; });
 
 test('today\'s cash per currency follows the period change, zero balances left out', async ({ degiro }) => {
   const { page, calls } = await degiro({ url: URL_P });
@@ -64,7 +66,8 @@ test('hovering other dates doesn\'t move the items along the row', async ({ degi
   await show('€ 111.111,11', 'Today');
   await expect.poll(async () => (await xs())[0]).toBeGreaterThan(0);
   const before = await xs();
-  for (const [a, c] of [['€ 99.888,00', 'Sep 28, 2026'], ['€ 140.000,00', 'May 1, 2026'], ['€ 101.000,00', 'Today']]) {
+  // (back to the total and "Today" when the pointer leaves the chart)
+  for (const [a, c] of [['€ 99.888,00', 'Sep 28, 2026'], ['€ 140.000,00', 'May 1, 2026'], ['€ 111.111,11', 'Today']]) {
     await show(a, c);
     expect(await xs()).toEqual(before);
   }
@@ -75,11 +78,12 @@ test('stacked cash columns in the lower part of the chart: EUR green at the bott
   await page.mouse.move(5, 5); // not hovering: the chart's line can be measured
   await expect(layer(page)).toHaveAttribute('data-dg-cash', 'EUR,USD,GBP'); // EUR first (bottom), then the largest
 
-  // the statement is asked for the chart's own dates (DD/MM/YYYY), with DEGIRO's account
+  // the statement is asked for the chart's own dates (DD/MM/YYYY), up to its point for today, with
+  // DEGIRO's account
   const s = portfolioSeries('ONE_YEAR');
   const dmy = d => d.split('-').reverse().join('/');
   const q = new URL('https://x' + calls.lastStatementUrl).searchParams;
-  expect([q.get('fromDate'), q.get('toDate'), q.get('intAccount'), q.get('sessionId')]).toEqual([dmy(s[s.length - 1].date), dmy(s[0].date), '42', 'TESTSID']);
+  expect([q.get('fromDate'), q.get('toDate'), q.get('intAccount'), q.get('sessionId')]).toEqual([dmy(s[s.length - 1].date), dmy(await today(page)), '42', 'TESTSID']);
 
   // the highest stack: EUR 30.000 + GBP 12,50 (USD 0 before August) is the top of the shared scale,
   // which spans the lower 40 % of the chart. On the last day: EUR 26.876 green, then USD 1.204 gold.
@@ -110,14 +114,42 @@ test('stacked cash columns in the lower part of the chart: EUR green at the bott
   await expect(page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' })).toBeVisible();
 });
 
+test('a total that comes in late: the statement waits for it and is asked for once, up to today', async ({ degiro }) => {
+  const { page, calls } = await degiro({ url: URL_P, cashLines: true, initScript: () => { window.__MOCK_TOTAL = null; } });
+  await page.mouse.move(5, 5);
+  await expect(page.locator('#dg-portfolio-change')).toBeVisible(); // the chart data is in, the total not yet
+  // elapsed time is what is tested here: the total comes 1,5 s after the data, within the wait
+  await page.waitForTimeout(1500);
+  expect(calls.statement).toBe(0);
+  await page.evaluate(() => window.__setTotal(141234.56));
+  await expect(layer(page)).toHaveAttribute('data-dg-cash', 'EUR,USD,GBP');
+  const dmy = d => d.split('-').reverse().join('/');
+  expect(new URL('https://x' + calls.lastStatementUrl).searchParams.get('toDate')).toBe(dmy(await today(page)));
+  expect(calls.statement).toBe(1);
+});
+
+test('a total that never comes: the columns still come, over the endpoint\'s days', async ({ degiro }) => {
+  const { page, calls } = await degiro({ url: URL_P, cashLines: true, initScript: () => { window.__MOCK_TOTAL = null; } });
+  await page.mouse.move(5, 5);
+  await expect(layer(page)).toHaveAttribute('data-dg-cash', 'EUR,USD,GBP', { timeout: 15000 }); // after the 5 s wait
+  const s = portfolioSeries('ONE_YEAR'), dmy = d => d.split('-').reverse().join('/');
+  expect(new URL('https://x' + calls.lastStatementUrl).searchParams.get('toDate')).toBe(dmy(s[0].date));
+  expect(calls.statement).toBe(1);
+});
+
 test('the hover tooltip gets a row per currency with that day\'s cash, in DEGIRO\'s style', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_P, cashLines: true });
   await page.mouse.move(5, 5); // measured unhovered first
   await expect(layer(page)).toHaveCount(1);
   const box = await page.locator('#c1').boundingBox();
   const tip = page.locator('[data-name="performance-plot-tooltip"]');
-  // the last day (after the October movements): today's balances
+  // the line's last point is today (after the October movements): today's balances
   await page.mouse.move(box.x + box.width - 7, box.y + 100);
+  await expect(tip).toHaveAttribute('data-date', await today(page));
+  await expect(tipRows(page)).toHaveText(['Cash EUR€ 26.876', 'Cash USD$ 1.204', 'Cash GBP£ 13']);
+  // the day before it: the endpoint's last day
+  const step = (box.width - 14) / ((await page.evaluate(() => window.__points.length)) - 1);
+  await page.mouse.move(box.x + box.width - 7 - step, box.y + 100);
   await expect(tip).toHaveAttribute('data-date', '2026-10-21');
   await expect(tipRows(page)).toHaveText(['Cash EUR€ 26.876', 'Cash USD$ 1.204', 'Cash GBP£ 13']);
   // the first day: EUR 30.000 (before May), no USD yet
