@@ -48,6 +48,14 @@ test('DEGIRO styling: Buy green, Sell red, taken from the Action column', async 
   expect(await colour(totals(page).locator('[data-dg-total=sell] span').first())).toBe('rgb(228, 1, 1)');
 });
 
+test('DEGIRO styling: the light-theme line grey is DEGIRO\'s #D6DDE0 (its input/table borders)', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_O });
+  const products = panel(page).locator('[data-dg-products]');
+  await expect(products).toHaveCSS('border-top-color', 'rgb(214, 221, 224)'); // unselected picker outline
+  await products.click();
+  await expect(panel(page).locator('[role=listbox]')).toHaveCSS('border-top-color', 'rgb(214, 221, 224)');
+});
+
 // ---------- columns ----------
 const heads = page => page.$$eval('#orders thead th', ths => ths.filter(th => getComputedStyle(th).display !== 'none').map(th => th.textContent));
 const columnsBtn = page => panel(page).locator('[data-dg-columns]');

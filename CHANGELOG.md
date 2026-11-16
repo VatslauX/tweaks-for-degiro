@@ -1,6 +1,7 @@
 # Release notes
 
-## 1.23.1 — 2026-11-13
+## 1.23.1 — 2026-11-16
+- **Light-theme grey lines**: the grey borders in light mode now use DEGIRO's own grey, on the Orders and Transactions filter pickers, the merged Portfolio table, the alarm panel and the Alarms page.
 - **Fix**: the portfolio chart's cash columns, hover tooltip cash and drag selection now line up with the points DEGIRO draws, so the tooltip no longer shows the previous day's cash and a column or selection edge no longer sits between two points.
 - **Portfolio chart ends at today**: the line gets a point for today at the current portfolio total, as DEGIRO's own chart does, so the period change matches the total shown next to *Today*.
 - **Fix**: on the Orders and Transactions pages, DEGIRO's *Inbox* item no longer looks current next to the extension's Orders or Transactions link (two items looked selected at once).

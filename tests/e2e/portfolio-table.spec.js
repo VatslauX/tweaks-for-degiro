@@ -250,6 +250,8 @@ test('without native classes, the merged table falls back to theme-based inline 
   const th = page.locator('[data-dg-portfolio-table] th[data-dg-col=value]');
   await expect(th).toHaveAttribute('class', '');
   await expect(th).toHaveCSS('border-bottom-style', 'solid');
+  await expect(th).toHaveCSS('border-bottom-color', 'rgb(214, 221, 224)'); // dgUi.theme().line = DEGIRO's #D6DDE0
+  await expect(page.locator('[data-dg-portfolio-table] tbody td').first()).toHaveCSS('border-bottom-color', 'rgb(214, 221, 224)');
   await expect(th).toHaveCSS('color', 'rgb(101, 117, 123)'); // dgUi.theme().muted, light theme
   await expect(page.locator('[data-dg-portfolio-table]')).toHaveCSS('border-collapse', 'collapse');
 });
