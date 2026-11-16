@@ -59,19 +59,23 @@ test('drag selects a range: € and % change, dates, dots on the line', async ({
   });
   expect(ok).toBe(true);
 
-  // dots sit on the drawn line
-  const off = await page.evaluate(() => {
-    const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
-    const c = document.getElementById('c1').getBoundingClientRect(), a = area.getBoundingClientRect();
-    const dots = [...area.children].filter(d => d.style.borderRadius === '50%' && d.style.display === 'block');
-    return dots.map(d => {
-      const x = parseFloat(d.style.left) - (c.left - a.left), y = parseFloat(d.style.top) - (c.top - a.top);
-      const i = Math.round((x - 7) / (900 - 14) * (window.__points.length - 1));
-      return Math.abs(window.__Y(window.__points[i].value) - y);
-    });
-  });
+  // dots sit on drawn points of the line
+  const off = await dotsOff(page);
   expect(off.length).toBe(2);
-  for (const d of off) expect(d).toBeLessThanOrEqual(3);
+  for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
+});
+
+// each shown selection dot: [x, y] distance (css px) to the nearest point the mock draws (1..n−1)
+const dotsOff = page => page.evaluate(() => {
+  const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
+  const c = document.getElementById('c1').getBoundingClientRect(), a = area.getBoundingClientRect();
+  const dots = [...area.children].filter(d => d.style.borderRadius === '50%' && d.style.display === 'block');
+  return dots.map(d => {
+    const x = parseFloat(d.style.left) - (c.left - a.left), y = parseFloat(d.style.top) - (c.top - a.top);
+    let i = 1;
+    for (let k = 2; k < window.__points.length; k++) if (Math.abs(window.__X(k) - x) < Math.abs(window.__X(i) - x)) i = k;
+    return [Math.abs(window.__X(i) - x), Math.abs(window.__Y(window.__points[i].value) - y)];
+  });
 });
 
 test('the selection maps to the points DEGIRO draws, today\'s live total included', async ({ degiro }) => {
@@ -113,6 +117,66 @@ test('the selection maps to the points DEGIRO draws, today\'s live total include
   expect(await select(await at(n - 6), box.width - 1)).toBe(await want(n - 6, n - 1));
   // within the chart: exactly the drawn days under the pointer
   expect(await select(await at(3), await at(n - 3))).toBe(await want(3, n - 3));
+});
+
+test('the selection snaps to the points DEGIRO draws: half a step in from the line\'s ends, never its oldest day', async ({ degiro }) => {
+  // DEGIRO doesn't draw the oldest day of the line (the period change's baseline) and draws the
+  // others at band centres, half a step in from the line's ends. Mapped edge to edge, the selection's
+  // edges and dots fell between DEGIRO's points, with the value and date of a point half a step away,
+  // and a drag across the whole chart started at the undrawn oldest day.
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  await page.click('[data-name="performance-period-switcher"] button:text-is("1 M")');
+  await expect(change(page)).toContainText('1M'); // the 1M data is in: about 40 px between points
+  await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
+  const box = await page.locator('#c1').boundingBox();
+  const y = box.y + box.height / 2;
+  const n = await page.evaluate(() => window.__points.length);
+  const at = i => page.evaluate(i => window.__X(i), i);
+  const step = (await at(2)) - (await at(1));
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  const want = (i1, i2) => page.evaluate(([i1, i2]) => {
+    const p = window.__points, eur = v => '€ ' + Math.round(v).toLocaleString('nl-NL');
+    const d = s => new Date(s).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${eur(p[i1].value)} → ${eur(p[i2].value)} · ${d(p[i1].date)} → ${d(p[i2].date)}`;
+  }, [i1, i2]);
+  // the band's edges, relative to the canvas (css px; its own left and width, borders aside)
+  const edges = () => page.evaluate(() => {
+    const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
+    const band = [...area.children].find(d => d.style.borderLeftWidth === '1px');
+    const ox = document.getElementById('c1').getBoundingClientRect().left - area.getBoundingClientRect().left;
+    const left = parseFloat(band.style.left) - ox;
+    return [left, left + parseFloat(band.style.width)];
+  });
+  const select = async (x1, x2) => {
+    await page.keyboard.press('Escape');
+    await page.mouse.move(5, 5);
+    await page.mouse.move(box.x + x1, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + (x1 + x2) / 2, y, { steps: 3 });
+    await page.mouse.move(box.x + x2, y, { steps: 3 });
+    await page.mouse.up();
+    await expect(label).toBeVisible();
+    return (await label.locator('div').last().textContent()).trim();
+  };
+
+  // across the whole chart: from the first drawn day (not the line's oldest) to today
+  expect(await select(1, box.width - 1)).toBe(await want(1, n - 1));
+  const [l, r] = await edges();
+  expect(Math.abs(l - await at(1))).toBeLessThanOrEqual(1);
+  expect(Math.abs(r - await at(n - 1))).toBeLessThanOrEqual(1);
+  let off = await dotsOff(page);
+  expect(off.length).toBe(2);
+  for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
+
+  // pressed and released a little left of a point (still nearest to it): that point's day and value
+  expect(await select((await at(3)) - 0.4 * step, (await at(n - 3)) - 0.4 * step)).toBe(await want(3, n - 3));
+  const [l2, r2] = await edges();
+  expect(Math.abs(l2 - await at(3))).toBeLessThanOrEqual(1);
+  expect(Math.abs(r2 - await at(n - 3))).toBeLessThanOrEqual(1);
+  off = await dotsOff(page);
+  expect(off.length).toBe(2);
+  for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
 });
 
 // the selection label's values line, e.g. "€ 98.000 → € 150.000 · 21 okt 2025 → 11 nov 2026"
@@ -308,6 +372,6 @@ test('a chart rebuilt under the pointer still selects up to its right edge', asy
     const b = band.getBoundingClientRect(), c = document.getElementById('c1').getBoundingClientRect();
     return { band: [b.left, b.right], chart: [c.left, c.right] };
   });
-  expect(r.band[1]).toBeGreaterThanOrEqual(r.chart[1] - 10); // the last point (7 px padding), not the cursor
+  expect(r.band[1]).toBeGreaterThanOrEqual(r.chart[1] - 10); // the last point (7 px padding + half a step), not the cursor
   expect(r.band[0]).toBeLessThanOrEqual(r.chart[0] + 0.45 * (r.chart[1] - r.chart[0]));
 });
