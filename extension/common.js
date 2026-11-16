@@ -82,6 +82,7 @@
     sideNav: '[data-name=sideNavigation] nav',
     productsMenuItem: 'a[data-name=productsMenuItem]',
     favouritesMenuItem: 'a[data-name=favouriteProductsMenuItem]',
+    inboxMenuItem: 'a[data-name=accountActivityMenuItem]',
     favouritesLinks: 'a[data-name=favouriteProductsMenuItem], a[href^="#/favourites"]', // the item and the lists (#/favourites/<id>)
     menuItem: 'a[data-name$=MenuItem]',
     orderLimit: '[data-field="limitColumnValue"]',

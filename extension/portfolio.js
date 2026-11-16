@@ -4,7 +4,8 @@
 //  • cash per currency: today's cash next to the total, and a switch for stacked cash columns on the chart (EUR in green)
 //    and, with the same setting, DEGIRO's "Portfolio value" in its hover tooltip in whole units
 // The chart is drawn on a <canvas>, so values come from the same endpoint DEGIRO uses for it
-// (/portfolio-metrics/.../portfolio/value), and pixel positions from the drawn line.
+// (/portfolio-metrics/.../portfolio/value) plus, like DEGIRO's line, a point for today at the live
+// total, and pixel positions from the drawn line.
 // Runs in page context (world: MAIN).
 (() => {
   const ENDPOINT = '/portfolio-metrics/secure/api/v1/portfolio/value';
@@ -23,7 +24,9 @@
   const $ = sel => document.querySelector(sel);
 
   // ---------- data: follow DEGIRO's own requests for the chart ----------
-  let url = /** @type {URL | null} */ (null), data = [], period = /** @type {string | null} */ (null),
+  // `points` is the endpoint's history (it has no entry for today); `data` is the line DEGIRO draws:
+  // that history without any entry dated today, plus a point for today at the live total.
+  let url = /** @type {URL | null} */ (null), points = [], data = [], period = /** @type {string | null} */ (null),
     version = 0, versionAt = 0, loading = false;
 
   function seen(name) {
@@ -50,10 +53,12 @@
         const j = await r.json();
         const list = Array.isArray(j) ? j : (j?.data || j?.values || []);
         // DEGIRO returns newest first — sort oldest → newest to match the chart
-        data = list.map(p => ({ date: p.date, value: +p.value, t: Date.parse(p.date) }))
+        points = list.map(p => ({ date: p.date, value: +p.value, t: Date.parse(p.date) }))
           .filter(p => p.date && isFinite(p.value))
           .sort((a, b) => (a.t || 0) - (b.t || 0));
         period = PERIODS[target.searchParams.get('period')] || target.searchParams.get('period');
+        today = localDay(); // the day DEGIRO dates its point for today, drawing this same data
+        drawnLine();
         loadedHref = target.href;
         version++; versionAt = Date.now();
         ok = true;
@@ -66,6 +71,31 @@
     }
     loading = false;
     schedule(); // draw the new data now, not on the next timer run
+  }
+
+  // DEGIRO's value line ends with a point for today (the browser's local date) at the live portfolio
+  // total, the amount shown next to "Today" above the chart; any endpoint entry for today is dropped
+  // first. While the chart is hovered that amount is the hovered day's (with its date in the caption),
+  // so the total is read only when it isn't, and the last reading is kept meanwhile. A total of 0 is
+  // taken as a placeholder (the amount before DEGIRO has the total) unless the history is all 0 too:
+  // a line ending at 0 would read as a -100 % change. Without a total the line is the history alone.
+  // The day is the one when the data loaded, as DEGIRO drew it then (it doesn't move at midnight).
+  let total = NaN, today = '';
+  const localDay = () => {
+    const t = new Date(), p = n => String(n).padStart(2, '0');
+    return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+  };
+  function readTotal() {
+    const amount = $(SEL.perfAmount), caption = $(SEL.perfCaption);
+    if (!amount || $(SEL.perfArea)?.matches(':hover') || /\d/.test(caption?.textContent || '')) return; // a hovered day
+    const n = parseNum(amount.textContent);
+    if (!isFinite(n) || (n === 0 && !(points.length && points.every(p => p.value === 0)))) return; // not (yet) the total
+    total = n;
+  }
+  function drawnLine() {
+    data = points.length && today && isFinite(total)
+      ? [...points.filter(p => p.date !== today), { date: today, value: total, t: Date.parse(today) }]
+      : points;
   }
 
   // ---------- formatting ----------
@@ -195,11 +225,15 @@
 
   let moves = /** @type {any[] | null} */ (null), movesKey = '', cashVersion = 0;
   const movesReq = reqState();
+  const TOTAL_WAIT = 5000; // ms after the chart data loaded
   async function loadStatement() {
     const id = ids(), first = data[0]?.date, last = data[data.length - 1]?.date;
     const day = /^\d{4}-\d\d-\d\d$/;
     if (!id || data.length < 2 || !day.test(first) || !day.test(last)) return;
-    const key = [version, fundsChanged].join('|');
+    // asked up to today's point: wait for the total (one request, not one before and one after it),
+    // but not for ever, so the columns still come without it
+    if (!isFinite(total) && Date.now() - versionAt < TOTAL_WAIT) return;
+    const key = [version, fundsChanged, last].join('|');
     if (key === movesKey) return;
     const dmy = d => d.split('-').reverse().join('/'); // DD/MM/YYYY, as DEGIRO's Account statement asks
     const path = `/portfolio-reports/secure/v6/accountoverview?fromDate=${dmy(first)}&toDate=${dmy(last)}&intAccount=${id.a}&sessionId=${encodeURIComponent(id.s)}`;
@@ -221,7 +255,7 @@
     // no movements in the period: the balance stayed what it is today
     for (const [cur, v] of funds || []) if (!by[cur] && v) by[cur] = days.map(() => v);
     return Object.entries(by)
-      .filter(([, v]) => v.some(x => Math.abs(x) >= 0.005))
+      .filter(([, v]) => v.some((x, i) => i > 0 && Math.abs(x) >= 0.005)) // cash on a drawn day (data[0] isn't drawn, see xOf)
       .sort((a, b) => +(b[0] === 'EUR') - +(a[0] === 'EUR') ||
         Math.abs(b[1][b[1].length - 1]) - Math.abs(a[1][a[1].length - 1]) || (a[0] < b[0] ? -1 : 1));
   }
@@ -315,7 +349,7 @@
     const c = geo.canvas.getBoundingClientRect(), a = area.getBoundingClientRect();
     if (c.width < 100) { removeLayer(); return; }
     const ox = c.left - a.left, oy = c.top - a.top, dpr = window.devicePixelRatio || 1;
-    const key = [cashVersion, version, fundsSig, geo.left, geo.right, geo.height, c.width, ox, oy, dpr].join('|');
+    const key = [cashVersion, version, data.length, data[data.length - 1]?.date, fundsSig, geo.left, geo.right, geo.height, c.width, ox, oy, dpr].join('|');
     if (layer && layer.area === area && layer.canvas.isConnected && key === layerKey) return;
     removeLayer();
     layerKey = key;
@@ -330,20 +364,20 @@
     if (!ctx) return;
     ctx.scale(dpr, dpr);
     const n = data.length, bottom = 4, base = geo.height - bottom, h = base * STACK_SHARE;
-    const step = (geo.right - geo.left) / (n - 1), w = Math.max(1, step * 0.7);
-    const X = i => geo.left + step * i;
-    // one shared scale: the highest day's stack (amounts added as they are, not converted)
-    const totals = data.map((_, i) => lines.reduce((s, [, v]) => s + Math.max(0, v[i]), 0));
+    const w = Math.max(1, stepOf(geo) * 0.7); // within the point's band: the outer columns stay inside the line
+    // one shared scale: the highest drawn day's stack (amounts added as they are, not converted)
+    const totals = data.map((_, i) => i < 1 ? 0 : lines.reduce((s, [, v]) => s + Math.max(0, v[i]), 0));
     const hi = Math.max(...totals) || 1;
     const colors = colorsFor(lines.map(l => l[0]));
     ctx.globalAlpha = 0.55; // the portfolio line stays visible through the columns
-    for (let i = 0; i < n; i++) {
+    // a column per day DEGIRO draws a point for: not data[0], the period's start (see xOf)
+    for (let i = 1; i < n; i++) {
       let y = base;
       for (const [cur, v] of lines) {
         const seg = Math.max(0, v[i]) / hi * h;
         if (seg <= 0) continue;
         ctx.fillStyle = colors[cur];
-        ctx.fillRect(X(i) - w / 2, y - seg, w, seg);
+        ctx.fillRect(xOf(geo, i) - w / 2, y - seg, w, seg);
         y -= seg;
       }
     }
@@ -351,8 +385,9 @@
 
   // ---------- cash in DEGIRO's hover tooltip ----------
   // Under its "Portfolio value" row: a row per currency with the cash of the hovered day, in the same
-  // style (copied from DEGIRO's row). The day comes from the pointer's place along the line, like the
-  // range selection, so it doesn't depend on the tooltip's date format.
+  // style (copied from DEGIRO's row). The day comes from the pointer's place along the line, snapped to
+  // the nearest drawn point as DEGIRO's tooltip is (xOf/idxOf, like the range selection), so it doesn't
+  // depend on the tooltip's date format.
   const TIP = 'data-dg-cash-tip';
   let tipLines = /** @type {[string, number[]][]} */ ([]), tipArea = /** @type {HTMLElement | null} */ (null),
     tipX = /** @type {number | null} */ (null), tipFrame = 0, tipKey = '';
@@ -365,8 +400,7 @@
     const area = $(SEL.perfArea), tip = area?.querySelector(SEL.perfTooltip);
     const geo = geoCache; // measured while not hovered (DEGIRO greys part of the line while hovered)
     if (!area || !tip || !tipLines.length || !geo || tipX == null || data.length < 2) { removeTip(); return; }
-    const n = data.length, x = tipX - geo.canvas.getBoundingClientRect().left;
-    const i = Math.max(0, Math.min(n - 1, Math.round((x - geo.left) / (geo.right - geo.left) * (n - 1))));
+    const i = idxOf(geo, tipX - geo.canvas.getBoundingClientRect().left); // the point DEGIRO's tooltip snaps to
     const row = [...tip.children].find(c => !c.hasAttribute(TIP) && c.children.length >= 2); // "Portfolio value  € …"
     if (!row) { removeTip(); return; }
     const hide = hideFilter();
@@ -555,6 +589,19 @@
   }
 
   /** @typedef {{ canvas: HTMLCanvasElement, w: number, h: number, left: number, right: number, height: number, lineY: (xCss: number) => number | null }} Geometry */
+  // Where DEGIRO draws the days of `data` (confirmed live). It draws a point for every day but the
+  // first: data[0] (the period's start, the baseline of the period change) is neither drawn nor
+  // hoverable. The n − 1 drawn points sit at the centres of n − 1 equal bands across the line's extent,
+  // half a band in from its ends; the line runs flat from the first and last point out to both ends.
+  // So point i (1..n−1) is at left + (i − 0.5)·step. The columns, the tooltip rows and the selection
+  // all use this one mapping. Needs data.length >= 2.
+  /** @param {Geometry} geo */
+  const stepOf = geo => (geo.right - geo.left) / (data.length - 1);
+  /** @param {Geometry} geo @param {number} i */
+  const xOf = (geo, i) => geo.left + (i - 0.5) * stepOf(geo);
+  // the drawn point nearest to x (css px, relative to the canvas), as DEGIRO's tooltip snaps
+  /** @param {Geometry} geo @param {number} x */
+  const idxOf = (geo, x) => Math.max(1, Math.min(data.length - 1, Math.round((x - geo.left) / stepOf(geo) + 0.5)));
   // DEGIRO greys the line right of the cursor while hovering, so read the canvas while not hovered.
   // The cache belongs to one canvas: DEGIRO builds a new chart when Portfolio is reached from another
   // page (same size, same data), and the old canvas is detached (its rect is all zeros). If the pointer
@@ -620,17 +667,13 @@
       return Math.max(geo.left, Math.min(e.clientX - c.left, geo.right));
     };
     /** @param {Geometry} geo */
-    const idxAt = (geo, x) => Math.round((x - geo.left) / (geo.right - geo.left) * (data.length - 1));
-
-    /** @param {Geometry} geo */
     function draw(geo, xa, xb) {
-      const n = data.length;
-      if (n < 2) return;
-      const i1 = idxAt(geo, Math.min(xa, xb)), i2 = idxAt(geo, Math.max(xa, xb));
+      if (data.length < 3) return; // two drawn points at least
+      // snapped to the points DEGIRO draws (data[1..n-1]): the earliest is its first drawn day
+      const i1 = idxOf(geo, Math.min(xa, xb)), i2 = idxOf(geo, Math.max(xa, xb));
       if (i1 === i2) return;
       const p1 = data[i1].value, p2 = data[i2].value;
-      const L = geo.left + (geo.right - geo.left) * i1 / (n - 1);
-      const R = geo.left + (geo.right - geo.left) * i2 / (n - 1);
+      const L = xOf(geo, i1), R = xOf(geo, i2);
       const o = offset(geo);
       const diff = p2 - p1, pct = p1 ? diff / p1 * 100 : 0, up = diff >= 0, cur = currency();
       const th = pageTheme(area);
@@ -692,6 +735,8 @@
     if (!page.isPortfolio()) { detachWhole(); return 'idle'; }
     if (flags()?.portfolioCash) attachWhole(); else detachWhole(); // the feature runs while any of its flags is on
     load();
+    readTotal();
+    drawnLine();
     attachSelect();
     const area = $(SEL.perfArea);
     const clear = area && area === sel.area ? sel.clear : null;

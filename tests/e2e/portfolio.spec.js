@@ -5,12 +5,16 @@ const URL_P = 'https://trader.degiro.nl/trader/?mock=portfolio#/portfolio';
 const change = page => page.locator('#dg-portfolio-change');
 
 const fmtPct = p => (p >= 0 ? '+' : '') + p.toFixed(2).replace('.', ',') + '%';
+// the mock's live total: like DEGIRO, its line ends with a point for today at this value
+const TOTAL = 141234.56;
+// the change over a period, like DEGIRO's line: from the period's first day to today's total
+const periodPct = s => fmtPct((TOTAL - s[s.length - 1].value) / s[s.length - 1].value * 100);
 
 test('shows the change for the selected period next to the total', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_P });
   const s = portfolioSeries('ONE_YEAR');
   await expect(change(page)).toContainText('1Y');
-  await expect(change(page)).toContainText(fmtPct((s[0].value - s[s.length - 1].value) / s[s.length - 1].value * 100));
+  await expect(change(page)).toContainText(periodPct(s));
   expect(await page.$eval('#dg-portfolio-change', el => el.parentElement.getAttribute('data-name'))).toBe('performance-chart-value');
   expect(await change(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe('Roboto, Helvetica, HelveticaNeue, sans-serif'); // matches DEGIRO's own font, not the stale Inter stack
 });
@@ -22,7 +26,7 @@ test('follows the period switcher', async ({ degiro }) => {
     await page.click(`[data-name="performance-period-switcher"] button:text-is("${btn}")`);
     const s = portfolioSeries(period);
     await expect(change(page)).toContainText(label);
-    await expect(change(page)).toContainText(fmtPct((s[0].value - s[s.length - 1].value) / s[s.length - 1].value * 100));
+    await expect(change(page)).toContainText(periodPct(s));
   }
 });
 
@@ -55,19 +59,159 @@ test('drag selects a range: € and % change, dates, dots on the line', async ({
   });
   expect(ok).toBe(true);
 
-  // dots sit on the drawn line
-  const off = await page.evaluate(() => {
-    const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
-    const c = document.getElementById('c1').getBoundingClientRect(), a = area.getBoundingClientRect();
-    const dots = [...area.children].filter(d => d.style.borderRadius === '50%' && d.style.display === 'block');
-    return dots.map(d => {
-      const x = parseFloat(d.style.left) - (c.left - a.left), y = parseFloat(d.style.top) - (c.top - a.top);
-      const i = Math.round((x - 7) / (900 - 14) * (window.__points.length - 1));
-      return Math.abs(window.__Y(window.__points[i].value) - y);
-    });
-  });
+  // dots sit on drawn points of the line
+  const off = await dotsOff(page);
   expect(off.length).toBe(2);
-  for (const d of off) expect(d).toBeLessThanOrEqual(3);
+  for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
+});
+
+// each shown selection dot: [x, y] distance (css px) to the nearest point the mock draws (1..n−1)
+const dotsOff = page => page.evaluate(() => {
+  const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
+  const c = document.getElementById('c1').getBoundingClientRect(), a = area.getBoundingClientRect();
+  const dots = [...area.children].filter(d => d.style.borderRadius === '50%' && d.style.display === 'block');
+  return dots.map(d => {
+    const x = parseFloat(d.style.left) - (c.left - a.left), y = parseFloat(d.style.top) - (c.top - a.top);
+    let i = 1;
+    for (let k = 2; k < window.__points.length; k++) if (Math.abs(window.__X(k) - x) < Math.abs(window.__X(i) - x)) i = k;
+    return [Math.abs(window.__X(i) - x), Math.abs(window.__Y(window.__points[i].value) - y)];
+  });
+});
+
+test('the selection maps to the points DEGIRO draws, today\'s live total included', async ({ degiro }) => {
+  // DEGIRO's line has one more point than its value endpoint returns: today, at the live total.
+  // Mapped onto the endpoint's points only, every selected day was skewed and the right edge was
+  // yesterday. 1M: few points, so a skew of most of a step shows up as another day.
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  await page.click('[data-name="performance-period-switcher"] button:text-is("1 M")');
+  await expect(change(page)).toContainText('1M'); // the 1M data is in
+  await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
+  const box = await page.locator('#c1').boundingBox();
+  const y = box.y + box.height / 2;
+  const n = await page.evaluate(() => window.__points.length);
+  expect(n).toBe(portfolioSeries('ONE_MONTH').length + 1);
+  const at = i => page.evaluate(i => window.__X(i), i);
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  // what the label should say between two drawn points (whole euros, Dutch dates as the label has them)
+  const want = (i1, i2) => page.evaluate(([i1, i2]) => {
+    const p = window.__points, eur = v => '€ ' + Math.round(v).toLocaleString('nl-NL');
+    const d = s => new Date(s).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${eur(p[i1].value)} → ${eur(p[i2].value)} · ${d(p[i1].date)} → ${d(p[i2].date)}`;
+  }, [i1, i2]);
+  const select = async (x1, x2) => {
+    await page.keyboard.press('Escape');
+    await page.mouse.move(5, 5);
+    await page.mouse.move(box.x + x1, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + (x1 + x2) / 2, y, { steps: 3 });
+    await page.mouse.move(box.x + x2, y, { steps: 3 });
+    await page.mouse.up();
+    await expect(label).toBeVisible();
+    return (await label.locator('div').last().textContent()).trim();
+  };
+
+  // up to the right edge: today, at the total (not the hovered value DEGIRO shows above the chart meanwhile)
+  const today = await page.evaluate(() => { const t = new Date(), p = k => String(k).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; });
+  expect(await page.evaluate(() => window.__points[window.__points.length - 1])).toEqual({ date: today, value: TOTAL });
+  expect(await select(await at(n - 6), box.width - 1)).toBe(await want(n - 6, n - 1));
+  // within the chart: exactly the drawn days under the pointer
+  expect(await select(await at(3), await at(n - 3))).toBe(await want(3, n - 3));
+});
+
+test('the selection snaps to the points DEGIRO draws: half a step in from the line\'s ends, never its oldest day', async ({ degiro }) => {
+  // DEGIRO doesn't draw the oldest day of the line (the period change's baseline) and draws the
+  // others at band centres, half a step in from the line's ends. Mapped edge to edge, the selection's
+  // edges and dots fell between DEGIRO's points, with the value and date of a point half a step away,
+  // and a drag across the whole chart started at the undrawn oldest day.
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  await page.click('[data-name="performance-period-switcher"] button:text-is("1 M")');
+  await expect(change(page)).toContainText('1M'); // the 1M data is in: about 40 px between points
+  await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
+  const box = await page.locator('#c1').boundingBox();
+  const y = box.y + box.height / 2;
+  const n = await page.evaluate(() => window.__points.length);
+  const at = i => page.evaluate(i => window.__X(i), i);
+  const step = (await at(2)) - (await at(1));
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  const want = (i1, i2) => page.evaluate(([i1, i2]) => {
+    const p = window.__points, eur = v => '€ ' + Math.round(v).toLocaleString('nl-NL');
+    const d = s => new Date(s).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${eur(p[i1].value)} → ${eur(p[i2].value)} · ${d(p[i1].date)} → ${d(p[i2].date)}`;
+  }, [i1, i2]);
+  // the band's edges, relative to the canvas (css px; its own left and width, borders aside)
+  const edges = () => page.evaluate(() => {
+    const area = document.querySelector('[data-name="performance-chart-interaction-area"]');
+    const band = [...area.children].find(d => d.style.borderLeftWidth === '1px');
+    const ox = document.getElementById('c1').getBoundingClientRect().left - area.getBoundingClientRect().left;
+    const left = parseFloat(band.style.left) - ox;
+    return [left, left + parseFloat(band.style.width)];
+  });
+  const select = async (x1, x2) => {
+    await page.keyboard.press('Escape');
+    await page.mouse.move(5, 5);
+    await page.mouse.move(box.x + x1, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + (x1 + x2) / 2, y, { steps: 3 });
+    await page.mouse.move(box.x + x2, y, { steps: 3 });
+    await page.mouse.up();
+    await expect(label).toBeVisible();
+    return (await label.locator('div').last().textContent()).trim();
+  };
+
+  // across the whole chart: from the first drawn day (not the line's oldest) to today
+  expect(await select(1, box.width - 1)).toBe(await want(1, n - 1));
+  const [l, r] = await edges();
+  expect(Math.abs(l - await at(1))).toBeLessThanOrEqual(1);
+  expect(Math.abs(r - await at(n - 1))).toBeLessThanOrEqual(1);
+  let off = await dotsOff(page);
+  expect(off.length).toBe(2);
+  for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
+
+  // pressed and released a little left of a point (still nearest to it): that point's day and value
+  expect(await select((await at(3)) - 0.4 * step, (await at(n - 3)) - 0.4 * step)).toBe(await want(3, n - 3));
+  const [l2, r2] = await edges();
+  expect(Math.abs(l2 - await at(3))).toBeLessThanOrEqual(1);
+  expect(Math.abs(r2 - await at(n - 3))).toBeLessThanOrEqual(1);
+  off = await dotsOff(page);
+  expect(off.length).toBe(2);
+  for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
+});
+
+// the selection label's values line, e.g. "€ 98.000 → € 150.000 · 21 okt 2025 → 11 nov 2026"
+const selectionValues = page => page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' }).locator('div').last();
+
+test('the period change and the selection\'s right edge follow the live total', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_P });
+  const s = portfolioSeries('ONE_YEAR'), first = s[s.length - 1].value;
+  await expect(change(page)).toContainText(periodPct(s));
+  await page.evaluate(() => window.__setTotal(150000)); // DEGIRO's total moves while the page is open
+  await expect(page.locator('#total')).toHaveText('€ 150.000,00');
+  await expect(change(page)).toContainText(fmtPct((150000 - first) / first * 100));
+  await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
+  await drag(page, 0.5, 0.999);
+  await expect(selectionValues(page)).toContainText('→ € 150.000 ·');
+});
+
+test('a placeholder total (€ 0,00) is not taken as today\'s point', async ({ degiro }) => {
+  // before DEGIRO has the total its amount can read 0: a line ending there would be a -100 % change
+  const { page } = await degiro({ url: URL_P, initScript: () => { window.__MOCK_TOTAL = null; } });
+  const s = portfolioSeries('ONE_YEAR'), first = s[s.length - 1].value;
+  await expect(page.locator('#total')).toHaveText('€ 0,00');
+  // meanwhile the change and the selection end at the endpoint's last day
+  await expect(change(page)).toContainText(fmtPct((s[0].value - first) / first * 100));
+  await expect(change(page)).not.toContainText('-100,00%');
+  await page.mouse.move(5, 5);
+  await drag(page, 0.5, 0.999);
+  const last = await page.evaluate(() => '€ ' + Math.round(window.__points[window.__points.length - 1].value).toLocaleString('nl-NL'));
+  expect(await page.evaluate(() => window.__points.length)).toBe(s.length); // the mock's line has no point for today either
+  await expect(selectionValues(page)).toContainText(`→ ${last} ·`);
+  // then the total comes in: the line ends at it
+  await page.keyboard.press('Escape');
+  await page.mouse.move(5, 5); // the total is read while the chart isn't hovered
+  await page.evaluate(() => window.__setTotal(141234.56));
+  await expect(change(page)).toContainText(periodPct(s));
 });
 
 test('both features follow the existing switches', async ({ degiro, settings }) => {
@@ -228,6 +372,6 @@ test('a chart rebuilt under the pointer still selects up to its right edge', asy
     const b = band.getBoundingClientRect(), c = document.getElementById('c1').getBoundingClientRect();
     return { band: [b.left, b.right], chart: [c.left, c.right] };
   });
-  expect(r.band[1]).toBeGreaterThanOrEqual(r.chart[1] - 10); // the last point (7 px padding), not the cursor
+  expect(r.band[1]).toBeGreaterThanOrEqual(r.chart[1] - 10); // the last point (7 px padding + half a step), not the cursor
   expect(r.band[0]).toBeLessThanOrEqual(r.chart[0] + 0.45 * (r.chart[1] - r.chart[0]));
 });
