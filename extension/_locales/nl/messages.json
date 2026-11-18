@@ -123,7 +123,94 @@
     "message": "Koersalarmen"
   },
   "optPriceAlarmsHelp": {
-    "message": "Alarmknop bij producten in je Favorieten, een pagina Alarmen in het linkermenu en een banner zodra een koers is bereikt. Alleen gecontroleerd terwijl een pagina Favorieten of product open staat."
+    "message": "Alarmknop bij producten in je Favorieten, een pagina Alarmen in het linkermenu en een banner zodra een koers is bereikt. Gecontroleerd terwijl een pagina Favorieten of product open staat, of op de achtergrond als dat hieronder aan staat."
+  },
+  "optAlarmsBackground": {
+    "message": "Op de achtergrond controleren"
+  },
+  "optAlarmsBackgroundHelp": {
+    "message": "Elke minuut zolang Chrome draait, ook met DEGIRO gesloten of uitgelogd. Koersen van Yahoo Finance, meestal 15 min vertraagd, en live van Société Générale (sgbeurs.nl) voor haar eigen producten. Alleen tickersymbolen (bijv. ASML.AS) gaan naar Yahoo, en eenmalig de ISIN van een product als de ticker niet klopt; naar SG gaan alleen de ISIN's van SG-producten."
+  },
+  "optBgTest": {
+    "message": "Testmelding sturen"
+  },
+  "optBgTestNote": {
+    "message": "Testmelding, $1"
+  },
+  "optBgTestSent": {
+    "message": "Verstuurd om $1. Niet te zien? Sta Google Chrome toe in Systeeminstellingen → Berichtgeving (Windows: Instellingen → Systeem → Meldingen) en controleer Focus / Niet storen."
+  },
+  "optBgTestDenied": {
+    "message": "Chrome blokkeert meldingen van deze extensie."
+  },
+  "optBgTestFailed": {
+    "message": "Kon geen melding tonen: $1"
+  },
+  "optBgWaiting": {
+    "message": "Wacht op de eerste controle."
+  },
+  "optBgStatus": {
+    "message": "Laatste controle $1 · $2 van $3 alarmen gekoppeld"
+  },
+  "optBgError": {
+    "message": "Yahoo Finance niet bereikbaar (laatste poging $1)"
+  },
+  "bgNotifyNote": {
+    "message": "Yahoo Finance, ~15 min vertraagd, $1"
+  },
+  "alarmNotInBackground": {
+    "message": "Nog niet gekoppeld"
+  },
+  "alarmBgNoTicker": {
+    "message": "Geen Yahoo-ticker voor $1"
+  },
+  "alarmBgNoTickerProduct": {
+    "message": "Geen Yahoo-ticker voor dit product"
+  },
+  "alarmBgNoTickerTitle": {
+    "message": "Yahoo Finance heeft geen koersen voor deze beurs of dit producttype (bijvoorbeeld futures en opties), en DEGIRO toont er geen ISIN voor. Dit alarm wordt alleen gecontroleerd terwijl DEGIRO open is."
+  },
+  "alarmBgChecking": {
+    "message": "Controleren bij Yahoo…"
+  },
+  "alarmBgOkTitle": {
+    "message": "Op de achtergrond gecontroleerd met koersen van Yahoo Finance ($1)"
+  },
+  "alarmBgCheckingSg": {
+    "message": "Controleren bij Société Générale…"
+  },
+  "alarmBgMissingSg": {
+    "message": "$1 niet gevonden bij Société Générale"
+  },
+  "alarmBgCurrencySg": {
+    "message": "$1 bij Société Générale: andere valuta"
+  },
+  "alarmBgViaSg": {
+    "message": "(Société Générale)"
+  },
+  "alarmBgOkTitleSg": {
+    "message": "Op de achtergrond gecontroleerd met de live koersen van Société Générale ($1)"
+  },
+  "bgNotifyNoteSg": {
+    "message": "Société Générale, live, $1"
+  },
+  "alarmBgViaIsin": {
+    "message": "(via ISIN)"
+  },
+  "alarmBgIdle": {
+    "message": "$1 · nog niet gecontroleerd"
+  },
+  "alarmBgMissing": {
+    "message": "$1 niet gevonden bij Yahoo"
+  },
+  "alarmBgCurrency": {
+    "message": "$1 bij Yahoo: andere valuta"
+  },
+  "alarmBgPrice": {
+    "message": "$1 bij Yahoo: koers klopt niet"
+  },
+  "alarmNotInBackgroundTitle": {
+    "message": "De Yahoo-ticker wordt vanzelf gevonden zodra DEGIRO weer open is en je bent ingelogd, uit de productgegevens van DEGIRO, de favorietenlijst of de productpagina."
   },
   "optAlarmLines": {
     "message": "Alarmen in de grafiek"

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tweaks for DEGIRO (unofficial)",
-  "version": "1.23.1",
+  "version": "1.24.0",
   "minimum_chrome_version": "111",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
@@ -13,8 +13,19 @@
     "128": "icons/icon128.png"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "alarms"
   ],
+  "optional_permissions": [
+    "notifications"
+  ],
+  "optional_host_permissions": [
+    "https://query1.finance.yahoo.com/*",
+    "https://sgbeurs.nl/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Tweaks for DEGIRO (unofficial)",
     "default_popup": "options.html",

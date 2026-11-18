@@ -241,6 +241,23 @@
       // name); otherwise the symbol is in the tooltip
       if (a.symbol && link.textContent === R.label(a) && a.symbol !== link.textContent) link.title = a.symbol;
       prodRow.append(sideButton('buy', 'alarmBuyAria'), sideButton('sell', 'alarmSellAria'), link);
+      // with the background check on, every switched-on alarm says where it stands: checked (its Yahoo ticker),
+      // being checked, not checked yet here, not found or not matching on Yahoo, or no ticker at all
+      if (dgSettings.alarmsBackground && a.on) {
+        const bg = S.background(a.productId);
+        const [text, tip] = bg.state === 'ok'
+          ? [`✓ ${bg.t}${bg.via === 'isin' ? ' ' + t('alarmBgViaIsin') : bg.via === 'sg' ? ' ' + t('alarmBgViaSg') : ''}`, t(bg.via === 'sg' ? 'alarmBgOkTitleSg' : 'alarmBgOkTitle', bg.t)]
+          : bg.state === 'pending' ? [t(bg.sg ? 'alarmBgCheckingSg' : 'alarmBgChecking'), '']
+          : bg.state === 'idle' ? [t('alarmBgIdle', bg.t), '']
+          : bg.state === 'failed' && bg.sg ? [t(bg.why === 'currency' ? 'alarmBgCurrencySg' : 'alarmBgMissingSg', bg.t), '']
+          : bg.state === 'failed' ? [t(bg.why === 'currency' ? 'alarmBgCurrency' : bg.why === 'price' ? 'alarmBgPrice' : 'alarmBgMissing', bg.t), '']
+          : bg.state === 'noticker' ? [bg.t === '*' ? t('alarmBgNoTickerProduct') : t('alarmBgNoTicker', bg.t), t('alarmBgNoTickerTitle')]
+          : [t('alarmNotInBackground'), t('alarmNotInBackgroundTitle')];
+        const note = el('span', `color:${th.muted};font-size:11px;`, text);
+        note.setAttribute('data-dg-alarm-bg', bg.state);
+        if (tip) note.title = tip;
+        prodRow.append(note);
+      }
       prod.append(prodRow);
       // Price/Last/Seen: always one line each, no wrapped sub-line. Price is the live tick only;
       // Last is the value alarm-firing logic itself last compared against (extension/alarms.js),
@@ -326,7 +343,8 @@
     const th = dgUi.theme();
     // an open menu must not be rebuilt under the cursor by a price tick
     const menuOpen = !!view.open;
-    const key = JSON.stringify([S.list(), menuOpen ? [] : S.state(), menuOpen ? [] : [...S.live()], view.status, [...view.products], view.open, dgSettings.alarmHiddenColumns, [...S.listed()].sort((x, y) => x - y), th.bg, th.text]);
+    const key = JSON.stringify([S.list(), menuOpen ? [] : S.state(), menuOpen ? [] : [...S.live()], view.status, [...view.products], view.open, dgSettings.alarmHiddenColumns, [...S.listed()].sort((x, y) => x - y), th.bg, th.text,
+      dgSettings.alarmsBackground && S.list().map(a => S.background(a.productId))]);
     let root = document.querySelector(`[${ROOT}]`);
     const list = main.querySelector(`:scope > ${SEL.favourites}`);
     // where DEGIRO's Favourites list was, so its footer stays at the bottom
@@ -417,5 +435,7 @@
   // a column choice from another tab needs a nudge, same as Orders/Transactions/Portfolio
   dgOnSettings(() => schedule(true));
 
-  feature({ name: 'alarmsPage', enabled: () => dgSettings.priceAlarms, run, stop: remove });
+  // every minute too: "Checking with Yahoo…" depends on how long ago the background check last ran, which no DOM or
+  // storage change announces when the check stops (a closed market changes nothing on the page)
+  feature({ name: 'alarmsPage', enabled: () => dgSettings.priceAlarms, run, stop: remove, every: 60000 });
 })();

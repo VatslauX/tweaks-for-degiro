@@ -16,7 +16,7 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const STAGES = ['typecheck', 'lint', 'unit', 'integration', 'e2e'];
-const TS_PROJECTS = ['tsconfig.isolated.json', 'tsconfig.page.json', 'tsconfig.options.json'];
+const TS_PROJECTS = ['tsconfig.isolated.json', 'tsconfig.page.json', 'tsconfig.options.json', 'tsconfig.background.json'];
 const MAX_FAILURES = 25, MAX_LINES = 8, MAX_LINE = 200;
 
 // ---------- helpers ----------

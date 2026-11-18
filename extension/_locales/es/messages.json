@@ -123,7 +123,94 @@
     "message": "Alarmas de precio"
   },
   "optPriceAlarmsHelp": {
-    "message": "Botón de alarma en los productos de tus Favoritos, una página Alarmas en el menú izquierdo y un aviso cuando se alcanza un precio. Solo se comprueba mientras hay abierta una página de Favoritos o de producto."
+    "message": "Botón de alarma en los productos de tus Favoritos, una página Alarmas en el menú izquierdo y un aviso cuando se alcanza un precio. Se comprueba mientras hay abierta una página de Favoritos o de producto, o en segundo plano si se activa abajo."
+  },
+  "optAlarmsBackground": {
+    "message": "Comprobar en segundo plano"
+  },
+  "optAlarmsBackgroundHelp": {
+    "message": "Cada minuto mientras Chrome está abierto, incluso con DEGIRO cerrado o sin sesión. Precios de Yahoo Finance, normalmente con 15 min de retraso, y en directo de Société Générale (sgbeurs.nl) para sus propios productos. Solo se envían a Yahoo los símbolos (p. ej. ASML.AS) y, una vez, el ISIN de un producto si su símbolo no coincide; a SG, solo los ISIN de productos SG."
+  },
+  "optBgTest": {
+    "message": "Enviar una notificación de prueba"
+  },
+  "optBgTestNote": {
+    "message": "Notificación de prueba, $1"
+  },
+  "optBgTestSent": {
+    "message": "Enviada a las $1. ¿No aparece? Permite Google Chrome en Ajustes del Sistema → Notificaciones (Windows: Configuración → Sistema → Notificaciones) y revisa Concentración / No molestar."
+  },
+  "optBgTestDenied": {
+    "message": "Chrome bloquea las notificaciones de esta extensión."
+  },
+  "optBgTestFailed": {
+    "message": "No se pudo mostrar una notificación: $1"
+  },
+  "optBgWaiting": {
+    "message": "Esperando la primera comprobación."
+  },
+  "optBgStatus": {
+    "message": "Última comprobación $1 · $2 de $3 alarmas vinculadas"
+  },
+  "optBgError": {
+    "message": "Yahoo Finance no responde (último intento $1)"
+  },
+  "bgNotifyNote": {
+    "message": "Yahoo Finance, ~15 min de retraso, $1"
+  },
+  "alarmNotInBackground": {
+    "message": "Aún sin vincular"
+  },
+  "alarmBgNoTicker": {
+    "message": "No hay símbolo de Yahoo para $1"
+  },
+  "alarmBgNoTickerProduct": {
+    "message": "No hay símbolo de Yahoo para este producto"
+  },
+  "alarmBgNoTickerTitle": {
+    "message": "Yahoo Finance no tiene precios para este mercado o tipo de producto (por ejemplo futuros y opciones), y DEGIRO no muestra su ISIN. Esta alarma solo se comprueba mientras DEGIRO está abierto."
+  },
+  "alarmBgChecking": {
+    "message": "Comprobando con Yahoo…"
+  },
+  "alarmBgOkTitle": {
+    "message": "Comprobada en segundo plano con precios de Yahoo Finance ($1)"
+  },
+  "alarmBgCheckingSg": {
+    "message": "Comprobando con Société Générale…"
+  },
+  "alarmBgMissingSg": {
+    "message": "$1 no encontrado en Société Générale"
+  },
+  "alarmBgCurrencySg": {
+    "message": "$1 en Société Générale: otra divisa"
+  },
+  "alarmBgViaSg": {
+    "message": "(Société Générale)"
+  },
+  "alarmBgOkTitleSg": {
+    "message": "Se comprueba en segundo plano con los precios en directo de Société Générale ($1)"
+  },
+  "bgNotifyNoteSg": {
+    "message": "Société Générale, en directo, $1"
+  },
+  "alarmBgViaIsin": {
+    "message": "(vía ISIN)"
+  },
+  "alarmBgIdle": {
+    "message": "$1 · aún sin comprobar"
+  },
+  "alarmBgMissing": {
+    "message": "$1 no encontrado en Yahoo"
+  },
+  "alarmBgCurrency": {
+    "message": "$1 en Yahoo: otra divisa"
+  },
+  "alarmBgPrice": {
+    "message": "$1 en Yahoo: el precio no coincide"
+  },
+  "alarmNotInBackgroundTitle": {
+    "message": "El símbolo de Yahoo se encuentra solo la próxima vez que DEGIRO esté abierto y hayas iniciado sesión, a partir de los datos de producto de DEGIRO, la lista de favoritos o la página del producto."
   },
   "optAlarmLines": {
     "message": "Alarmas en el gráfico"

@@ -30,7 +30,8 @@ const PORTFOLIO_COLUMNS = plain(DG_PORTFOLIO_COLUMNS);
 const ALARM_COLUMNS = plain(DG_ALARM_COLUMNS);
 
 // The portfolio merged-table feature ships off by default (Task 3); every other switch stays on.
-const OFF_BY_DEFAULT = ['portfolioMergedTable', 'portfolioMergedPersist'];
+// The background alarm check sends tickers to Yahoo and needs permissions: opt-in, off by default.
+const OFF_BY_DEFAULT = ['portfolioMergedTable', 'portfolioMergedPersist', 'alarmsBackground'];
 
 test('defaults: every feature is on except the portfolio merge toggles, and the lists are the column lists and the titles', () => {
   const lists = Object.keys(DEFAULTS).filter(k => Array.isArray(DEFAULTS[k]));

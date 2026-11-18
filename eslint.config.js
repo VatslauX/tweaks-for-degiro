@@ -23,6 +23,11 @@ module.exports = [
     }
   },
   {
+    // the background service worker: worker globals (importScripts, no DOM)
+    files: ['extension/background.js'],
+    languageOptions: { globals: { ...globals.serviceworker } }
+  },
+  {
     // Node, plus browser code inside page.evaluate()
     files: ['tests/**/*.js', 'scripts/**/*.js', '*.config.js'],
     languageOptions: {

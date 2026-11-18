@@ -192,3 +192,220 @@ test('sanitizeEvents drops everything that is not a fired alarm', () => {
   assert.deepStrictEqual(R.sanitizeEvents([...entries, { alarmId: 'a1', price: 2, at: 3, extra: '<b>' }]),
     [{ alarmId: 'a1', price: 2, at: 3 }], 'the one good event, without unknown fields');
 });
+
+// ---------- merge (shared by the tabs and the background worker) ----------
+test('merge: a new firing adds its event and state; a foreign firing in the window keeps the stored one', () => {
+  const st = { firedAt: NOON, last: 21, lastAt: NOON };
+  const f = { alarmId: 'a1', price: 21, at: NOON };
+  const out = R.merge({ state: {}, events: [] }, { a1: st }, [f], [A], ['a1'], () => false);
+  assert.deepStrictEqual(out, { state: { a1: st }, events: [f] });
+  const other = NOON - 30000;
+  const lost = R.merge({ state: { a1: { firedAt: other } }, events: [{ alarmId: 'a1', price: 20, at: other }] },
+    { a1: st }, [f], [A], ['a1'], (a, at, now) => !!at && R.within(a, at, now));
+  assert.deepStrictEqual(lost.state.a1.firedAt, other);
+  assert.deepStrictEqual(lost.events, [{ alarmId: 'a1', price: 20, at: other }]);
+});
+
+test('merge drops the state and events of alarms that are not known', () => {
+  const out = R.merge({ state: { gone: { last: 1 } }, events: [{ alarmId: 'gone', price: 1, at: 1 }] }, {}, [], [A], ['a1'], () => false);
+  assert.deepStrictEqual(out, { state: {}, events: [] });
+});
+
+test('within: a minute, or the same local day for daily', () => {
+  assert.ok(R.within(A, NOON, NOON + 59000));
+  assert.ok(!R.within(A, NOON, NOON + 61000));
+  assert.ok(R.within({ repeat: 'daily' }, NOON, NOON + 3 * 3600000));
+  assert.ok(!R.within({ repeat: 'daily' }, NOON, NOON + DAY));
+});
+
+// ---------- background check: Yahoo tickers ----------
+test('yahooTicker: DEGIRO symbol + exchange name → Yahoo ticker', () => {
+  const cases = [
+    ['ASML', 'Euronext Amsterdam', 'ASML.AS'], ['VUSA', 'euronext amsterdam', 'VUSA.AS'], ['AI', 'Euronext Paris', 'AI.PA'],
+    ['SAP', 'Xetra', 'SAP.DE'], ['VUSA', 'London Stock Exchange', 'VUSA.L'], ['BT.A', 'London Stock Exchange', 'BT-A.L'],
+    ['AAPL', 'NASDAQ', 'AAPL'], ['BRK.B', 'NYSE', 'BRK-B'], ['NESN', 'SIX Swiss Exchange', 'NESN.SW'],
+    ['ENEL', 'Borsa Italiana', 'ENEL.MI'], ['ITX', 'Bolsa de Madrid', 'ITX.MC'], ['VOLV B', 'OMX Stockholm', ''],
+    ['EQNR', 'Oslo Børs', 'EQNR.OL'], ['ABI', 'Euronext Brussels', 'ABI.BR'],
+    // as DEGIRO's live header names them (2026-11-18)
+    ['IUSA', 'Euronext Amsterdam', 'IUSA.AS'], ['AIR', 'Euronext Paris', 'AIR.PA'], ['VUSD', 'London Stock Exchange (LSE)', 'VUSD.L'],
+    ['ADBE', 'Nasdaq', 'ADBE'], ['BABA', 'New York Stock Exchange', 'BABA'], ['700', 'Hong Kong Stock Exchange', '0700.HK'],
+    ['ADB', 'Tradegate AG', 'ADB.DE'], ['ADB', 'TDG', 'ADB.DE']
+  ];
+  for (const [s, e, want] of cases) assert.strictEqual(R.yahooTicker(s, e), want, `${s} · ${e}`);
+  assert.strictEqual(R.yahooTicker('ASML', 'Moscow Exchange'), '', 'an exchange not in the table');
+  assert.strictEqual(R.yahooTicker('ASML', ''), '');
+  assert.strictEqual(R.yahooTicker('', 'NASDAQ'), '');
+  assert.strictEqual(R.yahooTicker('A,B', 'NASDAQ'), '', 'no list separators');
+  assert.strictEqual(R.yahooTicker(5, 'NASDAQ'), '');
+});
+
+test('priceFactor: same currency 1, pence and pounds convert, anything else 0', () => {
+  assert.strictEqual(R.priceFactor('€', 'EUR'), 1);
+  assert.strictEqual(R.priceFactor('$', 'USD'), 1);
+  assert.strictEqual(R.priceFactor('£', 'GBp'), 0.01);
+  assert.strictEqual(R.priceFactor('GBX', 'GBp'), 1);
+  assert.strictEqual(R.priceFactor('GBX', 'GBP'), 100);
+  assert.strictEqual(R.priceFactor('€', 'USD'), 0);
+  assert.strictEqual(R.priceFactor('kr', 'SEK'), 0, 'an ambiguous sign is never guessed');
+  assert.strictEqual(R.priceFactor(undefined, 'EUR'), 0);
+});
+
+test('checkLink: currency and price must match DEGIRO', () => {
+  const meta = { currency: 'EUR', regularMarketPrice: 100 };
+  assert.deepStrictEqual(R.checkLink(meta, '€', 101, 90), { ok: true, f: 1 });
+  assert.deepStrictEqual(R.checkLink(meta, '€', 300, 90), { ok: false, f: 0, why: 'price' }, 'another listing or product');
+  assert.deepStrictEqual(R.checkLink(meta, '$', 100, 90), { ok: false, f: 0, why: 'currency' });
+  assert.deepStrictEqual(R.checkLink(meta, '€', undefined, 400), { ok: true, f: 1 }, 'no DEGIRO price: wider range around the alarm');
+  assert.deepStrictEqual(R.checkLink(meta, '€', undefined, 600), { ok: false, f: 0, why: 'price' });
+  assert.deepStrictEqual(R.checkLink({ currency: 'GBp', regularMarketPrice: 1310 }, '£', 13.2, 13), { ok: true, f: 0.01 });
+  assert.deepStrictEqual(R.checkLink(undefined, '€', 100, 100), { ok: false, f: 0, why: 'missing' }, 'Yahoo has no such ticker');
+  assert.deepStrictEqual(R.checkLink({ currency: 'EUR' }, '€', 100, 100), { ok: false, f: 0, why: 'missing' }, 'no price for it');
+});
+
+test('sanitizeTickers keeps valid links, only for the given products', () => {
+  const s = { 123: { t: 'ASML.AS', cur: '€' }, 7: { t: 'BRK-B', cur: '$' }, x: { t: 'A', cur: '€' }, 9: { t: 'a b', cur: '€' }, 8: { t: 'A,B', cur: '$' }, '010': { t: 'A', cur: '$' } };
+  assert.deepStrictEqual(R.sanitizeTickers(s), { 7: { t: 'BRK-B', cur: '$' }, 123: { t: 'ASML.AS', cur: '€' } });
+  assert.deepStrictEqual(R.sanitizeTickers(s, [123]), { 123: { t: 'ASML.AS', cur: '€' } });
+  assert.deepStrictEqual(R.sanitizeTickers([]), {});
+  assert.deepStrictEqual(R.sanitizeTickers(null), {});
+});
+
+test('sanitizeTickers: a link may carry the ISIN, and may be an ISIN alone (no ticker for its exchange)', () => {
+  const s = { 1: { t: 'AVGO', cur: '$', isin: 'US11135F1012' }, 2: { t: '', cur: '€', isin: 'NL0010273215' }, 3: { t: '', cur: '€' },
+    4: { t: 'X', cur: '€', isin: 'not an isin' }, 5: { t: '', cur: '€', isin: 'US1113' } };
+  assert.deepStrictEqual(R.sanitizeTickers(s), { 1: { t: 'AVGO', cur: '$', isin: 'US11135F1012' }, 2: { t: '', cur: '€', isin: 'NL0010273215' }, 4: { t: 'X', cur: '€' } });
+});
+
+test('sanitizeNoTicker: product → exchange, one line, short; only for the given products', () => {
+  const s = { 555: 'IFUS', 7: '  New\nYork  ', x: 'A', 8: 42, 9: '', 10: 'E'.repeat(60) };
+  assert.deepStrictEqual(R.sanitizeNoTicker(s), { 7: 'New York', 10: 'E'.repeat(40), 555: 'IFUS' });
+  assert.deepStrictEqual(R.sanitizeNoTicker(s, [555]), { 555: 'IFUS' });
+  assert.deepStrictEqual(R.sanitizeNoTicker(null), {});
+  assert.deepStrictEqual(R.sanitizeNoTicker(['IFUS']), {});
+});
+
+test('parseInfo: DEGIRO\'s product details → symbol, exchange code, currency sign, ISIN (shape seen 2026-11-18)', () => {
+  const body = { data: {
+    332108: { id: '332108', name: 'Adobe Inc', isin: 'US00724F1012', symbol: 'ADBE', productType: 'STOCK', productTypeId: 1, currency: 'USD', exchangeId: '663', closePrice: 235.55 },
+    19749975: { id: '19749975', name: 'Adobe Inc', isin: 'US00724F1012', symbol: 'ADB', productType: 'STOCK', currency: 'EUR', exchangeId: '196' },
+    5: { symbol: 'VUSA', isin: 'IE00B3XXRP09', currency: 'GBX', exchangeId: '570', productType: 'ETF' },
+    6: { symbol: 'CL', currency: 'USD', exchangeId: '999', productType: 'FUTURE' },
+    7: { symbol: 'X', exchangeId: '663' },
+    8: { symbol: 'Y', currency: 'USD', exchangeId: 663, isin: '<b>', productType: 'a b' },
+    9: { symbol: 'NOTASKED', currency: 'EUR', exchangeId: '200' }
+  } };
+  assert.deepStrictEqual(R.parseInfo(body, [332108, 19749975, 5, 6, 7, 8, 404]), [
+    { id: 332108, symbol: 'ADBE', exchange: 'NDQ', currency: '$', isin: 'US00724F1012' },
+    { id: 19749975, symbol: 'ADB', exchange: 'TDG', currency: '€', isin: 'US00724F1012' },
+    { id: 5, symbol: 'VUSA', exchange: 'LSE', currency: 'GBX', isin: 'IE00B3XXRP09' },
+    { id: 6, symbol: 'CL', exchange: '', currency: '$', isin: '' },
+    { id: 8, symbol: 'Y', exchange: 'NDQ', currency: '$', isin: '' }
+  ], 'no currency: left out; not asked: left out; unknown exchange id: no code');
+  // the ticker each gives
+  assert.strictEqual(R.yahooTicker('ADBE', 'NDQ'), 'ADBE');
+  assert.strictEqual(R.yahooTicker('ADB', 'TDG'), 'ADB.DE');
+  assert.strictEqual(R.yahooTicker('VUSA', 'LSE'), 'VUSA.L');
+  assert.deepStrictEqual(R.parseInfo({ data: [] }, [1]), []);
+  assert.deepStrictEqual(R.parseInfo(null, [1]), []);
+  assert.deepStrictEqual(R.parseInfo({ data: { ['__proto__']: { currency: 'EUR' } } }, [1]), []);
+  assert.deepStrictEqual(R.parseInfo({ data: { 1: { symbol: 'Z', currency: 'EUR', exchangeId: 'constructor' } } }, [1]), [{ id: 1, symbol: 'Z', exchange: '', currency: '€', isin: '' }]);
+});
+
+// ---------- Société Générale (sgbeurs.nl), shapes seen 2026-11-18 ----------
+const SG_META_BODY = { Id: 3781712, ProductClassificationId: 44101, Isin: 'DE000SU054L9', Code: 'SU054L', ExchangeCode: 'CBDE', AssetId: 693,
+  AssetName: 'S&P 500', Currency: 'EUR', AssetNMP: 'S+P500_INDEX', AssetIsin: 'US78378X1072', AssetNMPExchangeCode: 'CBUL', AssetRic: '.SPX', Venue: 'SG Direct' };
+const SG_META = { id: '3781712', pc: 'CBDE', aid: '693', an: 'S+P500_INDEX', ar: '.SPX', ac: 'CBUL', cur: 'EUR', code: 'SU054L' };
+
+test('SG: DEGIRO\'s SCG venue, by code or name', () => {
+  assert.ok(R.isSgVenue('SCG'));
+  assert.ok(R.isSgVenue('Société Générale'));
+  assert.ok(R.isSgVenue('SG Direct'));
+  assert.ok(!R.isSgVenue('EAM'));
+  assert.ok(!R.isSgVenue(undefined));
+  assert.strictEqual(R.parseInfo({ data: { 9: { currency: 'EUR', exchangeId: '192', isin: 'DE000SU054L9' } } }, [9])[0].exchange, 'SCG');
+});
+
+test('SG: the product fields from ValuesForWatchlist, strictly (they go into a URL)', () => {
+  assert.deepStrictEqual(R.parseSgMeta(SG_META_BODY), SG_META);
+  // a missing field is "null", as SG's own page sends it
+  assert.deepStrictEqual(R.parseSgMeta({ ...SG_META_BODY, AssetRic: null }), { ...SG_META, ar: 'null' });
+  assert.strictEqual(R.parseSgMeta({ ...SG_META_BODY, Id: null }), null);
+  assert.strictEqual(R.parseSgMeta({ ...SG_META_BODY, AssetNMP: 'x&y=1?z' }), null);
+  assert.strictEqual(R.parseSgMeta({ ...SG_META_BODY, ExchangeCode: 'cb de' }), null);
+  assert.strictEqual(R.parseSgMeta({ ...SG_META_BODY, Currency: 'euro' }), null);
+  assert.strictEqual(R.parseSgMeta('<html>Request Rejected</html>'), null);
+  assert.strictEqual(R.parseSgMeta(null), null);
+});
+
+test('SG: the price request is exactly what SG\'s page sends (verified with curl and from the worker, 2026-11-18)', () => {
+  assert.strictEqual(R.sgSnapshotPath('DE000SU054L9', SG_META),
+    '/EmcWebApi/api/Products/RealtimeValuesSnapshot/3781712?productIsin=DE000SU054L9&productExchangeCode=CBDE&assetId=693&assetNmp=S%2BP500_INDEX&assetRic=.SPX&assetExchangeCode=CBUL');
+  assert.strictEqual(R.parseSgBid({ ProductBid: 26.47, ProductAsk: 26.58, UnderlyingBid: 7354.966 }), 26.47);
+  assert.strictEqual(R.parseSgBid({ ProductBid: 0 }), 0);
+  assert.strictEqual(R.parseSgBid({ ProductBid: '26' }), 0);
+  assert.strictEqual(R.parseSgBid(null), 0);
+});
+
+test('SG: links, checks and the bid times are kept only well-formed', () => {
+  assert.deepStrictEqual(R.sanitizeTickers({ 1: { t: 'X', cur: '€', isin: 'DE000SU054L9', v: 'sg' }, 2: { t: '', cur: '€', v: 'sg' }, 3: { t: 'Y', cur: '€', v: 'yahoo' } }),
+    { 1: { t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' }, 3: { t: 'Y', cur: '€' } }, 'an SG link needs its ISIN and has no ticker');
+  assert.strictEqual(R.linkKey({ t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' }), '|€|DE000SU054L9|sg');
+  assert.strictEqual(R.linkKey({ t: '', cur: '€', isin: 'DE000SU054L9' }), '|€|DE000SU054L9', 'not the same check as an ISIN-only Yahoo link');
+  const ok = { ok: true, f: 1, at: 5, y: 'SU054L', sg: SG_META };
+  assert.deepStrictEqual(R.sanitizeChecks({ '|€|DE000SU054L9|sg': ok }), { '|€|DE000SU054L9|sg': ok });
+  assert.deepStrictEqual(R.sanitizeChecks({ '|€|DE000SU054L9|sg': { ...ok, sg: { ...SG_META, an: 'a b' } } }), {}, 'a field that would break the URL');
+  assert.deepStrictEqual(R.sanitizeChecks({ '|€|DE000SU054L9|sg': { ...ok, sg: undefined } }), {});
+  assert.deepStrictEqual(R.sanitizeChecks({ 'X|€|DE000SU054L9|sg': ok, '|€||sg': ok, '|€|DE000SU054L9|yh': ok }), {});
+  assert.deepStrictEqual(R.sanitizeSgSeen({ DE000SU054L9: { b: 26.47, at: 5 }, bad: { b: 1, at: 1 }, NLSGE001BVD5: { b: 0, at: 1 } }), { DE000SU054L9: { b: 26.47, at: 5 } });
+  assert.deepStrictEqual(R.sanitizeSgSeen({ DE000SU054L9: { b: 26.47, at: 5 } }, []), {});
+  assert.deepStrictEqual(R.sanitizeNoTicker({ 1: 'SCG', 2: 'IFUS' }), { 2: 'IFUS' }, 'an old SCG note goes: SG products are linked now');
+  assert.strictEqual(R.isinOf('DE000SU054L9'), 'DE000SU054L9', 'SG rows show the ISIN alone');
+});
+
+test('isinOf: the ISIN from DEGIRO\'s "Symbol | ISIN"', () => {
+  assert.strictEqual(R.isinOf('AVGO | US11135F1012'), 'US11135F1012');
+  assert.strictEqual(R.isinOf('IUSA | IE0031442068'), 'IE0031442068');
+  assert.strictEqual(R.isinOf('EUR/USD | EURUSD......'), '', 'not an ISIN');
+  assert.strictEqual(R.isinOf('AVGO'), '');
+  assert.strictEqual(R.isinOf(undefined), '');
+});
+
+test('linkKey: ticker, currency and ISIN', () => {
+  assert.strictEqual(R.linkKey({ t: 'AVGO', cur: '$', isin: 'US11135F1012' }), 'AVGO|$|US11135F1012');
+  assert.strictEqual(R.linkKey({ t: 'ASML.AS', cur: '€' }), 'ASML.AS|€|');
+  assert.strictEqual(R.linkKey({ t: '', cur: '€', isin: 'NL0010273215' }), '|€|NL0010273215');
+});
+
+test('parseSearch: Yahoo tickers from an ISIN search, at most 3, no duplicates', () => {
+  assert.deepStrictEqual(R.parseSearch({ quotes: [{ symbol: 'ASML.AS' }, { symbol: 'ASML' }, { symbol: 'ASML' }, { symbol: 'bad sym' }, {}, { symbol: 'ASME.DE' }, { symbol: 'X' }] }),
+    ['ASML.AS', 'ASML', 'ASME.DE']);
+  assert.deepStrictEqual(R.parseSearch({ quotes: [] }), []);
+  assert.deepStrictEqual(R.parseSearch(null), []);
+});
+
+test('sanitizeChecks keeps well-formed verdicts', () => {
+  const s = { 'ASML.AS|€|': { ok: true, f: 1, at: 5, y: 'ASML.AS' }, 'X|$|': { ok: false, f: 1, at: 5 }, 'Y|€|': { ok: true, f: 3, at: 5, y: 'Y' },
+    'Z|€': { ok: true, f: 1, at: 5, y: 'Z' }, 'a b|€|': { ok: true, f: 1, at: 5, y: 'A' }, 'N|€|': { ok: true, f: 1, at: 5 },
+    '|€|US11135F1012': { ok: true, f: 1, at: 5, y: 'AVGO', via: 'isin' }, '||': { ok: false, f: 0, at: 5 } };
+  assert.deepStrictEqual(R.sanitizeChecks(s), { 'ASML.AS|€|': { ok: true, f: 1, at: 5, y: 'ASML.AS' }, 'X|$|': { ok: false, f: 0, at: 5 },
+    '|€|US11135F1012': { ok: true, f: 1, at: 5, y: 'AVGO', via: 'isin' } }, 'a confirmed check names the ticker it prices');
+  assert.deepStrictEqual(R.sanitizeChecks(s, ['X|$|']), { 'X|$|': { ok: false, f: 0, at: 5 } });
+  // why a check failed is kept only when it's one of the known reasons
+  assert.deepStrictEqual(R.sanitizeChecks({ 'W|$|': { ok: false, f: 0, at: 5, why: 'currency' }, 'V|$|': { ok: false, f: 0, at: 5, why: '<b>' } }),
+    { 'W|$|': { ok: false, f: 0, at: 5, why: 'currency' }, 'V|$|': { ok: false, f: 0, at: 5 } });
+});
+
+test('parseSpark: last price and trade time per ticker', () => {
+  const body = {
+    'ASML.AS': { timestamp: [1795003434], close: [1283.6] },
+    AAPL: { timestamp: [1, 2], close: [10, 11] },
+    EMPTY: { timestamp: [], close: [] },
+    NULLED: { timestamp: [5], close: [null] },
+    'BAD SYM': { timestamp: [5], close: [1] },
+    // a 5-minute bar with no trade yet: the last bar with a price counts, with its own time
+    'SAP.DE': { timestamp: [100, 400, 700], close: [200, 201, null] }
+  };
+  assert.deepStrictEqual([...R.parseSpark(body)], [['ASML.AS', { price: 1283.6, at: 1795003434000 }], ['AAPL', { price: 11, at: 2000 }], ['SAP.DE', { price: 201, at: 400000 }]]);
+  assert.strictEqual(R.parseSpark(null).size, 0);
+  assert.strictEqual(R.parseSpark([1]).size, 0);
+});

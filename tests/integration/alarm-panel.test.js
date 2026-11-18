@@ -1146,3 +1146,414 @@ test('switching Price alarms off removes the toggle style (alarm-panel path)', a
   assert.equal(tab.$('#dg-toggle-style'), null, 'toggle style removed after priceAlarms switched off');
   noErrors(w);
 });
+
+// ============================================================
+// BACKGROUND CHECK: Yahoo ticker links (background.js prices linked products)
+// ============================================================
+
+const tickerWrites = w => w.log.filter(l => l.area === 'sync' && l.keys.includes('dgTickers')).length;
+
+test('a product page with alarms links the product to its Yahoo ticker (symbol + exchange), once', async () => {
+  const { w } = await setupProduct([alarm({ price: 18 })]);
+  await w.advance(300);
+  assert.deepEqual(w.stored('sync').dgTickers, { 123: { t: 'MOCK.AS', cur: '€' } }, 'MOCK · Euronext Amsterdam');
+  const writes = tickerWrites(w);
+  await w.advance(3000);
+  assert.equal(tickerWrites(w), writes, 'not written again');
+  noErrors(w);
+});
+
+test('no link without alarms for the product; saving the first alarm links it', async () => {
+  const { w, tab } = await setupProduct([]);
+  await w.advance(300);
+  assert.equal(w.stored('sync').dgTickers, undefined);
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  fill(tab, '[data-dg-alarm-price]', '18');
+  await w.advance(100);
+  tab.$('[data-dg-alarm-set]').click();
+  await w.advance(500);
+  assert.equal(listOf(w).length, 1);
+  assert.deepEqual(w.stored('sync').dgTickers, { 123: { t: 'MOCK.AS', cur: '€' } });
+  noErrors(w);
+});
+
+/** what each Alarms page row says about the background check: alarm id → [state, text, tooltip] */
+const bgNotes = tab => Object.fromEntries(alarmPageRows(tab).map(r => {
+  const n = r.querySelector('[data-dg-alarm-bg]');
+  return [r.getAttribute('data-dg-alarm-id'), n ? [n.getAttribute('data-dg-alarm-bg'), n.textContent, n.title] : null];
+}));
+
+test('Alarms page: with the background check on, every alarm says where it stands (checked, not found, no match, no ticker)', async () => {
+  // above the mock prices: nothing fires (and switches itself off) while the page is open
+  const a = alarm({ price: 5000 }), b = alarm({ productId: 456, name: 'Other', price: 5000 }),
+    c = alarm({ productId: 789, name: 'Chips', price: 5000 }), d = alarm({ productId: 999, name: 'Not listed', price: 5000 });
+  const w = createWorld({ storage: {
+    // the links the list itself gives (MOCK · EAM · €, MTEC · NDQ · $, CHIP · EAM · €); 999 isn't in the list: no link
+    sync: { dgAlarms: [a, b, c, d], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' }, 456: { t: 'MTEC', cur: '$', isin: 'XX0000000000' }, 789: { t: 'CHIP.AS', cur: '€', isin: 'XX0000000000' } }, alarmsBackground: true },
+    local: { dgTickerCheck: { 'MOCK.AS|€|XX0000000000': { ok: true, f: 1, at: 1, y: 'MOCK.AS' }, 'MTEC|$|XX0000000000': { ok: false, f: 0, at: 1, why: 'missing' }, 'CHIP.AS|€|XX0000000000': { ok: false, f: 0, at: 1, why: 'price' } } }
+  } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(300);
+  const notes = bgNotes(tab);
+  assert.deepEqual(notes[a.id], ['ok', '✓ MOCK.AS', 'Checked in the background with Yahoo Finance prices (MOCK.AS)']);
+  assert.deepEqual(notes[b.id], ['failed', 'MTEC not found on Yahoo', '']);
+  assert.deepEqual(notes[c.id], ['failed', 'CHIP.AS on Yahoo: price doesn\'t match', '']);
+  assert.equal(notes[d.id][0], 'unlinked');
+  assert.equal(notes[d.id][1], 'Not linked yet');
+  assert.match(notes[d.id][2], /next time DEGIRO is open/);
+  await tab.setFlag('alarmsBackground', false);
+  await w.advance(300);
+  assert.equal(tab.$$('[data-dg-alarm-bg]').length, 0, 'no notes while the background check is off');
+  noErrors(w);
+});
+
+test('Favourites: every product in the list with an alarm is linked to its Yahoo ticker, once', async () => {
+  // above the mock prices: nothing fires
+  const a = alarm({ price: 5000 }), b = alarm({ productId: 456, name: 'Mock Tech', price: 5000 });
+  const { w, tab } = await setupFav([a, b]);
+  await w.advance(300);
+  assert.deepEqual(w.stored('sync').dgTickers, { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' }, 456: { t: 'MTEC', cur: '$', isin: 'XX0000000000' } },
+    'MOCK · EAM · € and MTEC · NDQ · $; 789 (no alarm) is not linked');
+  const writes = tickerWrites(w);
+  await priceAt(tab, 123, 17);
+  await w.advance(3000);
+  assert.equal(tickerWrites(w), writes, 'price ticks write nothing more');
+  noErrors(w);
+});
+
+test('Favourites: a link another writer dropped is written again, once; a link that only differs is left alone', async () => {
+  const a = alarm({ price: 5000 });
+  const { w, tab } = await setupFav([a]);
+  await w.advance(300);
+  assert.deepEqual(w.stored('sync').dgTickers, { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } });
+  // another tab or computer wrote its own list without this product
+  await w.set('sync', { dgTickers: {} });
+  await priceAt(tab, 123, 17);
+  await w.advance(500);
+  assert.deepEqual(w.stored('sync').dgTickers, { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } }, 'linked again');
+  // another source linked it differently (e.g. another currency sign): no tug of war
+  await w.set('sync', { dgTickers: { 123: { t: 'MOCK.AS', cur: 'EUR' } } });
+  const writes = tickerWrites(w);
+  await priceAt(tab, 123, 17.5);
+  await w.advance(3000);
+  assert.equal(tickerWrites(w), writes);
+  noErrors(w);
+});
+
+test('Alarms page: no "Checking with Yahoo…" while the background check reports an error', async () => {
+  const a = alarm({ price: 5000 });
+  const w = createWorld({ storage: { sync: { dgAlarms: [a], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } }, alarmsBackground: true } } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.set('local', { dgBgStatus: { at: w.now, linked: 0, total: 1, err: 'HTTP 429' } });
+  await w.advance(300);
+  assert.deepEqual(Object.values(bgNotes(tab)).map(n => n && n.slice(0, 2)), [['idle', 'MOCK.AS · not checked yet']]);
+  noErrors(w);
+});
+
+test('Alarms page: "Checking with Yahoo…" goes after 5 minutes without a background check, with nothing else changing', async () => {
+  const a = alarm({ price: 5000 });
+  const w = createWorld({ storage: { sync: { dgAlarms: [a], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } }, alarmsBackground: true } } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.set('local', { dgBgStatus: { at: w.now, linked: 0, total: 1, err: '' } });
+  await w.advance(300);
+  assert.equal(tab.$$('[data-dg-alarm-bg=pending]').length, 1);
+  await w.advance(6 * 60000);
+  assert.equal(tab.$$('[data-dg-alarm-bg=pending]').length, 0);
+  assert.equal(tab.$$('[data-dg-alarm-bg=idle]').length, 1, 'says it is not checked yet instead');
+  noErrors(w);
+});
+
+test('Alarms page: a linked alarm Yahoo has not confirmed yet says "Checking with Yahoo…" while the check runs here', async () => {
+  const a = alarm({ price: 5000 });
+  const w = createWorld({ storage: { sync: { dgAlarms: [a], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } }, alarmsBackground: true } } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(300);
+  assert.equal(tab.$$('[data-dg-alarm-bg=pending]').length, 0, 'the check never ran in this browser (no permissions here)');
+  assert.equal(tab.$('[data-dg-alarm-bg]').textContent, 'MOCK.AS · not checked yet');
+  await w.set('local', { dgBgStatus: { at: w.now, linked: 0, total: 1, err: '' } });
+  await w.advance(300);
+  assert.equal(tab.$$('[data-dg-alarm-bg=pending]').length, 1);
+  assert.equal(tab.$('[data-dg-alarm-bg]').textContent, 'Checking with Yahoo…');
+  await w.set('local', { dgTickerCheck: { 'MOCK.AS|€|XX0000000000': { ok: true, f: 1, at: w.now, y: 'MOCK.AS' } } });
+  await w.advance(300);
+  assert.equal(tab.$('[data-dg-alarm-bg]').textContent, '✓ MOCK.AS', 'confirmed');
+  noErrors(w);
+});
+
+test('Alarms page: a product seen in another list with no Yahoo ticker (unknown exchange, no ISIN) says so; linked later, the note goes', async () => {
+  const fut = alarm({ productId: 555, name: 'CL DEC26', price: 5000 }), etf = alarm({ productId: 901, name: 'Mock Oil', price: 5000 });
+  const w = createWorld({ storage: { sync: { dgAlarms: [fut, etf], alarmsBackground: true } } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms', globals: { __MOCK_LISTS: { commod: [[555, 'CL DEC26', 'CL', 'IFUS', '$', 60, '']] } } });
+  await w.advance(300);
+  assert.equal(bgNotes(tab)[fut.id][0], 'unlinked', 'not seen yet: its list isn\'t on screen');
+  tab.run(`__showList('commod')`);
+  await w.advance(500);
+  assert.deepEqual(w.stored('local').dgNoTicker, { 555: 'IFUS' });
+  assert.equal(w.stored('sync').dgTickers, undefined, 'nothing to link');
+  let n = bgNotes(tab)[fut.id];
+  assert.deepEqual(n.slice(0, 2), ['noticker', 'No Yahoo ticker for IFUS']);
+  assert.match(n[2], /futures and options/);
+  // the energy list: Mock Oil is linked, and the futures' note stays
+  tab.run(`__showList('energy')`);
+  await w.advance(500);
+  assert.deepEqual(w.stored('sync').dgTickers, { 901: { t: 'OIL.AS', cur: '€', isin: 'XX0000000000' } });
+  assert.deepEqual(w.stored('local').dgNoTicker, { 555: 'IFUS' });
+  // a link that appears for it later (another computer): the link wins
+  await w.set('sync', { dgTickers: { ...w.stored('sync').dgTickers, 555: { t: 'CLX', cur: '$' } } });
+  await w.advance(300);
+  n = bgNotes(tab)[fut.id];
+  assert.notEqual(n[0], 'noticker');
+  noErrors(w);
+});
+
+// ---------- DEGIRO's product details: alarm products in no list on screen are linked by themselves ----------
+/** DEGIRO's session in its own request addresses, and its product info service answering `answer(ids)` */
+const infoMocks = (answer, status = 200) => {
+  const calls = [];
+  return { calls, globals: {
+    __MOCK_RESOURCES: ['https://trader.degiro.nl/favorites/secure/v1?intAccount=42&sessionId=SID1'],
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), init });
+      const ids = JSON.parse(init?.body || '[]');
+      return { ok: status === 200, status, json: async () => answer(ids) };
+    }
+  } };
+};
+const ADOBE_TDG = { symbol: 'ADB', isin: 'US00724F1012', currency: 'EUR', exchangeId: '196', productType: 'STOCK', name: 'Adobe Inc' };
+
+test('DEGIRO\'s product details link an alarm product that is in no list on screen (one request, ids only)', async () => {
+  const far = alarm({ productId: 555, name: 'Adobe Inc', price: 5000 }), listed = alarm({ price: 5000 });
+  const w = createWorld({ storage: { sync: { dgAlarms: [far, listed], alarmsBackground: true } } });
+  const m = infoMocks(ids => ({ data: Object.fromEntries(ids.map(id => [id, id === '555' ? ADOBE_TDG : { symbol: 'WRONG', currency: 'USD', exchangeId: '663' }])) }));
+  await w.open({ fixture: 'favourites', hash: '/favourites', globals: m.globals });
+  await w.advance(1000);
+  const info = m.calls.filter(c => c.url.includes('/product_search/secure/v5/products/info'));
+  assert.equal(info.length, 1);
+  assert.equal(info[0].url, '/product_search/secure/v5/products/info?intAccount=42&sessionId=SID1');
+  assert.equal(info[0].init.method, 'POST');
+  assert.ok(JSON.parse(info[0].init.body).includes('555'));
+  assert.deepEqual(w.stored('sync').dgTickers, {
+    555: { t: 'ADB.DE', cur: '€', isin: 'US00724F1012' },
+    123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } // the list's link stays: the details only fill gaps
+  });
+  await w.advance(60000);
+  assert.equal(m.calls.filter(c => c.url.includes('products/info')).length, 1, 'not asked again');
+  noErrors(w);
+});
+
+test('DEGIRO\'s product details: errors wait 20 s, doubling to 5 min; a good answer resets the wait', async () => {
+  let status = 500, body = () => ({});
+  const calls = [];
+  const globals = {
+    __MOCK_RESOURCES: ['https://trader.degiro.nl/favorites/secure/v1?intAccount=42&sessionId=SID1'],
+    fetch: async url => { calls.push(String(url)); return { ok: status === 200, status, json: async () => body() }; }
+  };
+  const w = createWorld({ storage: { sync: { dgAlarms: [alarm({ productId: 555, price: 5000 })], alarmsBackground: true } } });
+  await w.open({ fixture: 'favourites', hash: '/favourites', globals });
+  const asked = () => calls.filter(u => u.includes('products/info')).length;
+  await w.advance(1000);
+  assert.equal(asked(), 1);
+  await w.advance(18000);
+  assert.equal(asked(), 1, 'waits 20 s');
+  await w.advance(3000);
+  assert.equal(asked(), 2);
+  await w.advance(38000);
+  assert.equal(asked(), 2, 'then 40 s');
+  await w.advance(4000);
+  assert.equal(asked(), 3);
+  // a 200 that isn't DEGIRO's JSON (a login page, say) counts as an error too: 80 s
+  status = 200; body = () => { throw new SyntaxError('Unexpected token <'); };
+  await w.advance(74000); // the 3rd try was at about 61 s: the 4th is due at about 141 s
+  assert.equal(asked(), 3);
+  await w.advance(6000);
+  assert.equal(asked(), 4);
+  // capped at 5 min
+  status = 500;
+  for (let i = 0; i < 4; i++) await w.advance(300000);
+  const capped = asked();
+  await w.advance(299000);
+  assert.ok(asked() - capped <= 1, 'at most one try per 5 min');
+  // a good answer: linked, and nothing more to ask
+  status = 200; body = () => ({ data: { 555: ADOBE_TDG } });
+  await w.advance(301000);
+  assert.deepEqual(w.stored('sync').dgTickers, { 555: { t: 'ADB.DE', cur: '€', isin: 'US00724F1012' } });
+  const done = asked();
+  await w.advance(600000);
+  assert.equal(asked(), done);
+  noErrors(w);
+});
+
+test('DEGIRO\'s product details: a future with no ISIN and an unknown exchange says so on the Alarms page', async () => {
+  const fut = alarm({ productId: 777, name: 'CL DEC26', price: 5000 });
+  const w = createWorld({ storage: { sync: { dgAlarms: [fut], alarmsBackground: true } } });
+  const m = infoMocks(() => ({ data: { 777: { symbol: 'CL', currency: 'USD', exchangeId: '999', productType: 'FUTURE' } } }));
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms', globals: m.globals });
+  await w.advance(1000);
+  assert.deepEqual(w.stored('local').dgNoTicker, { 777: '*' });
+  assert.deepEqual(bgNotes(tab)[fut.id].slice(0, 2), ['noticker', 'No Yahoo ticker for this product']);
+  noErrors(w);
+});
+
+test('DEGIRO\'s product details: not asked with the background check off; a refused session is not used again', async () => {
+  const off = createWorld({ storage: { sync: { dgAlarms: [alarm({ productId: 555, price: 5000 })] } } });
+  const m1 = infoMocks(() => ({ data: { 555: ADOBE_TDG } }));
+  await off.open({ fixture: 'favourites', hash: '/favourites', globals: m1.globals });
+  await off.advance(1000);
+  assert.equal(m1.calls.filter(c => c.url.includes('products/info')).length, 0);
+
+  const w = createWorld({ storage: { sync: { dgAlarms: [alarm({ productId: 555, price: 5000 })], alarmsBackground: true } } });
+  const m2 = infoMocks(() => ({}), 401);
+  await w.open({ fixture: 'favourites', hash: '/favourites', globals: m2.globals });
+  await w.advance(1000);
+  await w.advance(400000);
+  assert.equal(m2.calls.filter(c => c.url.includes('products/info')).length, 1, 'session SID1 refused: never again');
+  assert.equal(w.stored('sync').dgTickers, undefined);
+  noErrors(w);
+});
+
+// ---------- Société Générale's own products (DEGIRO's SCG venue) ----------
+// like DEGIRO's SG list (2026-11-18): the ISIN alone in "Symbol | ISIN" for most, "TH71S | NLSGE001BVD5" for one
+const SG_LIST = { SG: [[27831987, 'SG S&P 500 Factor (Multi) Long LEV 10', 'DE000SU054L9', 'SCG', '€', 26.49, ''],
+  [27720940, 'SG S&P 500 Tracker 100%', 'TH71S', 'SCG', '€', 16.88, 'NLSGE001BVD5']] };
+
+test('SG products are linked to SG\'s prices from the list, replacing what the earlier version stored for them', async () => {
+  const lev = alarm({ productId: 27831987, name: 'SG S&P 500 Factor (Multi) Long LEV 10', price: 5000 });
+  const trk = alarm({ productId: 27720940, name: 'SG S&P 500 Tracker 100%', price: 5000 });
+  const w = createWorld({ storage: {
+    // the state the earlier version left: a "no ticker" note for the bare-ISIN row, an ISIN-only Yahoo link for the other
+    sync: { dgAlarms: [lev, trk], alarmsBackground: true, dgTickers: { 27720940: { t: '', cur: '€', isin: 'NLSGE001BVD5' } } },
+    local: { dgNoTicker: { 27831987: 'SCG' } }
+  } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms', globals: { __MOCK_LISTS: SG_LIST } });
+  await w.advance(300);
+  assert.equal(bgNotes(tab)[lev.id][0], 'unlinked', 'the old SCG note is gone');
+  tab.run(`__showList('SG')`);
+  await w.advance(500);
+  assert.deepEqual(w.stored('sync').dgTickers, {
+    27831987: { t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' },
+    27720940: { t: '', cur: '€', isin: 'NLSGE001BVD5', v: 'sg' }
+  });
+  assert.equal(bgNotes(tab)[lev.id][0], 'idle', 'linked, waiting for the check; no "no ticker" note (the old SCG one is ignored)');
+  // confirmed by the worker: "✓ code (Société Générale)"
+  await w.set('local', { dgTickerCheck: { '|€|DE000SU054L9|sg': { ok: true, f: 1, at: w.now, y: 'SU054L',
+    sg: { id: '3781712', pc: 'CBDE', aid: '693', an: 'S+P500_INDEX', ar: '.SPX', ac: 'CBUL', cur: 'EUR', code: 'SU054L' } } } });
+  await w.advance(300);
+  assert.deepEqual(bgNotes(tab)[lev.id], ['ok', '✓ SU054L (Société Générale)', 'Checked in the background with Société Générale\'s live prices (SU054L)']);
+  noErrors(w);
+});
+
+test('Alarms page: an SG link that is checking or failed names Société Générale, not Yahoo', async () => {
+  const lev = alarm({ productId: 27831987, name: 'SG S&P 500 Factor (Multi) Long LEV 10', price: 5000 });
+  const w = createWorld({ storage: {
+    sync: { dgAlarms: [lev], alarmsBackground: true, dgTickers: { 27831987: { t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' } } },
+    local: { dgBgStatus: { at: Date.now(), linked: 0, total: 1, err: '' } }
+  } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.set('local', { dgBgStatus: { at: w.now, linked: 0, total: 1, err: '' } });
+  await w.advance(300);
+  assert.deepEqual(bgNotes(tab)[lev.id].slice(0, 2), ['pending', 'Checking with Société Générale…']);
+  await w.set('local', { dgTickerCheck: { '|€|DE000SU054L9|sg': { ok: false, f: 0, at: w.now, why: 'missing' } } });
+  await w.advance(300);
+  assert.deepEqual(bgNotes(tab)[lev.id].slice(0, 2), ['failed', 'DE000SU054L9 not found at Société Générale']);
+  noErrors(w);
+});
+
+const SG_LEV_INFO = { name: 'SG S&P 500 Factor (Multi) Long LEV 10', isin: 'DE000SU054L9', productType: 'LEVERAGED', currency: 'EUR', exchangeId: '192' };
+
+test('SG products: DEGIRO\'s product details (exchange 192) link them too, with no link yet', async () => {
+  const lev = alarm({ productId: 27831987, name: 'SG S&P 500 Factor (Multi) Long LEV 10', price: 5000 });
+  const w = createWorld({ storage: { sync: { dgAlarms: [lev], alarmsBackground: true } } });
+  const m = infoMocks(() => ({ data: { 27831987: SG_LEV_INFO } }));
+  await w.open({ fixture: 'favourites', hash: '/favourites', globals: m.globals });
+  await w.advance(1000);
+  assert.deepEqual(w.stored('sync').dgTickers, { 27831987: { t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' } });
+  noErrors(w);
+});
+
+// an earlier build linked SG products by ISIN alone (no venue): Yahoo didn't find them ("… not found on Yahoo")
+const ISIN_ONLY_SG = () => ({
+  sync: { dgAlarms: [alarm({ productId: 27831987, name: 'SG S&P 500 Factor (Multi) Long LEV 10', price: 5000 })], alarmsBackground: true,
+    dgTickers: { 27831987: { t: '', cur: '€', isin: 'DE000SU054L9' } } },
+  local: { dgTickerCheck: { '|€|DE000SU054L9': { ok: false, f: 0, at: Date.now(), why: 'missing' } } }
+});
+
+test('SG products: an ISIN-only link (no venue) is upgraded from DEGIRO\'s product details, with the SG list not on screen', async () => {
+  const w = createWorld({ storage: ISIN_ONLY_SG() });
+  const m = infoMocks(() => ({ data: { 27831987: SG_LEV_INFO } }));
+  await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms', globals: m.globals });
+  await w.advance(1000);
+  const info = m.calls.filter(c => c.url.includes('products/info'));
+  assert.equal(info.length, 1);
+  assert.deepEqual(JSON.parse(info[0].init.body), ['27831987']);
+  assert.deepEqual(w.stored('sync').dgTickers, { 27831987: { t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' } });
+  await w.advance(600000);
+  assert.equal(m.calls.filter(c => c.url.includes('products/info')).length, 1, 'linked to SG: not asked again');
+  noErrors(w);
+});
+
+test('SG products: an ISIN-only link DEGIRO doesn\'t place on SG\'s venue stays as it is, asked once per tab', async () => {
+  const w = createWorld({ storage: ISIN_ONLY_SG() });
+  const m = infoMocks(() => ({ data: { 27831987: { ...SG_LEV_INFO, exchangeId: '999' } } }));
+  await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms', globals: m.globals });
+  await w.advance(1000);
+  assert.equal(m.calls.filter(c => c.url.includes('products/info')).length, 1);
+  await w.advance(600000); // well past the longest back-off (5 min)
+  assert.equal(m.calls.filter(c => c.url.includes('products/info')).length, 1, 'not asked again in this tab');
+  assert.deepEqual(w.stored('sync').dgTickers, { 27831987: { t: '', cur: '€', isin: 'DE000SU054L9' } });
+  assert.equal(tickerWrites(w), 0, 'nothing changed: nothing written');
+  noErrors(w);
+});
+
+test('the product header (no ISIN): no "no ticker" note, and a venue it can\'t tell leaves an SG link alone', async () => {
+  const Highcharts = { Chart: function() { const s = { setData() {}, data: [{ update() {} }] }; return { series: [s] }; } };
+  const product = async (exchange, tickers) => {
+    const w = createWorld({ storage: { sync: { dgAlarms: [alarm({ price: 18 })], dgTickers: tickers } } });
+    // the header's exchange name, as DEGIRO would show another venue
+    await w.open({ fixture: 'degiro', hash: '/products/123/overview', globals: { __MOCK_NO_URL_SESSION: true, Highcharts, __MOCK_BRIEF: ['MOCK', exchange] } });
+    await w.advance(500);
+    return w;
+  };
+  const SG_LINK = { 123: { t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' } };
+  let w = await product('Some Venue', SG_LINK);
+  assert.deepEqual(w.stored('sync').dgTickers, SG_LINK, 'an unknown venue: the SG link stays');
+  assert.equal(w.stored('local').dgNoTicker, undefined, 'the header shows no ISIN: it can\'t say there is no ticker');
+  noErrors(w);
+  w = await product('Some Venue', {});
+  assert.deepEqual(w.stored('sync').dgTickers, {}, 'nothing to link');
+  assert.equal(w.stored('local').dgNoTicker, undefined);
+  noErrors(w);
+});
+
+test('an SG product\'s page links it: DEGIRO shows its ISIN in the symbol\'s place and "Societe Generale OTC"', async () => {
+  const Highcharts = { Chart: function() { const s = { setData() {}, data: [{ update() {} }] }; return { series: [s] }; } };
+  const w = createWorld({ storage: { sync: { dgAlarms: [alarm({ price: 18 })] } } });
+  // like DEGIRO's header of SG S&P 500 Factor (Multi) Long LEV 10 (2026-11-18)
+  await w.open({ fixture: 'degiro', hash: '/products/123/overview',
+    globals: { __MOCK_NO_URL_SESSION: true, Highcharts, __MOCK_BRIEF: ['DE000SU054L9', 'Societe Generale OTC'] } });
+  await w.advance(500);
+  assert.deepEqual(w.stored('sync').dgTickers, { 123: { t: '', cur: '€', isin: 'DE000SU054L9', v: 'sg' } });
+  noErrors(w);
+});
+
+test('Alarms page: a ticker the ISIN search found says so', async () => {
+  const a = alarm({ price: 5000 });
+  const w = createWorld({ storage: {
+    sync: { dgAlarms: [a], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } }, alarmsBackground: true },
+    local: { dgTickerCheck: { 'MOCK.AS|€|XX0000000000': { ok: true, f: 1, at: 1, y: 'MCK.DE', via: 'isin' } } }
+  } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(300);
+  assert.equal(tab.$('[data-dg-alarm-bg]').textContent, '✓ MCK.DE (via ISIN)');
+  noErrors(w);
+});
+
+test('the product page (no ISIN in its header) keeps the ISIN the Favourites list linked', async () => {
+  const w = createWorld({ storage: { sync: { dgAlarms: [alarm({ price: 18 })], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } } } } });
+  const Highcharts = { Chart: function() { const s = { setData() {}, data: [{ update() {} }] }; return { series: [s] }; } };
+  await w.open({ fixture: 'degiro', hash: '/products/123/overview', globals: { __MOCK_NO_URL_SESSION: true, Highcharts } });
+  await w.advance(500);
+  assert.deepEqual(w.stored('sync').dgTickers, { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' } });
+  assert.equal(tickerWrites(w), 0);
+  noErrors(w);
+});

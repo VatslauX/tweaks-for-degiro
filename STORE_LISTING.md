@@ -57,7 +57,9 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • A banner appears in every open DEGIRO tab when the price is reached
 > • An Alarms page and sidebar item to see, switch and delete all alarms, with a choice of columns
 > • Gold alarm badges at the alarm prices on the product chart. Click one to edit that alarm
-> • Checked while DEGIRO's Favourites or a product page is open; stored in Chrome, nothing sent anywhere
+> • Checked while DEGIRO's Favourites or a product page is open
+> • Optional background check: every minute while Chrome runs, even with DEGIRO closed, using Yahoo Finance prices (usually 15 minutes delayed). Only ticker symbols are sent to Yahoo (and a product's ISIN, once, when its ticker doesn't match), and only while you have it switched on. Société Générale's turbos, leverage products and certificates are checked live with Société Générale's own prices (sgbeurs.nl). A reached alarm shows a system notification
+> • Alarms are stored in Chrome
 >
 > LESS CLUTTER
 > • Hide sections you never use, such as Cash compensation, or add your own
@@ -68,8 +70,8 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Available in English, Dutch, German, French, Spanish, Italian and Portuguese
 >
 > SAFE BY DESIGN
-> • Everything runs locally in your browser. No analytics, no tracking, nothing sent to the developer or third parties
-> • Only one permission (storage, for your settings and price alarms). Runs only on trader.degiro.nl
+> • Everything runs locally in your browser. No analytics, no tracking, nothing sent to the developer. The only exception is the optional background price check, which sends ticker symbols (and, for a ticker that doesn't match, the ISIN) to Yahoo Finance, and the ISINs of Société Générale products to Société Générale
+> • Permissions: storage and alarms (no install warning), plus notifications and Yahoo Finance and Société Générale (sgbeurs.nl) access, which are requested only when you switch on the background check. Runs only on trader.degiro.nl
 > • Read-only: it never places, changes or cancels orders
 > • Open source: you can read every line of code
 >
@@ -96,17 +98,25 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort, hidden columns and full-name choice (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort, hidden columns and full-name choice (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners. It also saves the price link of each alarm product (Yahoo ticker or ISIN, and Société Générale's product fields and when its price last changed for SG products) and the background check's status (only when the background check is used).
+- `alarms` — runs the background price check once a minute, and only while the user has switched on *Check in the background*. It shows no install warning.
+- `notifications` (optional) — shows a system notification when an alarm fires in the background. Requested from the user only when they switch on *Check in the background*; removed when they switch it off.
+- Host access `https://query1.finance.yahoo.com/*` (optional) — fetches Yahoo Finance prices for the ticker symbols of the user's alarm products, and looks up a product's ISIN once when its ticker doesn't match, with no cookies and no other DEGIRO data. Requested only when the user switches on *Check in the background*; removed when they switch it off.
+- Host access `https://sgbeurs.nl/*` (optional) — fetches Société Générale's live prices for the user's alarm products issued by Société Générale (turbos, leverage products, certificates), which Yahoo Finance doesn't have. Only their ISINs and Société Générale's own product fields are sent, with no cookies. Requested and removed together with the Yahoo Finance access.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.
 
 **Remote code:** No, I am not using remote code. All JavaScript is included in the package.
 
 **Data usage — select:**
 - **Financial and payment information** — the user's open orders, portfolio value history and cash balances (and, with the cash columns switch on, the account statement for the chart period) are read from DEGIRO to draw them on the charts, and the orders and transactions shown on DEGIRO's Orders and Transactions pages are read from the page for filters and totals, and the holdings on the Portfolio page are read from the page for the merged table (when that setting is on). Used locally only.
-- **Authentication information** — the DEGIRO session identifier and internal account number are used, locally, to request the user's own orders, portfolio history and cash from DEGIRO. If DEGIRO's request URLs don't contain them, they are read from DEGIRO's own session and client endpoints (only the account number is read from the client answer).
+- **Authentication information** — the DEGIRO session identifier and internal account number are used, locally, to request the user's own orders, portfolio history and cash from DEGIRO, and (only with the background check on) the public details of the user's alarm products (symbol, ISIN, exchange, currency). If DEGIRO's request URLs don't contain them, they are read from DEGIRO's own session and client endpoints (only the account number is read from the client answer).
 - **Personally identifiable information** — only in that fallback case: DEGIRO's client answer also contains the user's profile (name, contact details). It is received and parsed in page memory; only the account number is kept, the rest is discarded and never stored or sent anywhere. (Alternative, if you'd rather not tick this: remove the `/pa/secure/client` request from `orders.js` and wait for the account number to appear in DEGIRO's own request URLs.)
 
 The Web Store also asks about **Website content**, because the extension reads prices from the page. Select it if the dashboard wording covers reading page content.
+
+**Société Générale disclosure (background check):** for alarm products issued by Société Générale, their ISINs (e.g. `DE000SU054L9`) and SG's own product fields go to `sgbeurs.nl`, only while *Check in the background* is on. This uses SG's site's own unpublished API (`EmcWebApi`), the same requests its product page makes. It can change without notice. SG's site shows a disclaimer that its information is meant for residents of the Netherlands and may not be distributed further. The extension doesn't redistribute anything: each user's browser asks SG for that user's own products. Using the source for all store users was the developer's decision (2026-11-18), against the advice to keep it out of the store version.
+
+**Yahoo Finance disclosure (background check):** the only data sent off the device is the ticker symbols of the user's alarm products (e.g. `ASML.AS`) and, once per product whose ticker doesn't match, its ISIN (e.g. `US11135F1012`), sent to `query1.finance.yahoo.com` only while *Check in the background* is on. The developer should decide whether these symbols count as user data in the dashboard's data-use questions. The certifications below assume they do not; if they do, the first certification would need a closer look.
 
 **Certify:**
 - ☑ I do not sell or transfer user data to third parties, outside of the approved use cases

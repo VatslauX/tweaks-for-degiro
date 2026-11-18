@@ -14,10 +14,19 @@ test('no eval / new Function / string timers', () => {
   }
 });
 
+// The only addresses in the source, all for the opt-in background check: Yahoo Finance's price data and Société
+// Générale's quotes of its own products (the worker fetches them; the settings page asks for their permissions) and
+// DEGIRO's product page (opened from a notification).
+const URLS = {
+  'background.js': ['https://query1.finance.yahoo.com', 'https://sgbeurs.nl', 'https://trader.degiro.nl/trader/#/products/'],
+  'options.js': ['https://query1.finance.yahoo.com/*', 'https://sgbeurs.nl/*']
+};
 test('no remote code or third-party network calls', () => {
   for (const [f, s] of Object.entries(src)) {
-    for (const m of s.matchAll(/https?:\/\/[^\s'"`)]+/g)) assert.fail(`${f} references ${m[0]}`);
-    assert.doesNotMatch(s, /importScripts|document\.createElement\(\s*['"]script/, f);
+    for (const m of s.matchAll(/https?:\/\/[^\s'"`)]+/g)) assert.ok((URLS[f] || []).includes(m[0]), `${f} references ${m[0]}`);
+    // the worker loads only the shared alarm rules, from the extension itself
+    const rest = f === 'background.js' ? s.replace("importScripts('alarm-rules.js');", '') : s;
+    assert.doesNotMatch(rest, /importScripts|document\.createElement\(\s*['"]script/, f);
     // no other ways to send data than the checked fetch below
     assert.doesNotMatch(s, /XMLHttpRequest|sendBeacon|WebSocket|EventSource|\bimport\s*\(/, f);
   }
@@ -30,8 +39,39 @@ const FETCH_VARS = {
   'orders.js': ['path'], // `/trading/secure/v5/update/...` built just above
   // DEGIRO's own request URL, origin checked in seen(); getJson(st, path) gets only the literal
   // `const path = '/...'` statements of loadFunds and loadStatement (checked below)
-  'portfolio.js': ['target.pathname + target.search', 'path']
+  'portfolio.js': ['target.pathname + target.search', 'path'],
+  // the Yahoo Finance and SG origins plus a literal path (checked below), only in the worker
+  'background.js': ['YAHOO + path', 'SG + path'],
+  // DEGIRO's product details for alarm products not linked yet (background check only; checked below)
+  'alarms.js': ['path']
 };
+test('the alarms ask DEGIRO only for product details: ids out, only with the background check on', () => {
+  const s = src['alarms.js'];
+  const paths = [...s.matchAll(/const path = `([^`]*)`/g)].map(m => m[1]);
+  assert.deepStrictEqual(paths, ['/product_search/secure/v5/products/info?intAccount=${acc}&sessionId=${encodeURIComponent(s)}']);
+  assert.strictEqual([...s.matchAll(/\bfetch\(/g)].length, 1);
+  assert.match(s, /fetch\(path, \{ method: 'POST', credentials: 'include', headers: \{ 'Content-Type': 'application\/json' \},\s*body: JSON\.stringify\(ids\.map\(String\)\)/);
+  assert.match(s, /if \(!dgSettings\.alarmsBackground \|\| busy/);
+});
+test('the background worker fetches only Yahoo Finance price paths, without cookies', () => {
+  const s = src['background.js'];
+  assert.match(s, /^\s*const YAHOO = 'https:\/\/query1\.finance\.yahoo\.com';$/m);
+  assert.match(s, /fetch\(YAHOO \+ path, \{ credentials: 'omit'/);
+  assert.strictEqual([...s.matchAll(/\byahoo\(/g)].length, [...s.matchAll(/\bawait yahoo\(/g)].length + 1, 'yahoo() is called only as `await yahoo(...)`');
+  const calls = [...s.matchAll(/\bawait yahoo\(\s*([^,)]*)/g)].map(m => m[1].trim());
+  assert.ok(calls.length >= 2);
+  // price data (chart, spark), and the ISIN search used only as a fallback when a ticker doesn't fit
+  for (const c of calls) assert.match(c, /^`\/(v8\/finance\/(chart|spark)[/?]|v1\/finance\/search\?q=)/, `yahoo(${c})`);
+});
+test('the background worker asks Société Générale only for its products\' fields and quotes, without cookies', () => {
+  const s = src['background.js'];
+  assert.match(s, /^\s*const SG = 'https:\/\/sgbeurs\.nl';$/m);
+  assert.match(s, /fetch\(SG \+ path, \{ credentials: 'omit'/);
+  assert.strictEqual([...s.matchAll(/\bsg\(/g)].length, [...s.matchAll(/\bawait sg\(/g)].length + 1, 'sg() is called only as `await sg(...)`');
+  const calls = [...s.matchAll(/\bawait sg\((`[^`]*`|R\.sgSnapshotPath\([^)]*\))\)/g)].map(m => m[1]);
+  assert.deepStrictEqual(calls.map(c => c.startsWith('R.sgSnapshotPath(') ? 'snapshot' : c).sort(),
+    ['`/EmcWebApi/api/Products/ValuesForWatchlist/${encodeURIComponent(isin)}`', 'snapshot']);
+});
 test('fetch is only used for DEGIRO same-origin paths', () => {
   for (const [f, s] of Object.entries(src)) {
     for (const m of s.matchAll(/\bfetch\(\s*([^,)]*)/g)) {

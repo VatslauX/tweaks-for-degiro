@@ -177,6 +177,15 @@
   }
   const ORDERS = window.__MOCK_ORDERS || [];
 
+  // ---- another product's header line: __MOCK_BRIEF = [symbol, exchange name], e.g. like DEGIRO's Société Générale
+  // products: ['DE000SU054L9', 'Societe Generale OTC'] (the ISIN where a symbol would be)
+  if (window.__MOCK_BRIEF) {
+    document.querySelectorAll('[data-name=productBriefInfo]').forEach(e => {
+      if (e.textContent === 'MOCK') e.textContent = window.__MOCK_BRIEF[0];
+      else if (e.textContent === 'Euronext Amsterdam') e.textContent = window.__MOCK_BRIEF[1];
+    });
+  }
+
   // ---- session info appears in DEGIRO's own request URLs (tests can turn this off)
   if (!window.__MOCK_NO_URL_SESSION) fetch('/product-notes-service/secure/notes?productId=123&intAccount=42&sessionId=TESTSID').catch(() => {});
 

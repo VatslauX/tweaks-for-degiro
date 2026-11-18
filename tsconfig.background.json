@@ -1,0 +1,6 @@
+{
+  // Background service worker (manifest "background"): the scripts it imports, then background.js.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": ["chrome"], "lib": ["ES2023", "WebWorker"] },
+  "files": ["types/background.d.ts", "extension/alarm-rules.js", "extension/background.js"]
+}

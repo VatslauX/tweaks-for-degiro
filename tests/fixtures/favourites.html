@@ -90,10 +90,19 @@ if (window.__MOCK_STICKY_QUERY) (() => {
     <div data-name="data-vendors">Data vendors footer</div>
   </main>
 <script>
+  // like DEGIRO: its own requests (e.g. /favorites/secure/v1?intAccount=…&sessionId=…) carry the session in their
+  // addresses. JSDOM records no resource timings: __MOCK_RESOURCES lists the addresses DEGIRO has requested
+  if (window.__MOCK_RESOURCES) {
+    const res = window.__MOCK_RESOURCES;
+    performance.getEntriesByType = type => (type === 'resource' ? res.map(name => ({ name })) : []);
+  }
   // like DEGIRO: only the list on screen is in the DOM; prices carry data-id and a plain-number title
   const LISTS = {
     Favourites: [[123, 'Mock ETF', 'MOCK', 'EAM', '€', 16.92], [456, 'Mock Tech Inc. Class A', 'MTEC', 'NDQ', '$', 1248.26], [789, 'Mock Chips ETF', 'CHIP', 'EAM', '€', 15.1]],
-    energy: [[901, 'Mock Oil', 'OIL', 'EAM', '€', 30]]
+    energy: [[901, 'Mock Oil', 'OIL', 'EAM', '€', 30]],
+    // tests: extra lists (__MOCK_LISTS), rows [id, name, symbol, exchange code, currency sign, price, isin?]; a row's
+    // own isin ('' = none, like a future) replaces the default
+    ...(window.__MOCK_LISTS || {})
   };
   const prices = {};
   Object.values(LISTS).flat().forEach(r => { prices[r[0]] = r[5]; });
@@ -102,7 +111,7 @@ if (window.__MOCK_STICKY_QUERY) (() => {
   let shown = 'Favourites';
   function render() {
     const tb = document.getElementById('rows');
-    tb.replaceChildren(...LISTS[shown].map(([id, name, sym, ex, cur]) => {
+    tb.replaceChildren(...LISTS[shown].map(([id, name, sym, ex, cur, , isin = 'XX0000000000']) => {
       const tr = document.createElement('tr');
       const p = document.createElement('td');
       const a = document.createElement('a');
@@ -110,8 +119,14 @@ if (window.__MOCK_STICKY_QUERY) (() => {
       const s = document.createElement('span');
       s.setAttribute('data-id', id); s.setAttribute('data-name', 'productName'); s.title = name; s.textContent = name;
       a.append(s); p.append(a);
-      const symbol = document.createElement('td'); symbol.textContent = sym + ' | XX0000000000';
-      const exch = document.createElement('td'); exch.textContent = ex;
+      // like DEGIRO (2026-11-18): symbol | ISIN carries the product's data-id; the exchange code carries the
+      // EXCHANGE's own id (EAM 200, NDQ 663), not the product's
+      const symbol = document.createElement('td'), symSpan = document.createElement('span');
+      symSpan.setAttribute('data-id', id); symSpan.setAttribute('data-name', 'symbolIsin'); symSpan.textContent = isin ? `${sym} | ${isin}` : sym;
+      symbol.append(symSpan);
+      const exch = document.createElement('td'), exSpan = document.createElement('span');
+      exSpan.setAttribute('data-id', { EAM: 200, NDQ: 663 }[ex] || 1); exSpan.setAttribute('data-name', 'exchangeAbbr'); exSpan.textContent = ex;
+      exch.append(exSpan);
       const last = document.createElement('td');
       const v = document.createElement('span');
       v.setAttribute('data-id', id); v.setAttribute('data-field', 'LastPrice');

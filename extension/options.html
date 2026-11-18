@@ -103,7 +103,7 @@
       <input type="checkbox" class="switch" data-key="navLinks">
     </label>
     <label class="row">
-      <span><strong data-i18n="optPriceAlarms">Price alarms</strong><small data-i18n="optPriceAlarmsHelp">Alarm button on products in your Favourites, an Alarms page in the left menu, and a banner when a price is reached. Checked only while a Favourites or product page is open.</small></span>
+      <span><strong data-i18n="optPriceAlarms">Price alarms</strong><small data-i18n="optPriceAlarmsHelp">Alarm button on products in your Favourites, an Alarms page in the left menu, and a banner when a price is reached. Checked while a Favourites or product page is open, or in the background when switched on below.</small></span>
       <input type="checkbox" class="switch" data-key="priceAlarms">
     </label>
     <label class="row sub" data-depends="priceAlarms">
@@ -113,6 +113,10 @@
     <label class="row sub" data-depends="alarmLines">
       <span><strong data-i18n="optAlarmLinesClick">Click badge to edit</strong><small data-i18n="optAlarmLinesClickHelp">Opens the alarm editor for that price.</small></span>
       <input type="checkbox" class="switch" data-key="alarmLinesClick">
+    </label>
+    <label class="row sub" data-depends="priceAlarms">
+      <span><strong data-i18n="optAlarmsBackground">Check in the background</strong><small data-i18n="optAlarmsBackgroundHelp">Every minute while Chrome runs, even with DEGIRO closed or logged out. Prices from Yahoo Finance, usually 15 min delayed, and live from Société Générale (sgbeurs.nl) for its own products. Only ticker symbols (e.g. ASML.AS) are sent to Yahoo, and a product's ISIN once when its ticker doesn't match; only the ISINs of SG products are sent to SG.</small><small id="bgStatus" hidden></small><a href="#" role="button" id="bgTest" class="linkish" hidden data-i18n="optBgTest">Send a test notification</a><small id="bgTestNote" hidden></small></span>
+      <input type="checkbox" class="switch" data-key="alarmsBackground" data-permission>
     </label>
   </section>
 

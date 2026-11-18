@@ -1,5 +1,16 @@
 # Release notes
 
+## 1.24.0 — 2026-11-18
+- **Check price alarms in the background** (new, off by default): under *Price alarms*, *Check in the background* checks your alarms every minute while Chrome runs, even with DEGIRO closed or logged out, using Yahoo Finance prices (usually 15 minutes delayed). Only ticker symbols are sent to Yahoo; when a product's ticker doesn't match, its ISIN is looked up once on Yahoo instead (*✓ AVGO (via ISIN)*). Société Générale's own products (turbos, leverage products, certificates), which Yahoo doesn't have, are checked with Société Générale's live bid from sgbeurs.nl (*✓ SU054L (Société Générale)*); only their ISINs and SG's own product fields are sent there. A reached alarm shows a system notification, and the same banner as today appears in DEGIRO. Chrome asks for notification, Yahoo Finance and Société Générale (sgbeurs.nl) access when you switch it on, and removes them when you switch it off. *Send a test notification* under the status line shows what an alarm will look like.
+- **Background status per alarm**: with the background check on, the Alarms page shows next to each alarm where it stands:
+  - *✓ ASML.AS*: checked with that Yahoo ticker.
+  - *Checking with Yahoo…*: the ticker is waiting to be confirmed.
+  - *… not checked yet*: the background check isn't running on this computer.
+  - *… not found on Yahoo*, *… other currency* or *… price doesn't match*: Yahoo's ticker doesn't fit.
+  - *No Yahoo ticker for …*: an exchange or product type (e.g. futures) Yahoo doesn't cover, with no ISIN to look up.
+  - *Not linked yet*: the product hasn't been seen since its alarm was set. The tooltip says how to link it.
+- **Tickers are linked by themselves**: from the Favourites list on screen, a product's page, or, for alarm products in other lists, DEGIRO's own product details (symbol, ISIN, exchange), requested once while you're logged in and the background check is on. You don't need to open each list or product.
+
 ## 1.23.1 — 2026-11-16
 - **Light-theme grey lines**: the grey borders in light mode now use DEGIRO's own grey, on the Orders and Transactions filter pickers, the merged Portfolio table, the alarm panel and the Alarms page.
 - **Fix**: the portfolio chart's cash columns, hover tooltip cash and drag selection now line up with the points DEGIRO draws, so the tooltip no longer shows the previous day's cash and a column or selection edge no longer sits between two points.

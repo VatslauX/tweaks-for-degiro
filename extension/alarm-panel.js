@@ -370,9 +370,17 @@ const dgAlarmPanel = (() => {
       price: v, dir, repeat: ui.repeat, on: true, created: Date.now() });
     if (ui !== mine) return;
     ui.saving = false;
-    if (res === 'ok') { ui.input.value = ''; ui.msg.textContent = ''; ui.msgKind = ''; ui.dirChoice = null; }
+    if (res === 'ok') { ui.input.value = ''; ui.msg.textContent = ''; ui.msgKind = ''; ui.dirChoice = null; linkOnce(h); }
     else { ui.msg.textContent = res === 'full' ? t('alarmFull', R.MAX) : t('alarmSaveError'); ui.msgKind = 'result'; }
     update();
+  }
+
+  // the product's Yahoo ticker link for the background check, for a product with alarms (alarms made elsewhere, or
+  // before the check existed, get theirs here). S.link remembers what it stored, and forgets it when another tab
+  // drops the link, so calling it on every run costs nothing.
+  /** @param {{ id: number, symbol: string, exchange?: string, currency: string }} h */
+  function linkOnce(h) {
+    if (S.list().some(a => a.productId === h.id)) S.link(h);
   }
 
   function removeAll(keepEdit = false) {
@@ -430,6 +438,7 @@ const dgAlarmPanel = (() => {
       }
       current = h;
       button(h);
+      if (h.currency && h.symbol) linkOnce(h);
       lastKey = [pid, true, true, S.list().filter(a => a.productId === pid && a.on).length].join('|');
       if (ui) { ui.h = h; update(); }
       return 'ok';
