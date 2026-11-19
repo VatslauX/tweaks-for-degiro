@@ -17,6 +17,15 @@
   "optSectionAll": {
     "message": "Alles in $1"
   },
+  "optClearData": {
+    "message": "Gespeicherte Daten löschen"
+  },
+  "optClearConfirm": {
+    "message": "Erneut klicken, um alles zu löschen (Einstellungen und Alarme auf all deinen Computern)"
+  },
+  "optCleared": {
+    "message": "Gespeicherte Daten gelöscht"
+  },
   "statusMissingShort": {
     "message": "Nicht gefunden"
   },

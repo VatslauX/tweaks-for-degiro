@@ -126,6 +126,8 @@ Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome pr
 
 Opened from the toolbar over a DEGIRO tab, the popup also shows **On this page**: for each feature, whether it is working, not used on this page, or *Not found* — the last one means DEGIRO probably changed its page, which is useful to mention in a bug report. Its collapsed header sums it up, e.g. *9 Working · 3 Not on this page*. Nothing is stored or sent anywhere.
 
+**Clear saved data**, at the bottom of Settings, erases everything the extension has saved: your settings (back to the defaults), price alarms and their history, the remembered table sort and columns, the background check's ticker links and status, its permissions, and the *Cash columns on the chart* switch (off from the next page load). The first click asks you to click again within 5 seconds. Settings, alarms, ticker links, and table sort and columns sync with your Chrome profile, so they are erased on all your computers; the rest only on this one.
+
 **Feedback or report a problem**, at the bottom of Settings, opens a new issue on the project's GitHub page with the extension version, Chrome version and language filled in. You see and edit everything before submitting it.
 
 ## Installation

@@ -23,7 +23,8 @@ function area(init = {}) {
   return {
     data,
     get: async defaults => ({ ...defaults, ...plain(data) }),
-    set: async patch => { Object.assign(data, plain(patch)); }
+    set: async patch => { Object.assign(data, plain(patch)); },
+    clear: async () => { for (const k of Object.keys(data)) delete data[k]; }
   };
 }
 const listeners = () => { const fns = []; return { fns, addListener: fn => fns.push(fn) }; };
@@ -59,7 +60,7 @@ function worker({ sync = {}, local = {}, granted = true, responses = () => ({ st
   };
   const fetch = async (url, opts) => {
     calls.fetch.push({ url, opts });
-    const r = responses(url);
+    const r = await responses(url); // a Promise holds the request open
     return { status: r.status ?? 200, ok: (r.status ?? 200) < 300, json: async () => r.body,
       text: async () => (typeof r.body === 'string' ? r.body : JSON.stringify(r.body)) };
   };
@@ -523,6 +524,45 @@ test('an alarm a tab adds (and fires) while the worker waits for Yahoo keeps its
   assert.deepEqual(local.dgAlarmEvents.map(e => e.alarmId).sort(), ['a1', 'a2']);
   assert.equal(local.dgAlarmState.a2.firedAt, NOW - 5000);
 });
+
+// ---------- "Clear saved data" while a request is out ----------
+/**
+ * A tick whose request to `part` is held open. Meanwhile the settings popup's "Clear saved data" erases every storage
+ * area (the check is then off: alarmsBackground is gone, the alarms too) and gives the permissions back; then the
+ * answer arrives. Returns the worker, the storage writes made after the wipe and the number of requests before it.
+ */
+async function wipedMidTick(part, { responses, ...opts }) {
+  let release;
+  const held = new Promise(r => { release = r; });
+  const w = worker({ ...opts, responses: async url => { if (url.includes(part)) await held; return responses(url); } });
+  await w.tick();
+  assert.ok(w.calls.fetch.some(f => f.url.includes(part)), 'the request is out');
+  const fetched = w.calls.fetch.length;
+  for (const a of ['sync', 'local', 'session']) await w.chrome.storage[a].clear();
+  w.chrome.permissions.contains = async () => false;
+  const writes = [];
+  for (const a of ['sync', 'local', 'session']) {
+    const set = w.chrome.storage[a].set;
+    w.chrome.storage[a].set = async patch => { writes.push(`${a}: ${Object.keys(patch).join(',')}`); return set(patch); };
+  }
+  release();
+  await settle();
+  return { w, writes, fetched };
+}
+for (const [name, part, opts] of [
+  ['a link check', '/v8/finance/chart/', { responses: yahoo() }],
+  ['a Yahoo price', '/v8/finance/spark', { local: { dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' } } }, responses: yahoo() }],
+  ['an SG price', 'RealtimeValuesSnapshot', { sync: { dgAlarms: [SG_ALARM], dgTickers: SG_LINK },
+    local: { dgTickerCheck: { [`|€|${SG_ISIN}|sg`]: { ok: true, f: 1, y: 'SU054L', sg: SG_META, at: NOW - 3600000 } } }, responses: sgSite() }]
+]) {
+  test(`saved data erased while ${name} is out: the tick writes nothing back, shows nothing and asks no more`, async () => {
+    const { w, writes, fetched } = await wipedMidTick(part, opts);
+    assert.deepEqual(writes, []);
+    assert.deepEqual(w.calls.notes, []);
+    assert.equal(w.calls.fetch.length, fetched);
+    for (const a of ['sync', 'local', 'session']) assert.deepEqual(plain(w.chrome.storage[a].data), {}, a);
+  });
+}
 
 test('the worker writes only firedAt: `last`/`lastAt` stay what a DEGIRO tab saw', async () => {
   const w = worker({ local: { dgAlarmState: { a1: { last: 990, lastAt: NOW - 3600000 } }, dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' } } }, responses: yahoo() });

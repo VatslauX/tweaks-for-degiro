@@ -336,6 +336,63 @@
   }
   bulkSwitches.forEach(sw => sw.addEventListener('change', () => { setAll(scopeOf(sw), sw.checked); }));
 
+  // Clear saved data: everything the extension keeps between sessions, back to a fresh install. Synced data goes on
+  // every computer of the Chrome profile, which the armed button says; a second click within 5 s erases. Sync first:
+  // if that fails nothing else is touched. DEGIRO's own page storage (the cash-columns switch) is out of reach here:
+  // the dgWiped marker left in local storage has the DEGIRO tabs drop it (flags.js).
+  const clearBtn = /** @type {HTMLButtonElement | null} */ ($('#clearData'));
+  /** @type {ReturnType<typeof setTimeout> | undefined} */ let armTimer;
+  let wiping = false;
+  const disarm = () => {
+    clearTimeout(armTimer);
+    clearBtn?.removeAttribute('data-armed');
+    if (clearBtn) clearBtn.textContent = t('optClearData');
+  };
+  clearBtn?.addEventListener('click', () => {
+    // the background switch's change on its way (Chrome's permission prompt may be open): a wipe now would be undone
+    // when it lands (its save, the worker's permissions.onAdded), so the button waits for it, disarmed
+    if (wiping) return;
+    if (bgOwn > 0) { disarm(); return; }
+    if (!clearBtn.hasAttribute('data-armed')) {
+      clearBtn.setAttribute('data-armed', '');
+      clearBtn.textContent = t('optClearConfirm');
+      armTimer = setTimeout(disarm, 5000);
+      return;
+    }
+    disarm();
+    wipe();
+  });
+  /** @returns {Promise<boolean>} */
+  async function wipe() {
+    wiping = true;
+    if (document.activeElement === titles) titles.blur();
+    clearTimeout(deb); // a list typed just before must not be saved after
+    const release = lock(switches);
+    try {
+      try { await chrome.storage.sync.clear(); } catch (e) { show(t('optSaveFailed', e?.message || e), true); return false; }
+      Object.assign(dgSettings, dgSanitize(null)); // the defaults now; flags.js's re-read finds the same
+      // started together, so a popup closed now leaves as little half done as can be; each one's failure is its own
+      await Promise.allSettled([
+        () => chrome.storage.local.clear(),
+        () => chrome.storage.session.clear(),
+        () => chrome.permissions.remove(BG_PERMS)
+      ].map(async step => step()));
+      try { sections.forEach(s => setOpen(s.dataset.section || '', false)); } catch (e) {}
+      try { localStorage.clear(); } catch (e) {} // after setOpen, which stores the open sections
+      // after the local clear has finished, or that would erase it too
+      try { await chrome.storage.local.set({ dgWiped: Date.now() }); } catch (e) {}
+      // the switches are locked, so the settings re-read skips them: show the defaults here
+      switches.forEach(cb => { if (cb !== bgSwitch) cb.checked = !!dgSettings[cb.dataset.key || '']; });
+      titles.value = (dgSettings.hiddenTitles || []).join('\n');
+      titles.removeAttribute('aria-invalid');
+      syncDepends();
+      renderBulk();
+      await bgStatus();
+      show(t('optCleared'));
+      return true;
+    } finally { release(); wiping = false; }
+  }
+
   const validate = list => {
     if (list.length > DG_MAX_TITLES) return t('optTooMany', DG_MAX_TITLES);
     const long = list.find(x => x.length > DG_MAX_TITLE_LEN);

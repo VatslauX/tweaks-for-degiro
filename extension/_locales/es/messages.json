@@ -17,6 +17,15 @@
   "optSectionAll": {
     "message": "Todo en $1"
   },
+  "optClearData": {
+    "message": "Borrar datos guardados"
+  },
+  "optClearConfirm": {
+    "message": "Haz clic de nuevo para borrarlo todo (ajustes y alarmas en todos tus ordenadores)"
+  },
+  "optCleared": {
+    "message": "Datos guardados borrados"
+  },
   "statusMissingShort": {
     "message": "No encontrado"
   },

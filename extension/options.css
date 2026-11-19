@@ -125,6 +125,16 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 #status.error { color: #e3282b; }
 textarea[aria-invalid="true"] { border-color: #e3282b; }
 
+/* Clear saved data: quiet until armed by a first click, then red */
+.clear-data { margin: 0 2px 8px; }
+#clearData {
+  font: inherit; font-size: 11px; color: var(--muted); background: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px;
+}
+#clearData:hover { color: var(--text); }
+#clearData[data-armed] { color: #e3282b; border-color: #e3282b; }
+#clearData:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .disclaimer { margin: 0 2px 8px; }
 .feedback { margin: 0 2px 6px; }
 .feedback a { color: var(--accent); }

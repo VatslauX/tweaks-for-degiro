@@ -153,6 +153,8 @@ const dgAlarmStore = (() => {
     return serial(async () => {
       try {
         const [r, ids] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), storedIds()]);
+        // its alarms are gone meanwhile (deleted, or "Clear saved data"): nothing to store, nor to switch off
+        if (!Object.keys(upd).some(id => ids.includes(id))) return;
         const known = [...new Set([...alarms.map(a => a.id), ...ids])]; // this tab's list and the stored one
         ({ state, events } = R.merge({ state: R.sanitizeState(r?.dgAlarmState), events: R.sanitizeEvents(r?.dgAlarmEvents) },
           upd, fired, alarms, known, foreignWithin));

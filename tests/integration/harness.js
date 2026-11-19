@@ -157,6 +157,13 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
     stored: (area = 'sync') => json(areas[area].data),
     /** write storage as another context would (the options page, another device), events included */
     set: (area, items) => { applySet(areas[area], items); return world.flush(); },
+    /** erase an area as chrome.storage.<area>.clear() does (the settings' "Clear saved data"), events included */
+    clear: area => {
+      const a = areas[area], gone = {};
+      for (const k of Object.keys(a.data)) { gone[k] = { oldValue: a.data[k] }; delete a.data[k]; }
+      emit(a, gone);
+      return world.flush();
+    },
     /** Run everything due now (frames, zero-delay timers), then pending promises and storage events, until quiet. */
     async flush() {
       for (let i = 0; i < 200; i++) {

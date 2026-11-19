@@ -17,6 +17,15 @@
   "optSectionAll": {
     "message": "Alles in $1"
   },
+  "optClearData": {
+    "message": "Opgeslagen gegevens wissen"
+  },
+  "optClearConfirm": {
+    "message": "Klik nogmaals om alles te wissen (instellingen en alarmen op al je computers)"
+  },
+  "optCleared": {
+    "message": "Opgeslagen gegevens gewist"
+  },
   "statusMissingShort": {
     "message": "Niet gevonden"
   },

@@ -23,6 +23,18 @@
     "message": "All in $1",
     "description": "Accessible name of a section's set-all switch: $1 = section title"
   },
+  "optClearData": {
+    "message": "Clear saved data",
+    "description": "Button at the bottom of the settings: erases everything the extension has saved"
+  },
+  "optClearConfirm": {
+    "message": "Click again to erase it all (settings and alarms on all your computers)",
+    "description": "The Clear saved data button after a first click; a second click within 5 s erases"
+  },
+  "optCleared": {
+    "message": "Saved data erased",
+    "description": "Status after Clear saved data"
+  },
   "statusMissingShort": {
     "message": "Not found",
     "description": "Short form of statusMissing, in the collapsed On this page summary, e.g. \"1 Not found\""

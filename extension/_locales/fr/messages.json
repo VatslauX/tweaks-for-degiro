@@ -17,6 +17,15 @@
   "optSectionAll": {
     "message": "Tout dans $1"
   },
+  "optClearData": {
+    "message": "Effacer les données enregistrées"
+  },
+  "optClearConfirm": {
+    "message": "Cliquez à nouveau pour tout effacer (réglages et alarmes sur tous vos ordinateurs)"
+  },
+  "optCleared": {
+    "message": "Données enregistrées effacées"
+  },
   "statusMissingShort": {
     "message": "Introuvable"
   },

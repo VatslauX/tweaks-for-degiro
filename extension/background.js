@@ -204,7 +204,20 @@ importScripts('alarm-rules.js');
     const checks = R.sanitizeChecks(local.dgTickerCheck, pids.map(keyOf).filter(Boolean));
     const on = alarms.filter(a => a.on && tickers[a.productId]);
     let err = '';
-    const linkedSg = Object.values(tickers).filter(l => l.v === 'sg').map(l => l.isin || '');
+    // "Clear saved data" in the settings, the check switched off or its alarms deleted while a request was out: from
+    // then on this tick writes, shows and asks nothing more (it would write erased data back). Asked again after each
+    // round of requests, before what that round stores.
+    let stopped = false;
+    const stop = async () => {
+      if (stopped) return true;
+      try {
+        const [s2, has, stored] = await Promise.all([settings(), granted(), chrome.storage.sync.get({ dgAlarms: [] })]);
+        const ids = R.sanitize(stored.dgAlarms).map(a => a.id);
+        stopped = !s2.priceAlarms || !s2.alarmsBackground || !has || !on.some(a => ids.includes(a.id));
+      } catch (e) {} // can't tell: carry on, as before
+      return stopped;
+    };
+    const linkedSg =Object.values(tickers).filter(l => l.v === 'sg').map(l => l.isin || '');
 
     // ---------- holds and waits ----------
     // A request that fails holds only its own link (its check: dgBgHold, by check key) or SG product (its price:
@@ -286,6 +299,7 @@ importScripts('alarm-rules.js');
             src.fail();
           }
         }
+        if (budget.n < VERIFY_BUDGET && await stop()) return;
         if (verified) await chrome.storage.local.set({ dgTickerCheck: checks });
       }
 
@@ -296,8 +310,10 @@ importScripts('alarm-rules.js');
       if (yTickers.length && !yahooWait) {
         try {
           (await prices(yTickers)).forEach((v, k) => quotes.set(k, v));
+          if (await stop()) return;
           if (sess.dgBgGap) await chrome.storage.session.set({ dgBgGap: 0 });
         } catch (e) {
+          if (await stop()) return;
           err = String(e?.message || e).slice(0, 80);
           const gap = Math.min(MAX_GAP, Math.max(1, sess.dgBgGap * 2));
           await chrome.storage.session.set({ dgBgGap: gap, dgBgSkip: gap });
@@ -338,13 +354,15 @@ importScripts('alarm-rules.js');
             sgPrice.fail();
           }
         }
+        if (await stop()) return;
         // kept for the SG products that are linked; a product whose alarms went drops out
         if (seenChanged) await chrome.storage.local.set({ dgSgSeen: R.sanitizeSgSeen(seen, linkedSg) });
         if (checksChanged) await chrome.storage.local.set({ dgTickerCheck: checks });
       }
     } finally {
-      if (Object.keys(patch).length) await chrome.storage.session.set(patch);
+      if (!stopped && Object.keys(patch).length) await chrome.storage.session.set(patch);
     }
+    if (stopped) return;
 
     try {
       /** @type {Record<string, any>} */ const upd = {};

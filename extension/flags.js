@@ -82,6 +82,20 @@ function dgSanitize(s) {
   return out;
 }
 
+// "Clear saved data" (options.js) can't reach DEGIRO's own localStorage, where portfolio.js keeps the cash-columns
+// switch. It leaves dgWiped (a time) in chrome.storage.local instead; a DEGIRO tab newer than its own marker drops
+// the switch and keeps the marker, so each wipe is acted on once. Only on DEGIRO: options.html loads this file too.
+async function dgDropWiped() {
+  try {
+    if (location.protocol !== 'https:' || location.hostname !== 'trader.degiro.nl') return;
+    const { dgWiped } = await chrome.storage.local.get({ dgWiped: 0 });
+    const at = typeof dgWiped === 'number' && Number.isFinite(dgWiped) ? dgWiped : 0;
+    if (at <= (Number(localStorage.getItem('dgTweaksWiped')) || 0)) return;
+    localStorage.removeItem('dgTweaksCashLines');
+    localStorage.setItem('dgTweaksWiped', String(at));
+  } catch (e) {} // no storage here, or none we may use: nothing to drop
+}
+
 (() => {
   const apply = s => {
     Object.assign(dgSettings, dgSanitize(s));
@@ -118,8 +132,12 @@ function dgSanitize(s) {
     } catch (e) { failed(); }
   };
   read();
+  dgDropWiped();
   try {
-    chrome.storage.onChanged.addListener((changes, area) => { if (area === 'sync') read(); });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'sync') read();
+      if (area === 'local' && changes.dgWiped) dgDropWiped();
+    });
   } catch (e) {}
 
   // Disabling, removing or updating the extension leaves the scripts already in open tabs running,

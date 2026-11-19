@@ -17,6 +17,15 @@
   "optSectionAll": {
     "message": "Tutto in $1"
   },
+  "optClearData": {
+    "message": "Cancella dati salvati"
+  },
+  "optClearConfirm": {
+    "message": "Fai di nuovo clic per cancellare tutto (impostazioni e allarmi su tutti i tuoi computer)"
+  },
+  "optCleared": {
+    "message": "Dati salvati cancellati"
+  },
   "statusMissingShort": {
     "message": "Non trovato"
   },

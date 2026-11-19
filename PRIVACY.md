@@ -45,7 +45,7 @@ The extension does not collect, sell or share your personal data. It stores only
 
 ## Data retention and deletion
 
-The extension keeps no data apart from your settings, price alarms, the price links of your alarm products (Yahoo tickers, ISINs, Société Générale's product fields, and when each SG price last changed) and the background check's status. Removing the extension deletes them. You can also reset the settings by turning the switches back to their defaults, delete alarms on the Alarms page, and switch off *Check in the background* to remove the background permissions.
+The extension keeps no data apart from your settings, price alarms, the price links of your alarm products (Yahoo tickers, ISINs, Société Générale's product fields, and when each SG price last changed) and the background check's status. Removing the extension deletes them. *Clear saved data*, at the bottom of the settings, erases all of them at once. What Chrome syncs (your settings, alarms, ticker links, and table sort and columns) is erased on every computer your Chrome profile syncs to; the rest (alarm history, the ticker checks and SG prices, the background check's status, the background permissions and the *Cash columns on the chart* switch) on this computer only. You can also reset the settings by turning the switches back to their defaults, delete alarms on the Alarms page, and switch off *Check in the background* to remove the background permissions.
 
 ## Changes
 

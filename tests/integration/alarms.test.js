@@ -239,6 +239,23 @@ test('race: record() in flight and a concurrent edit (update) both reach the sto
   noErrors(w);
 });
 
+test('race: saved data erased ("Clear saved data") while record() reads storage: nothing is written back', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' });
+  const { w, tab } = await setup([a]);
+  w.latency.get = 50; // every read now takes 50 ms
+  tab.setPrice(123, 17.5); // fires: record() starts reading the stored state and alarms
+  await w.advance(30);
+  await w.clear('sync');
+  await w.clear('local');
+  const from = w.log.length;
+  await w.advance(2000);
+  const back = w.log.slice(from).flatMap(l => l.keys.map(k => `${l.area}: ${k}`))
+    .filter(k => /dgAlarm(s|State|Events)$/.test(k));
+  assert.deepEqual(back, [], 'no erased alarm, state or event written back');
+  assert.deepEqual(banners(tab), []);
+  noErrors(w);
+});
+
 test('update() clears the fired state and banner of the edited alarm', async () => {
   const x = alarm({ price: 17 });
   const { w, tab } = await setup([x]);
