@@ -9,8 +9,10 @@
   const view = { status: 'all', products: new Set(), open: null };
   // header/body label for each hideable column (DG_ALARM_COLUMNS); Product and On are never hideable.
   const ALARM_COL_LABEL = { price: 'alarmColPrice', last: 'alarmColLast', seen: 'alarmColSeen',
-    alarm: 'alarmColAlarm', distance: 'alarmColDistance', repeat: 'alarmColRepeat', status: 'alarmColStatus' };
+    alarm: 'alarmColAlarm', distance: 'alarmColDistance', repeat: 'alarmColRepeat', status: 'alarmColStatus', background: 'alarmColBackground' };
   const ALARM_RIGHT_ALIGN = new Set(['price', 'last', 'seen', 'alarm', 'distance']);
+  /** the columns this page can show now: Background only while the background check is on */
+  const alarmColumns = () => DG_ALARM_COLUMNS.filter(k => k !== 'background' || dgSettings.alarmsBackground);
   let sig = '';
   /** The "?" hint on the Status header: open by pointer hover, keyboard focus or a click (pinned). Kept here so a rebuild keeps it. */
   const tip = { hover: false, focus: false, pinned: false };
@@ -161,7 +163,7 @@
     // checked = shown; Reset brings back the default (all columns shown) — same semantics as
     // orders-table.js's own columnPicker and the merged Portfolio table's.
     const hiddenCols = dgSettings.alarmHiddenColumns;
-    const colItems = DG_ALARM_COLUMNS.map(k => ({
+    const colItems = alarmColumns().map(k => ({
       text: t(ALARM_COL_LABEL[k]),
       checked: !hiddenCols.includes(k),
       change: (/** @type {boolean} */ on) => {
@@ -178,8 +180,10 @@
     }, th);
     reset.dataset.dgColumnsReset = '';
     reset.style.marginTop = '4px';
-    filters.append(dgUi.group(t('columns'), th, dgUi.picker({ kind: 'columns', label: hiddenCols.length ? t('columnsHidden', hiddenCols.length) : t('allColumns'),
-      active: hiddenCols.length > 0, items: colItems, th, footer: reset, align: 'right',
+    // count only the columns the menu offers: a hidden Background stays stored while the check is off
+    const hiddenNow = alarmColumns().filter(k => hiddenCols.includes(k)).length;
+    filters.append(dgUi.group(t('columns'), th, dgUi.picker({ kind: 'columns', label: hiddenNow ? t('columnsHidden', hiddenNow) : t('allColumns'),
+      active: hiddenNow > 0, items: colItems, th, footer: reset, align: 'right',
       open: view.open === 'columns', onToggle: () => { view.open = view.open === 'columns' ? null : 'columns'; schedule(true); }, onChange: () => schedule(true) })));
     head.append(title, filters);
     out.push(head);
@@ -194,7 +198,7 @@
     const wrap = el('div', `overflow-x:auto;margin-top:12px;border:1px solid ${th.line};border-radius:8px;`);
     wrap.setAttribute('data-dg-alarm-scroll', '');
     const table = el('table', 'border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums;');
-    const shownCols = DG_ALARM_COLUMNS.filter(k => !hiddenCols.includes(k));
+    const shownCols = alarmColumns().filter(k => !hiddenCols.includes(k));
     const thead = document.createElement('thead');
     const hr = document.createElement('tr');
     const headCell = (/** @type {string} */ key, /** @type {string} */ labelKey, /** @type {boolean} */ right) => {
@@ -241,9 +245,13 @@
       // name); otherwise the symbol is in the tooltip
       if (a.symbol && link.textContent === R.label(a) && a.symbol !== link.textContent) link.title = a.symbol;
       prodRow.append(sideButton('buy', 'alarmBuyAria'), sideButton('sell', 'alarmSellAria'), link);
-      // with the background check on, every switched-on alarm says where it stands: checked (its Yahoo ticker),
-      // being checked, not checked yet here, not found or not matching on Yahoo, or no ticker at all
-      if (dgSettings.alarmsBackground && a.on) {
+      prod.append(prodRow);
+      // Background (only while the check is on): every switched-on alarm says where it stands: checked (its
+      // Yahoo ticker), being checked, not checked yet here, not found or not matching on Yahoo, or no ticker at
+      // all. Those it can't be checked for (failed, noticker) are in the warning colour; a switched-off one is '–'.
+      const bgc = td(`font-size:12px;color:${th.muted};`);
+      if (!a.on) bgc.textContent = '–';
+      else if (dgSettings.alarmsBackground) {
         const bg = S.background(a.productId);
         const [text, tip] = bg.state === 'ok'
           ? [`✓ ${bg.t}${bg.via === 'isin' ? ' ' + t('alarmBgViaIsin') : bg.via === 'sg' ? ' ' + t('alarmBgViaSg') : ''}`, t(bg.via === 'sg' ? 'alarmBgOkTitleSg' : 'alarmBgOkTitle', bg.t)]
@@ -253,12 +261,11 @@
           : bg.state === 'failed' ? [t(bg.why === 'currency' ? 'alarmBgCurrency' : bg.why === 'price' ? 'alarmBgPrice' : 'alarmBgMissing', bg.t), '']
           : bg.state === 'noticker' ? [bg.t === '*' ? t('alarmBgNoTickerProduct') : t('alarmBgNoTicker', bg.t), t('alarmBgNoTickerTitle')]
           : [t('alarmNotInBackground'), t('alarmNotInBackgroundTitle')];
-        const note = el('span', `color:${th.muted};font-size:11px;`, text);
+        const note = el('span', `color:${bg.state === 'failed' || bg.state === 'noticker' ? th.warn : th.muted};`, text);
         note.setAttribute('data-dg-alarm-bg', bg.state);
         if (tip) note.title = tip;
-        prodRow.append(note);
+        bgc.append(note);
       }
-      prod.append(prodRow);
       // Price/Last/Seen: always one line each, no wrapped sub-line. Price is the live tick only;
       // Last is the value alarm-firing logic itself last compared against (extension/alarms.js),
       // which can lag Price by up to SEEN_EVERY — a real, separate value, not a duplicate of Price.
@@ -277,7 +284,7 @@
       const stc = td();
       stc.setAttribute('data-dg-alarm-status', '');
       stc.append(dgUi.pill(status(a, st, price), statusKind(a, st, price), th));
-      const cell = { price: priceCell, last: lastCell, seen: seenCell, alarm: al, distance: dist, repeat: rep, status: stc };
+      const cell = { price: priceCell, last: lastCell, seen: seenCell, alarm: al, distance: dist, repeat: rep, status: stc, background: bgc };
       const onc = td();
       onc.append(dgUi.toggle({ on: a.on, label: t('alarmOnAria', money(a, a.price)), th, onChange: on => S.setOn(a.id, on) }));
       const delc = td();

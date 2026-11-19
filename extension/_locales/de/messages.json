@@ -609,6 +609,9 @@
   "alarmColStatus": {
     "message": "Status"
   },
+  "alarmColBackground": {
+    "message": "Hintergrund"
+  },
   "alarmColOn": {
     "message": "An"
   },

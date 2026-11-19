@@ -609,6 +609,9 @@
   "alarmColStatus": {
     "message": "Statut"
   },
+  "alarmColBackground": {
+    "message": "Arrière-plan"
+  },
   "alarmColOn": {
     "message": "Active"
   },

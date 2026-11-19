@@ -358,16 +358,16 @@ test('the price is pre-filled with all its decimals', async ({ degiro }) => {
 });
 
 // stays in Playwright: getComputedStyle textAlign
-test('Alarms page columns: Price comes before Alarm, numbers right-aligned', async ({ degiro, settings }) => {
+test('Alarms page columns: Price, Last, Alarm, Distance, then Seen; numbers right-aligned', async ({ degiro, settings }) => {
   await seed(settings, [alarm({ price: 18 })]);
   const { page } = await degiro({ url: FAV });
   await page.evaluate(() => { location.hash = '#/favourites?dg=alarms'; });
   await expect(rows(page)).toHaveCount(1);
   const heads = page.locator('[data-dg-alarms-page] thead th');
-  await expect(heads).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect(heads).toHaveText(['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'On', '']);
   const cells = rows(page).first().locator('td');
   await expect(cells.nth(1)).toContainText('€ 16,92');
-  await expect(cells.nth(4)).toContainText('18');
+  await expect(cells.nth(3)).toContainText('18');
   const aligns = await page.evaluate(() => [...document.querySelectorAll('[data-dg-alarms-page] thead th, [data-dg-alarms-page] tr[data-dg-alarm-id] td')].map(c => getComputedStyle(c).textAlign));
   const n = aligns.length / 2;
   for (const i of [1, 2, 3, 4, 5]) { expect(aligns[i]).toBe('right'); expect(aligns[n + i]).toBe('right'); }
@@ -403,9 +403,10 @@ test('Alarms page: all columns are visible by default; the Columns picker hides 
   const opt = await seed(settings, [live, seen], { dgAlarmState: { [seen.id]: { last: 16.5, lastAt: Date.now() - 60000 } } });
   const { page } = await degiro({ url: ALARMS });
   await page.bringToFront();
-  await expect(page.locator('[data-dg-alarms-page] thead th')).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
-  const seenCell = page.locator(`tr[data-dg-alarm-id="${seen.id}"] td`).nth(3);
-  await expect(seenCell).not.toHaveText('');
+  await expect(page.locator('[data-dg-alarms-page] thead th')).toHaveText(['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'On', '']);
+  // the Seen cell (Product 0 … Seen 5) shows when the price was last seen: a time, not '–'
+  const seenCell = page.locator(`tr[data-dg-alarm-id="${seen.id}"] td`).nth(5);
+  await expect(seenCell).toHaveText(/\d{1,2}:\d{2}/);
   await page.click('[data-dg-alarms-page] [data-dg-columns]');
   const menu = page.locator('[data-dg-alarms-page] [role=listbox]');
   await expect(menu.locator('label', { hasText: 'Last' }).locator('input')).toBeChecked();
@@ -416,7 +417,7 @@ test('Alarms page: all columns are visible by default; the Columns picker hides 
   await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmHiddenColumns').then(r => r.alarmHiddenColumns))).toEqual(['last', 'seen']);
   // Reset shows every column again
   await page.locator('[data-dg-columns-reset]').click();
-  await expect(page.locator('[data-dg-alarms-page] thead th')).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect(page.locator('[data-dg-alarms-page] thead th')).toHaveText(['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'On', '']);
   await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmHiddenColumns').then(r => r.alarmHiddenColumns))).toEqual([]);
 });
 
@@ -452,8 +453,8 @@ test('Alarms page columns: saved choice propagates to a second tab live', async 
   const b = await context.newPage();
   await b.goto(ALARMS);
   const headsA = a.locator('[data-dg-alarms-page] thead th'), headsB = b.locator('[data-dg-alarms-page] thead th');
-  await expect(headsA).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
-  await expect(headsB).toHaveText(['Product', 'Price', 'Last', 'Seen', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
+  await expect(headsA).toHaveText(['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'On', '']);
+  await expect(headsB).toHaveText(['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'On', '']);
   await opt.evaluate(() => chrome.storage.sync.set({ alarmHiddenColumns: ['last', 'seen'] }));
   await expect(headsA).toHaveText(['Product', 'Price', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);
   await expect(headsB).toHaveText(['Product', 'Price', 'Alarm', 'Distance', 'Repeat', 'Status', 'On', '']);

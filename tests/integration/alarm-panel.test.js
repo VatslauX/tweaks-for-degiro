@@ -1187,11 +1187,13 @@ const bgNotes = tab => Object.fromEntries(alarmPageRows(tab).map(r => {
 test('Alarms page: with the background check on, every alarm says where it stands (checked, not found, no match, no ticker)', async () => {
   // above the mock prices: nothing fires (and switches itself off) while the page is open
   const a = alarm({ price: 5000 }), b = alarm({ productId: 456, name: 'Other', price: 5000 }),
-    c = alarm({ productId: 789, name: 'Chips', price: 5000 }), d = alarm({ productId: 999, name: 'Not listed', price: 5000 });
+    c = alarm({ productId: 789, name: 'Chips', price: 5000 }), d = alarm({ productId: 999, name: 'Not listed', price: 5000 }),
+    e = alarm({ productId: 555, name: 'CL DEC26', price: 5000 });
   const w = createWorld({ storage: {
     // the links the list itself gives (MOCK · EAM · €, MTEC · NDQ · $, CHIP · EAM · €); 999 isn't in the list: no link
-    sync: { dgAlarms: [a, b, c, d], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' }, 456: { t: 'MTEC', cur: '$', isin: 'XX0000000000' }, 789: { t: 'CHIP.AS', cur: '€', isin: 'XX0000000000' } }, alarmsBackground: true },
-    local: { dgTickerCheck: { 'MOCK.AS|€|XX0000000000': { ok: true, f: 1, at: 1, y: 'MOCK.AS' }, 'MTEC|$|XX0000000000': { ok: false, f: 0, at: 1, why: 'missing' }, 'CHIP.AS|€|XX0000000000': { ok: false, f: 0, at: 1, why: 'price' } } }
+    sync: { dgAlarms: [a, b, c, d, e], dgTickers: { 123: { t: 'MOCK.AS', cur: '€', isin: 'XX0000000000' }, 456: { t: 'MTEC', cur: '$', isin: 'XX0000000000' }, 789: { t: 'CHIP.AS', cur: '€', isin: 'XX0000000000' } }, alarmsBackground: true },
+    // 555 was seen in another list: its exchange (IFUS) has no Yahoo ticker and it has no ISIN
+    local: { dgNoTicker: { 555: 'IFUS' }, dgTickerCheck: { 'MOCK.AS|€|XX0000000000': { ok: true, f: 1, at: 1, y: 'MOCK.AS' }, 'MTEC|$|XX0000000000': { ok: false, f: 0, at: 1, why: 'missing' }, 'CHIP.AS|€|XX0000000000': { ok: false, f: 0, at: 1, why: 'price' } } }
   } });
   const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
   await w.advance(300);
@@ -1202,9 +1204,61 @@ test('Alarms page: with the background check on, every alarm says where it stand
   assert.equal(notes[d.id][0], 'unlinked');
   assert.equal(notes[d.id][1], 'Not linked yet');
   assert.match(notes[d.id][2], /next time DEGIRO is open/);
+  assert.deepEqual(notes[e.id].slice(0, 2), ['noticker', 'No Yahoo ticker for IFUS']);
+  // each note is in its own Background column, right after Status; the Product cell holds the name only
+  const heads = () => tab.$$('[data-dg-alarms-page] thead th').map(h => h.textContent);
+  assert.deepEqual(heads(), ['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'Background', 'On', '']);
+  for (const r of alarmPageRows(tab)) {
+    const cells = [...r.children];
+    assert.equal(cells[0].querySelector('[data-dg-alarm-bg]'), null, 'no note in the Product cell');
+    assert.ok(cells[8].querySelector('[data-dg-alarm-bg]'), 'the note is under Background');
+  }
+  // a problem stands out from a confirmed ticker
+  const colourOf = id => tab.$(`tr[data-dg-alarm-id="${id}"] [data-dg-alarm-bg]`).style.color;
+  assert.notEqual(colourOf(b.id), colourOf(a.id), 'not found: warning colour');
+  assert.equal(colourOf(c.id), colourOf(b.id), 'price mismatch: the same warning colour');
+  assert.equal(colourOf(e.id), colourOf(b.id), 'no ticker: the same warning colour');
+  assert.notEqual(colourOf(d.id), colourOf(b.id), 'not linked yet is not a warning');
+  // the Columns menu hides it like any other column
+  await tab.setFlag('alarmHiddenColumns', ['background']);
+  await w.advance(300);
+  assert.deepEqual(heads(), ['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'On', '']);
+  await tab.setFlag('alarmHiddenColumns', []);
   await tab.setFlag('alarmsBackground', false);
   await w.advance(300);
   assert.equal(tab.$$('[data-dg-alarm-bg]').length, 0, 'no notes while the background check is off');
+  assert.deepEqual(heads(), ['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'On', ''], 'and no Background column');
+  // switched on again: the column is back, right after Status, with its notes
+  await tab.setFlag('alarmsBackground', true);
+  await w.advance(300);
+  assert.deepEqual(heads(), ['Product', 'Price', 'Last', 'Alarm', 'Distance', 'Seen', 'Repeat', 'Status', 'Background', 'On', '']);
+  assert.deepEqual(bgNotes(tab)[a.id], ['ok', '✓ MOCK.AS', 'Checked in the background with Yahoo Finance prices (MOCK.AS)']);
+  noErrors(w);
+});
+
+test('Alarms page: a switched-off alarm shows a dash under Background', async () => {
+  const on = alarm({ price: 5000 }), off = alarm({ productId: 456, name: 'Other', price: 5000, on: false });
+  const w = createWorld({ storage: { sync: { dgAlarms: [on, off], dgTickers: { 123: { t: 'MOCK.AS', cur: '€' }, 456: { t: 'MTEC', cur: '$' } }, alarmsBackground: true } } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(300);
+  const row = tab.$(`tr[data-dg-alarm-id="${off.id}"]`);
+  assert.equal(row.querySelector('[data-dg-alarm-bg]'), null);
+  assert.equal(row.children[8].textContent, '–');
+  noErrors(w);
+});
+
+test('Alarms page: a hidden Background column the menu doesn\'t offer (background check off) is not counted as hidden', async () => {
+  const w = createWorld({ storage: { sync: { dgAlarms: [alarm({ price: 5000 })], alarmHiddenColumns: ['background'], alarmsBackground: false } } });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites?dg=alarms' });
+  await w.advance(300);
+  const btn = () => tab.$('[data-dg-alarms-page] [data-dg-columns]');
+  assert.equal(btn().textContent, 'All columns ▾', 'every column the menu offers is shown');
+  assert.equal(btn().getAttribute('aria-pressed'), 'false', 'not shown as active');
+  // with the check on, Background is in the menu, and hidden
+  await tab.setFlag('alarmsBackground', true);
+  await w.advance(300);
+  assert.equal(btn().textContent, '1 hidden ▾');
+  assert.equal(btn().getAttribute('aria-pressed'), 'true');
   noErrors(w);
 });
 

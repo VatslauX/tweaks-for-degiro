@@ -43,8 +43,9 @@ const DG_ORDER_COLUMNS = ['date', 'symbolIsin', 'exchange', 'action', 'qty', 'li
 const DG_PORTFOLIO_COLUMNS = ['symbolIsin', 'qty', 'price', 'currency', 'value', 'bep', 'plEuro',
   'plPercent', 'unrealisedPl', 'totalPl', 'delay'];
 
-// Alarms page columns that can be hidden (Product and On never can).
-const DG_ALARM_COLUMNS = ['price', 'last', 'seen', 'alarm', 'distance', 'repeat', 'status'];
+// Alarms page columns that can be hidden (Product and On never can), in their order. Background shows only while
+// the background check is on.
+const DG_ALARM_COLUMNS = ['price', 'last', 'alarm', 'distance', 'seen', 'repeat', 'status', 'background'];
 
 // Flags read by the page-context scripts — the only ones exposed to the page.
 const DG_PAGE_FLAGS = ['periodChange', 'chartSelect', 'portfolioCash', 'orders', 'ordersClick', 'alarmLines', 'alarmLinesClick'];

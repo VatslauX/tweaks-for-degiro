@@ -668,6 +668,10 @@
   "alarmColStatus": {
     "message": "Status"
   },
+  "alarmColBackground": {
+    "message": "Background",
+    "description": "Alarms page column: how each alarm is checked in the background (its Yahoo ticker, or why it can't be checked)"
+  },
   "alarmColOn": {
     "message": "On"
   },

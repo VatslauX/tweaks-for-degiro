@@ -20,6 +20,7 @@ const dgUi = (() => {
       muted: dark ? '#8FA0A6' : '#65757B',  // DEGIRO's unselected tab text
       buy: dark ? '#4CB82E' : '#1E8302',    // DEGIRO green
       sell: dark ? '#FF5A5F' : '#E40101',   // DEGIRO red
+      warn: dark ? '#F5A524' : '#B45309',   // something to look at, not an error (Alarms page: can't be checked in the background)
       line: dark ? 'rgba(255,255,255,.18)' : '#D6DDE0' // DEGIRO's table/input border grey
     };
   }
