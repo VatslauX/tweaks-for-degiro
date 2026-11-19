@@ -290,7 +290,9 @@
       renderBulk();
       if (await save({ [key]: want })) stored({ [key]: want });
       else {
-        cb.checked = !want; // revert the switch, the change was not stored
+        // not stored: show the stored value. Not `!want`: while locked, the switch skipped settings that arrived
+        // (dgSettings has them), e.g. this key changed on another computer meanwhile
+        cb.checked = !!dgSettings[key];
         syncDepends();
         renderBulk();
       }

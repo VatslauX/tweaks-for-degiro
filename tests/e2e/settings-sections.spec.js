@@ -354,6 +354,26 @@ test('a switch waiting for its save keeps the new value while other settings arr
   expect(await stored(opt, ['spread', 'exDividend'])).toEqual({ spread: false, exDividend: false });
 });
 
+test('a failed save shows the stored value, also one another computer wrote meanwhile', async ({ settings }) => {
+  const opt = await settings();
+  await holdSets(opt);
+  const sw = opt.locator('input[data-key=spread]');
+  await opt.locator(ROW('spread')).click();
+  await expect(sw).not.toBeChecked();
+  await expect(sw).toHaveAttribute('aria-disabled', 'true');
+  // another computer switches it off too while this save waits; the page has read it, the locked switch kept as is
+  await opt.evaluate(() => window.__realSet({ spread: false }));
+  await expect.poll(() => opt.evaluate(() => dgSettings.spread)).toBe(false);
+  await releaseSet(opt, false); // this save fails
+  await expect(opt.locator('#status')).toHaveClass(/error/);
+  await expect(sw).not.toHaveAttribute('aria-disabled');
+  // the switch shows what is stored, not the value from before the click
+  await expect(sw).not.toBeChecked();
+  expect(await stored(opt, 'spread')).toEqual({ spread: false });
+  await expect(count(opt, 'pricing')).toHaveText('4 of 5 on');
+  expect(await isMixed(secSwitch(opt, 'pricing'))).toBe(true);
+});
+
 test('a failed bulk save puts back only its own switches', async ({ settings }) => {
   const opt = await settings();
   await holdSets(opt);
