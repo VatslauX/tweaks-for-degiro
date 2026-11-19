@@ -120,9 +120,11 @@ Every feature has an on/off switch. You can open the settings in two ways:
 | ↳ Check in the background (Yahoo Finance prices; asks for permissions) | Off |
 | Hide sections (+ editable list of titles) | On (*Cash compensation*, in any DEGIRO language) |
 
+The settings open as a short list of collapsed sections. Click a section's title to open it; each section's header shows how many of its switches are on, and the popup remembers on this computer which sections you left open. The switch next to a section's title turns everything in that section on or off, and **All settings** at the top does the same for every switch. They set values, with no memory of the earlier mix. Turning everything on never switches on *Check in the background*, because that asks Chrome for permissions and sends tickers out; turning everything off does switch it off. A section with some switches on and some off shows a half-way switch: a click turns everything on, or, when the only switch left off is *Check in the background*, everything off.
+
 Changes apply instantly to open DEGIRO tabs. Settings sync across your Chrome profiles. The columns are chosen on the Orders, Transactions and Alarms pages themselves, and in the Columns menu of the merged Portfolio table.
 
-Opened from the toolbar over a DEGIRO tab, the popup also shows **On this page**: for each feature, whether it is working, not used on this page, or *Not found* — the last one means DEGIRO probably changed its page, which is useful to mention in a bug report. Nothing is stored or sent anywhere.
+Opened from the toolbar over a DEGIRO tab, the popup also shows **On this page**: for each feature, whether it is working, not used on this page, or *Not found* — the last one means DEGIRO probably changed its page, which is useful to mention in a bug report. Its collapsed header sums it up, e.g. *9 Working · 3 Not on this page*. Nothing is stored or sent anywhere.
 
 **Feedback or report a problem**, at the bottom of Settings, opens a new issue on the project's GitHub page with the extension version, Chrome version and language filled in. You see and edit everything before submitting it.
 

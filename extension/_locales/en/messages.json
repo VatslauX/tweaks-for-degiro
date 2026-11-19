@@ -11,6 +11,22 @@
     "message": "On this page",
     "description": "Popup section: status of each feature on the open DEGIRO tab"
   },
+  "optAllSettings": {
+    "message": "All settings",
+    "description": "Top row of the settings: one switch that turns every setting on or off"
+  },
+  "optSectionCount": {
+    "message": "$1 of $2 on",
+    "description": "Next to a section's title: $1 = switches on, $2 = switches in the section"
+  },
+  "optSectionAll": {
+    "message": "All in $1",
+    "description": "Accessible name of a section's set-all switch: $1 = section title"
+  },
+  "statusMissingShort": {
+    "message": "Not found",
+    "description": "Short form of statusMissing, in the collapsed On this page summary, e.g. \"1 Not found\""
+  },
   "optPricing": {
     "message": "Pricing",
     "description": "Settings section"

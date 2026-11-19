@@ -78,7 +78,8 @@ async function reset(context) {
   await context.unrouteAll({ behavior: 'ignoreErrors' });
   await context.clearCookies();
   await keep.goto(`chrome-extension://${extensionId(EXT)}/options.html`); // writes storage only on a change
-  await keep.evaluate(() => Promise.all([chrome.storage.sync.clear(), chrome.storage.local.clear()]));
+  // the popup's own localStorage too (which sections are open)
+  await keep.evaluate(() => { localStorage.clear(); return Promise.all([chrome.storage.sync.clear(), chrome.storage.local.clear()]); });
   // the mock DEGIRO origin's own localStorage (e.g. portfolio.js's dgTweaksCashLines switch), served
   // from a blank local route so no request leaves the machine
   await keep.route('https://trader.degiro.nl/**', route => route.fulfill({ contentType: 'text/html', body: '' }));
@@ -191,12 +192,18 @@ const test = base.extend({
     });
   },
 
-  // open the settings page; returns the page
+  // open the settings page; returns the page. Its sections start open, so tests can click any row;
+  // `collapsed: true` leaves them as a user first sees them (all collapsed).
   settings: async ({ context, extId }, use) => {
-    await use(async () => {
+    await use(async ({ collapsed = false } = {}) => {
       const page = await context.newPage();
+      if (!collapsed) {
+        await page.addInitScript(() => {
+          try { localStorage.setItem('dgOptOpen', JSON.stringify(['pageStatus', 'pricing', 'chart', 'portfolio', 'orders', 'cleanup'])); } catch (e) {}
+        });
+      }
       await page.goto(`chrome-extension://${extId}/options.html`);
-      await page.waitForSelector('input[data-key=spread]');
+      await page.waitForSelector('input[data-key=spread]', { state: 'attached' });
       return page;
     });
   }
@@ -217,4 +224,35 @@ async function advanceUntilVisible(page, locator, step = 100) {
   await expect(locator).toBeVisible();
 }
 
-module.exports = { test, expect, setFlag, advanceUntilVisible, DEFAULT_ORDERS, EXT, portfolioSeries, CASH_TODAY, cashFundsApi };
+/** the extension's background worker */
+async function backgroundWorker(context) {
+  const mine = w => w.url().endsWith('/background.js');
+  return context.serviceWorkers().find(mine) || context.waitForEvent('serviceworker', { predicate: mine });
+}
+
+/**
+ * Stub Chrome's permission prompt on the settings page, and (`grant`) the worker's view of the permissions too:
+ * without them the worker switches the setting back off. No alarm is stored, so the worker never polls Yahoo.
+ * A spec that uses it calls unstubPermissions(context) in afterEach.
+ * @param {import('@playwright/test').BrowserContext} context @param {import('@playwright/test').Page} opt @param {boolean} grant
+ */
+async function stubPermissions(context, opt, grant) {
+  await opt.evaluate(g => {
+    window.__perm = { requested: [], removed: [] };
+    window.__granted = false;
+    chrome.permissions.contains = async () => window.__granted;
+    chrome.permissions.request = async p => { window.__perm.requested.push(p); window.__granted = g; return g; };
+    chrome.permissions.remove = async p => { window.__perm.removed.push(p); return true; };
+  }, grant);
+  if (grant) {
+    const sw = await backgroundWorker(context);
+    await sw.evaluate(() => { globalThis.__contains = chrome.permissions.contains; chrome.permissions.contains = async () => true; });
+  }
+}
+/** the browser is reused by the next tests: give the worker its real permission check back */
+async function unstubPermissions(context) {
+  const sw = context.serviceWorkers().find(w => w.url().endsWith('/background.js'));
+  await sw?.evaluate(() => { if (globalThis.__contains) chrome.permissions.contains = globalThis.__contains; }).catch(() => {});
+}
+
+module.exports = { test, expect, setFlag, advanceUntilVisible, stubPermissions, unstubPermissions, DEFAULT_ORDERS, EXT, portfolioSeries, CASH_TODAY, cashFundsApi };

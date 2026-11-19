@@ -8,6 +8,18 @@
   "optOnThisPage": {
     "message": "Op deze pagina"
   },
+  "optAllSettings": {
+    "message": "Alle instellingen"
+  },
+  "optSectionCount": {
+    "message": "$1 van $2 aan"
+  },
+  "optSectionAll": {
+    "message": "Alles in $1"
+  },
+  "statusMissingShort": {
+    "message": "Niet gevonden"
+  },
   "optPricing": {
     "message": "Koersen"
   },

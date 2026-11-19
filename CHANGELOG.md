@@ -10,6 +10,7 @@
   - *No Yahoo ticker for …*: an exchange or product type (e.g. futures) Yahoo doesn't cover, with no ISIN to look up.
   - *Not linked yet*: the product hasn't been seen since its alarm was set. The tooltip says how to link it.
 - **Tickers are linked by themselves**: from the Favourites list on screen, a product's page, or, for alarm products in other lists, DEGIRO's own product details (symbol, ISIN, exchange), requested once while you're logged in and the background check is on. You don't need to open each list or product.
+- **Shorter settings popup**: every section starts collapsed and shows how many of its switches are on (*On this page* sums up its states, e.g. *9 Working · 3 Not on this page*); the sections you open are remembered on this computer. A switch next to each section's title turns everything in it on or off, and *All settings* at the top does the same for every switch. Turning everything on never switches on *Check in the background*. A switch can't be clicked again until its change is saved.
 
 ## 1.23.1 — 2026-11-16
 - **Light-theme grey lines**: the grey borders in light mode now use DEGIRO's own grey, on the Orders and Transactions filter pickers, the merged Portfolio table, the alarm panel and the Alarms page.

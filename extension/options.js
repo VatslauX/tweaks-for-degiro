@@ -27,6 +27,39 @@
     }
   } catch (e) {} // no homepage: no link
 
+  // Collapsible sections. Which ones are open is kept on this computer only (the popup's localStorage, never
+  // synced); anything missing, malformed or unreadable there means every section starts collapsed.
+  const OPEN_KEY = 'dgOptOpen';
+  const sections = [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('section[data-section]'))];
+  /** @returns {Set<string>} */
+  function openSections() {
+    try {
+      const v = JSON.parse(localStorage.getItem(OPEN_KEY) || '[]');
+      const ids = sections.map(s => s.dataset.section);
+      return new Set(Array.isArray(v) ? v.filter(x => typeof x === 'string' && ids.includes(x)) : []);
+    } catch (e) { return new Set(); }
+  }
+  /** @param {string} id @param {boolean} open */
+  function setOpen(id, open) {
+    const sec = sections.find(s => s.dataset.section === id);
+    const btn = sec?.querySelector('.sec-toggle'), body = sec?.querySelector('.sec-body');
+    if (!btn || !body) return;
+    btn.setAttribute('aria-expanded', String(open));
+    /** @type {HTMLElement} */ (body).hidden = !open;
+    const set = openSections();
+    if (open) set.add(id); else set.delete(id);
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify([...set])); } catch (e) {} // not stored: still works now
+  }
+  const startOpen = openSections();
+  sections.forEach(sec => {
+    const id = sec.dataset.section || '';
+    const btn = sec.querySelector('.sec-toggle');
+    if (startOpen.has(id)) setOpen(id, true);
+    btn?.addEventListener('click', () => setOpen(id, btn.getAttribute('aria-expanded') !== 'true'));
+    const title = sec.querySelector('.sec-toggle [data-i18n]')?.textContent || '';
+    sec.querySelector('.sec-switch')?.setAttribute('aria-label', t('optSectionAll', title));
+  });
+
   let hideTimer;
   const show = (text, isError) => {
     status.textContent = text;
@@ -47,51 +80,133 @@
       return false;
     }
   };
+  // A saved patch, into this page's copy of the settings at once: flags.js re-reads storage only after Chrome's
+  // change event, and until then a check or a revert would see the old values (its re-read then sets them again).
+  /** @param {Record<string, boolean>} patch */
+  const stored = patch => { Object.assign(dgSettings, patch); };
 
-  const syncDepends = s => {
+  // A row that needs another setting is greyed out while that setting's switch shows off: read from the switch, so
+  // one waiting for its save counts with its new value.
+  const syncDepends = () => {
     /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('[data-depends]')).forEach(el =>
-      el.classList.toggle('disabled', !s[el.dataset.depends || '']));
+      el.classList.toggle('disabled', !switches.find(cb => cb.dataset.key === el.dataset.depends)?.checked));
   };
 
-  dgOnSettings(s => {
-    switches.forEach(cb => { cb.checked = !!s[cb.dataset.key || '']; });
-    if (document.activeElement !== titles) titles.value = (s.hiddenTitles || []).join('\n');
-    syncDepends(s);
-  });
+  // Bulk switches: one per settings section and "All settings" at the top. Their on/off/mixed state is read from
+  // the individual switches as shown; the background check counts as shown here (on only with the permissions).
+  const bulkSwitches = [.../** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sec-switch, #allSwitch'))];
+  /** @param {HTMLInputElement} sw @returns {ParentNode} */
+  const scopeOf = sw => (sw.id === 'allSwitch' ? document : sw.closest('section') || document);
+  /** @param {ParentNode} scope @returns {HTMLInputElement[]} */
+  const scopeSwitches = scope => [.../** @type {NodeListOf<HTMLInputElement>} */ (scope.querySelectorAll('input.switch[data-key]'))];
+  function renderBulk() {
+    bulkSwitches.forEach(sw => {
+      const list = scopeSwitches(scopeOf(sw));
+      const on = list.filter(cb => cb.checked).length;
+      sw.indeterminate = on > 0 && on < list.length;
+      // checked: all that a bulk "on" can reach is on (never the background check), so a click on a mixed switch
+      // turns everything on, or, when that would change nothing, everything off
+      sw.checked = on > 0 && list.every(cb => cb.checked || cb.hasAttribute('data-permission'));
+      const count = sw.closest('section')?.querySelector('.sec-count');
+      if (count) count.textContent = t('optSectionCount', on, list.length);
+    });
+  }
 
-  // Check in the background: needs the optional Yahoo host and notifications permissions. Chrome asks only inside
-  // the click, so request() is called first, before anything is awaited. Chrome's prompt can close this popup; the
-  // background worker then switches the setting on when the permissions arrive (permissions.onAdded).
+  // A switch whose state isn't confirmed yet (its save, or Chrome's answer about the background check's permissions,
+  // still pending) is locked: aria-disabled, not `disabled`, which would drop the keyboard focus. The click guard
+  // cancels any click on it (mouse, its label row, Space), which puts the checkbox back and fires no change. Every
+  // lock takes the bulk switches too: their state is read from switches not confirmed yet. Locks on one switch
+  // count; it unlocks when the last is released.
+  /** @type {Map<HTMLInputElement, number>} */
+  const locks = new Map();
+  /** @param {(HTMLInputElement | undefined)[]} els @returns {() => void} release (once) */
+  function lock(els) {
+    const list = [...new Set([...els, ...bulkSwitches])].filter(/** @returns {el is HTMLInputElement} */ el => !!el);
+    list.forEach(el => { locks.set(el, (locks.get(el) || 0) + 1); el.setAttribute('aria-disabled', 'true'); });
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      list.forEach(el => {
+        const n = (locks.get(el) || 1) - 1;
+        if (n > 0) { locks.set(el, n); return; }
+        locks.delete(el);
+        el.removeAttribute('aria-disabled');
+      });
+    };
+  }
+  document.addEventListener('click', e => {
+    if (e.target instanceof HTMLInputElement && locks.has(e.target)) e.preventDefault();
+  }, true);
+
+  // Check in the background: needs the optional Yahoo host and notifications permissions (see bgStatus below).
   const BG_PERMS = { permissions: /** @type {chrome.runtime.ManifestPermission[]} */ (['notifications']), origins: ['https://query1.finance.yahoo.com/*', 'https://sgbeurs.nl/*'] };
   const bgSwitch = switches.find(cb => cb.hasAttribute('data-permission'));
+
+  dgOnSettings(s => {
+    // the background switch shows whether the check runs here, which only bgStatus() knows: never the synced value.
+    // A locked switch keeps the value the user gave it: its own save confirms or reverts it.
+    switches.forEach(cb => { if (cb !== bgSwitch && !locks.has(cb)) cb.checked = !!s[cb.dataset.key || '']; });
+    if (document.activeElement !== titles) titles.value = (s.hiddenTitles || []).join('\n');
+    syncDepends();
+    renderBulk();
+  });
+
+  // Chrome asks for the permissions only inside the click, so request() is called first, before anything is awaited.
+  // Chrome's prompt can close this popup; the background worker then switches the setting on when the permissions
+  // arrive (permissions.onAdded). Locked until Chrome, the save and the check that follows have answered.
+  // A change of the switch on its way (Chrome's prompt, the save, the permissions given back): until it is done, a
+  // check (permission events, a settings re-read) leaves the switch as the user set it. bgOwn counts them.
+  let bgOwn = 0;
   bgSwitch?.addEventListener('change', async () => {
     const want = bgSwitch.checked;
-    syncDepends({ ...dgSettings, alarmsBackground: want });
-    let ok = false;
+    const release = lock([bgSwitch]);
     try {
-      if (want) {
-        const got = /** @type {boolean} */ (/** @type {unknown} */ (await chrome.permissions.request(BG_PERMS)));
-        ok = got && await save({ alarmsBackground: true });
-      } else {
-        ok = await save({ alarmsBackground: false });
-        if (ok) await chrome.permissions.remove(BG_PERMS).catch(() => {});
-      }
-    } catch (e) { show(t('optSaveFailed', e?.message || e), true); }
-    if (!ok) { bgSwitch.checked = !want; syncDepends(dgSettings); }
-    else bgStatus();
+      syncDepends();
+      let ok = false;
+      bgOwn++;
+      try {
+        if (want) {
+          const got = /** @type {boolean} */ (/** @type {unknown} */ (await chrome.permissions.request(BG_PERMS)));
+          ok = got && await save({ alarmsBackground: true });
+          if (ok) stored({ alarmsBackground: true });
+        } else {
+          ok = await save({ alarmsBackground: false });
+          if (ok) {
+            stored({ alarmsBackground: false });
+            await chrome.permissions.remove(BG_PERMS).catch(() => {});
+          }
+        }
+      } catch (e) { show(t('optSaveFailed', e?.message || e), true); } finally { bgOwn--; }
+      if (!ok) { bgSwitch.checked = !want; syncDepends(); renderBulk(); }
+      else await bgStatus();
+    } finally { release(); }
   });
 
   // The setting syncs across the user's computers, the permissions are granted per computer: the switch shows
-  // whether the check runs here (both on). Under it, while on: the last background check (written by background.js).
+  // whether the check runs here (both on), and is locked until Chrome has said. Under it, while on: the last
+  // background check (written by background.js; bgLine).
+  let bgAsked = 0, bgOn = false;
   async function bgStatus() {
+    const asked = ++bgAsked;
+    const release = lock([bgSwitch]);
+    try {
+      let granted = false;
+      try { granted = !!(await chrome.permissions.contains(BG_PERMS)); } catch (e) {}
+      if (asked !== bgAsked) return; // a later check answers instead
+      bgOn = !!dgSettings.alarmsBackground && granted;
+      if (bgSwitch && !bgOwn) bgSwitch.checked = bgOn;
+      renderBulk();
+    } finally { release(); }
+    await bgLine();
+  }
+  // The status line alone: a new status from the worker changes nothing else, so it locks nothing.
+  async function bgLine() {
     const el = $('#bgStatus');
-    let granted = false;
-    try { granted = !!(await chrome.permissions.contains(BG_PERMS)); } catch (e) {}
-    const on = dgSettings.alarmsBackground && granted;
-    if (bgSwitch) bgSwitch.checked = on;
     if (!el) return;
     /** @type {any} */ let st = null;
     try { st = (await chrome.storage.local.get({ dgBgStatus: null })).dgBgStatus; } catch (e) {}
+    const on = bgOn;
     el.hidden = !on;
     const test = $('#bgTest');
     if (test) test.hidden = !on;
@@ -162,19 +277,62 @@
   }
   dgOnSettings(() => { bgStatus(); });
   try {
-    chrome.storage.onChanged.addListener((c, area) => { if (area === 'local' && c.dgBgStatus) bgStatus(); });
+    chrome.storage.onChanged.addListener((c, area) => { if (area === 'local' && c.dgBgStatus) bgLine(); });
     chrome.permissions.onAdded.addListener(() => bgStatus());
     chrome.permissions.onRemoved.addListener(() => bgStatus());
   } catch (e) {}
 
   switches.filter(cb => cb !== bgSwitch).forEach(cb => cb.addEventListener('change', async () => {
     const want = cb.checked, key = cb.dataset.key || ''; // set: the selector requires data-key
-    syncDepends({ ...dgSettings, [key]: want });
-    if (!(await save({ [key]: want }))) {
-      cb.checked = !want; // revert the switch, the change was not stored
-      syncDepends(dgSettings);
-    }
+    const release = lock([cb]); // until the save has answered
+    try {
+      syncDepends();
+      renderBulk();
+      if (await save({ [key]: want })) stored({ [key]: want });
+      else {
+        cb.checked = !want; // revert the switch, the change was not stored
+        syncDepends();
+        renderBulk();
+      }
+    } finally { release(); }
   }));
+
+  // A bulk change: every switch in scope set on or off, saved in one write, with no memory of the earlier mix.
+  // "On" never turns on the background check (Chrome's permission prompt; tickers sent out). "Off" turns it off only
+  // where it runs (switch shown on), by its own path: save, then give the permissions back. A computer without the
+  // permissions leaves the synced setting alone, or it would switch the check off on the computer where it runs.
+  // Every switch in scope is locked until the save, and a background check switched off, have answered.
+  /** @param {ParentNode} scope @param {boolean} on */
+  async function setAll(scope, on) {
+    const release = lock(scopeSwitches(scope));
+    try {
+      const list = scopeSwitches(scope).filter(cb => !cb.hasAttribute('data-permission') || (!on && cb.checked));
+      const bgOff = list.includes(/** @type {HTMLInputElement} */ (bgSwitch));
+      /** @type {Record<string, boolean>} */ const patch = {};
+      list.forEach(cb => { patch[cb.dataset.key || ''] = on; cb.checked = on; });
+      syncDepends();
+      renderBulk();
+      let ok = false;
+      if (bgOff) bgOwn++;
+      try {
+        ok = await save(patch);
+        if (ok) {
+          stored(patch);
+          if (bgOff) await chrome.permissions.remove(BG_PERMS).catch(() => {});
+        }
+      } finally { if (bgOff) bgOwn--; }
+      if (ok) {
+        if (bgOff) await bgStatus();
+        return;
+      }
+      // not stored: show the stored settings again, on the switches this change set (others may wait for a save)
+      list.forEach(cb => { if (cb !== bgSwitch) cb.checked = !!dgSettings[cb.dataset.key || '']; });
+      syncDepends();
+      renderBulk();
+      await bgStatus();
+    } finally { release(); }
+  }
+  bulkSwitches.forEach(sw => sw.addEventListener('change', () => { setAll(scopeOf(sw), sw.checked); }));
 
   const validate = list => {
     if (list.length > DG_MAX_TITLES) return t('optTooMany', DG_MAX_TITLES);
@@ -195,16 +353,21 @@
   };
   const STATES = { ok: 'statusOk', loading: 'statusLoading', idle: 'statusIdle', error: 'statusError', missing: 'statusMissing' };
   async function loadStatus() {
-    const box = $('#pageStatus'), list = $('#pageStatusList');
+    const box = $('#pageStatus'), list = $('#pageStatusList'), summary = $('#pageStatus .sec-count');
     let res = /** @type {Record<string, string> | null} */ (null);
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id != null) res = await chrome.tabs.sendMessage(tab.id, { type: 'dg-status' });
     } catch (e) {} // not a DEGIRO tab: no content script to answer
     const status = res; // a const snapshot narrows for the closures below; `res` itself does not
-    if (!status) { box.hidden = true; list.replaceChildren(); return; }
+    if (!status) { box.hidden = true; list.replaceChildren(); if (summary) summary.textContent = ''; return; }
     const rows = Object.keys(FEATURES).filter(k => STATES[status[k]]);
     box.hidden = !rows.length;
+    // the header's one-line summary, e.g. "5 Working · 1 Not found", in STATES order
+    if (summary) {
+      summary.textContent = Object.keys(STATES).map(s => [s, rows.filter(k => status[k] === s).length])
+        .filter(([, n]) => n).map(([s, n]) => `${n} ${t(s === 'missing' ? 'statusMissingShort' : STATES[s])}`).join(' · ');
+    }
     list.replaceChildren(...rows.map(k => {
       const li = document.createElement('li');
       const name = document.createElement('span');

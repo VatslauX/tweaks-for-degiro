@@ -1,40 +1,13 @@
 // Settings: the opt-in "Check in the background" switch (background.js). Chrome's own permission prompt can't be
 // clicked by a test, so chrome.permissions is stubbed on the settings page; the worker side is in
 // tests/unit/background.test.js.
-const { test, expect } = require('./fixtures');
+const { test, expect, stubPermissions, unstubPermissions } = require('./fixtures');
 
 const SWITCH = 'input[data-key=alarmsBackground]';
 const ROW = `label.row:has(${SWITCH})`;
 
-/** the extension's background worker */
-async function backgroundWorker(context) {
-  const mine = w => w.url().endsWith('/background.js');
-  return context.serviceWorkers().find(mine) || context.waitForEvent('serviceworker', { predicate: mine });
-}
-
-/**
- * Stub Chrome's permission prompt on the settings page, and (`grant`) the worker's view of the permissions too:
- * without them the worker switches the setting back off. No alarm is stored, so the worker never polls Yahoo.
- * @param {import('@playwright/test').BrowserContext} context @param {import('@playwright/test').Page} opt @param {boolean} grant
- */
-async function stubPermissions(context, opt, grant) {
-  await opt.evaluate(g => {
-    window.__perm = { requested: [], removed: [] };
-    window.__granted = false;
-    chrome.permissions.contains = async () => window.__granted;
-    chrome.permissions.request = async p => { window.__perm.requested.push(p); window.__granted = g; return g; };
-    chrome.permissions.remove = async p => { window.__perm.removed.push(p); return true; };
-  }, grant);
-  if (grant) {
-    const sw = await backgroundWorker(context);
-    await sw.evaluate(() => { globalThis.__contains = chrome.permissions.contains; chrome.permissions.contains = async () => true; });
-  }
-}
 // the browser is reused by the next tests: give the worker its real permission check back
-test.afterEach(async ({ context }) => {
-  const sw = context.serviceWorkers().find(w => w.url().endsWith('/background.js'));
-  await sw?.evaluate(() => { if (globalThis.__contains) chrome.permissions.contains = globalThis.__contains; }).catch(() => {});
-});
+test.afterEach(({ context }) => unstubPermissions(context));
 
 test('the switch sits under Price alarms, off by default, with no status line', async ({ settings }) => {
   const opt = await settings();
@@ -154,6 +127,118 @@ test('switched on on another computer but without the permissions here: shown of
   await expect(opt.locator('#bgStatus')).toBeHidden();
   // the worker never switches it off: that would switch it off on the other computer too
   await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmsBackground').then(r => r.alarmsBackground))).toBe(true);
+});
+
+test('the switch is locked while Chrome is asked whether the permissions are granted here', async ({ context, settings }) => {
+  const opt = await settings();
+  await stubPermissions(context, opt, true);
+  await opt.evaluate(() => {
+    window.__waits = [];
+    chrome.permissions.contains = () => new Promise(r => window.__waits.push(r));
+  });
+  // any settings change asks again
+  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
+  await expect.poll(() => opt.evaluate(() => window.__waits.length)).toBeGreaterThan(0);
+  await expect(opt.locator(SWITCH)).toHaveAttribute('aria-disabled', 'true');
+  await expect(opt.locator('#allSwitch')).toHaveAttribute('aria-disabled', 'true');
+  // neither its row (force: past Playwright's enabled check) nor Space toggles it, and Chrome isn't asked
+  await opt.locator(ROW).click({ force: true });
+  await opt.locator(SWITCH).focus();
+  await opt.keyboard.press('Space');
+  await expect(opt.locator(SWITCH)).not.toBeChecked();
+  expect(await opt.evaluate(() => window.__perm.requested.length)).toBe(0);
+  await opt.evaluate(() => {
+    chrome.permissions.contains = async () => window.__granted;
+    window.__waits.splice(0).forEach(r => r(false));
+  });
+  await expect(opt.locator(SWITCH)).not.toHaveAttribute('aria-disabled');
+  await expect(opt.locator('#allSwitch')).not.toHaveAttribute('aria-disabled');
+  await expect(opt.locator(SWITCH)).toBeFocused();
+  await opt.locator(ROW).click();
+  await expect(opt.locator(SWITCH)).toBeChecked();
+  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmsBackground').then(r => r.alarmsBackground))).toBe(true);
+});
+
+test('after a click the switch stays locked until Chrome, the save and the check have answered', async ({ context, settings }) => {
+  const opt = await settings();
+  await stubPermissions(context, opt, true);
+  await opt.evaluate(() => {
+    // Chrome's prompt, held open until the test answers it
+    const request = chrome.permissions.request;
+    window.__asks = [];
+    chrome.permissions.request = p => new Promise(r => window.__asks.push(() => r(request(p))));
+  });
+  await opt.locator(ROW).click();
+  await expect(opt.locator(SWITCH)).toBeChecked();
+  await expect(opt.locator(SWITCH)).toHaveAttribute('aria-disabled', 'true');
+  await expect(opt.locator('#allSwitch')).toHaveAttribute('aria-disabled', 'true');
+  await opt.locator(ROW).click({ force: true });
+  await expect(opt.locator(SWITCH)).toBeChecked();
+  expect(await opt.evaluate(() => window.__asks.length)).toBe(1);
+  await opt.evaluate(() => window.__asks.shift()());
+  await expect(opt.locator(SWITCH)).not.toHaveAttribute('aria-disabled');
+  await expect(opt.locator('#allSwitch')).not.toHaveAttribute('aria-disabled');
+  await expect(opt.locator(SWITCH)).toBeChecked();
+  await expect(opt.locator('#bgStatus')).toBeVisible();
+  // switching off with a failed save unlocks it too: the switch back on, and the red error
+  await opt.evaluate(() => { chrome.storage.sync.set = () => Promise.reject(new Error('QUOTA_BYTES quota exceeded')); });
+  await opt.locator(ROW).click();
+  await expect(opt.locator('#status')).toHaveClass(/error/);
+  await expect(opt.locator(SWITCH)).toBeChecked();
+  await expect(opt.locator(SWITCH)).not.toHaveAttribute('aria-disabled');
+});
+
+test('switched on, the switch never shows off again while the setting is re-read', async ({ context, settings }) => {
+  const opt = await settings();
+  await stubPermissions(context, opt, true);
+  // every value the page writes to the switch (the user's own click doesn't go through the setter)
+  await opt.evaluate(() => {
+    const d = /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked'));
+    window.__shown = [];
+    Object.defineProperty(document.querySelector('input[data-key=alarmsBackground]'), 'checked', {
+      configurable: true,
+      get() { return d.get.call(this); },
+      set(v) { window.__shown.push(!!v); d.set.call(this, v); }
+    });
+  });
+  await opt.locator(ROW).click();
+  await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmsBackground').then(r => r.alarmsBackground))).toBe(true);
+  // the check after the save, and the one after flags.js has re-read the setting
+  await expect.poll(() => opt.evaluate(() => window.__shown.length)).toBeGreaterThanOrEqual(2);
+  await expect(opt.locator(SWITCH)).not.toHaveAttribute('aria-disabled');
+  expect(await opt.evaluate(() => window.__shown)).not.toContain(false);
+  await expect(opt.locator(SWITCH)).toBeChecked();
+});
+
+test('a new background status updates the line without locking any switch', async ({ context, settings }) => {
+  const opt = await settings();
+  await stubPermissions(context, opt, true);
+  await opt.evaluate(() => { window.__granted = true; return chrome.storage.sync.set({ alarmsBackground: true }); });
+  await expect(opt.locator('#bgStatus')).toHaveText('Waiting for the first check.');
+  await expect(opt.locator('#allSwitch')).not.toHaveAttribute('aria-disabled');
+  // Chrome's permission answer held: a check of the switch would stay pending (and locked) from here on
+  await opt.evaluate(() => {
+    window.__waits = [];
+    chrome.permissions.contains = () => new Promise(r => window.__waits.push(r));
+  });
+  // the worker writes its status once a minute: only the line under the switch changes
+  await opt.evaluate(() => chrome.storage.local.set({ dgBgStatus: { at: Date.now(), linked: 2, total: 3, err: '' } }));
+  await expect(opt.locator('#bgStatus')).toHaveText(/^Last check .+ · 2 of 3 alarms linked$/);
+  expect(await opt.evaluate(() => window.__waits.length)).toBe(0);
+  await expect(opt.locator('#allSwitch')).not.toHaveAttribute('aria-disabled');
+  await expect(opt.locator(SWITCH)).not.toHaveAttribute('aria-disabled');
+  await expect(opt.locator(SWITCH)).toBeChecked();
+});
+
+test('a permission request that throws leaves the switch off, unlocked, with the error shown', async ({ context, settings }) => {
+  const opt = await settings();
+  await stubPermissions(context, opt, false);
+  await opt.evaluate(() => { chrome.permissions.request = () => { throw new Error('Permission request failed'); }; });
+  await opt.locator(ROW).click();
+  await expect(opt.locator('#status')).toHaveClass(/error/);
+  await expect(opt.locator(SWITCH)).not.toBeChecked();
+  await expect(opt.locator(SWITCH)).not.toHaveAttribute('aria-disabled');
+  await expect(opt.locator('#allSwitch')).not.toHaveAttribute('aria-disabled');
 });
 
 test('the status line shows the last background check, or that Yahoo was not reachable', async ({ context, settings }) => {

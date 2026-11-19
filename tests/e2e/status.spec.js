@@ -22,6 +22,38 @@ test('popup lists which features work on the open DEGIRO page', async ({ degiro,
   await expect(opt.locator('#pageStatus')).toBeVisible();
 });
 
+test('the collapsed On this page header sums up the states', async ({ degiro, settings }) => {
+  const { page } = await degiro();
+  const opt = await settings({ collapsed: true });
+  await expect.poll(async () => (await popupStatus(page, opt))['Open orders on chart'], { timeout: 15000 }).toBe('Working');
+  await expect(opt.locator('#pageStatus .sec-toggle')).toHaveAttribute('aria-expanded', 'false');
+  await expect(opt.locator('#pageStatusList')).toBeHidden();
+  // per state, in the popup's order: OK, loading, idle, error, missing
+  const states = await opt.locator('#pageStatusList li').evaluateAll(lis => lis.map(li => [li.lastChild.className, li.lastChild.textContent]));
+  const order = ['ok', 'loading', 'idle', 'error', 'missing'];
+  const want = order.map(s => states.filter(([c]) => c === s)).filter(l => l.length).map(l => `${l.length} ${l[0][1]}`).join(' · ');
+  expect(want).toMatch(/^\d+ Working · \d+ Not on this page$/); // the product mock: some work, the page-specific ones don't
+  await expect(opt.locator('#pageStatus .sec-count')).toHaveText(want);
+});
+
+test('the summary names a missing feature in short', async ({ degiro, settings }) => {
+  const { page } = await degiro();
+  const opt = await settings({ collapsed: true });
+  await expect.poll(async () => (await popupStatus(page, opt))['Open orders on chart'], { timeout: 15000 }).toBe('Working');
+  // a page-world feature reported missing (the page writes these statuses)
+  await page.evaluate(() => document.documentElement.setAttribute('data-dg-status', JSON.stringify({ chartSelect: 'missing' })));
+  await expect.poll(async () => (await popupStatus(page, opt))['Range selection']).toMatch(/^Not found/);
+  await expect(opt.locator('#pageStatus .sec-count')).toContainText(/\b1 Not found( ·|$)/);
+  await expect(opt.locator('#pageStatus .sec-count')).not.toContainText('—');
+});
+
+test('the summary is cleared when the popup is not over DEGIRO', async ({ settings }) => {
+  const opt = await settings({ collapsed: true });
+  await opt.evaluate(() => { document.querySelector('#pageStatus .sec-count').textContent = 'stale'; return globalThis.dgLoadStatus(); });
+  await expect(opt.locator('#pageStatus')).toBeHidden();
+  await expect(opt.locator('#pageStatus .sec-count')).toHaveText('');
+});
+
 // A missing page element ("Not found"): the isolated-world 8 s loading window runs on real time
 // here, so it is checked in tests/integration/content.test.js, and the popup's "Not found" text
 // with page-world features on the fake clock in session.spec.js.

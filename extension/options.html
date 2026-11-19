@@ -15,13 +15,23 @@
     </div>
   </header>
 
-  <section id="pageStatus" hidden>
-    <h2 data-i18n="optOnThisPage">On this page</h2>
+  <label class="all-row"><strong data-i18n="optAllSettings">All settings</strong><input type="checkbox" class="switch" id="allSwitch"></label>
+
+  <section id="pageStatus" data-section="pageStatus" hidden>
+    <div class="sec-head">
+      <h2><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="sec-pageStatus"><span class="chev" aria-hidden="true"></span><span data-i18n="optOnThisPage">On this page</span><span class="sec-count"></span></button></h2>
+    </div>
+    <div class="sec-body" id="sec-pageStatus" hidden>
     <ul id="pageStatusList"></ul>
+    </div>
   </section>
 
-  <section>
-    <h2 data-i18n="optPricing">Pricing</h2>
+  <section data-section="pricing">
+    <div class="sec-head">
+      <h2><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="sec-pricing"><span class="chev" aria-hidden="true"></span><span data-i18n="optPricing">Pricing</span><span class="sec-count"></span></button></h2>
+      <input type="checkbox" class="switch sec-switch">
+    </div>
+    <div class="sec-body" id="sec-pricing" hidden>
     <label class="row">
       <span><strong data-i18n="optSpread">Bid/ask spread</strong><small data-i18n="optSpreadHelp">Spread row in Pricing data, colour-coded by size.</small></span>
       <input type="checkbox" class="switch" data-key="spread">
@@ -42,10 +52,15 @@
       <span><strong data-i18n="optCompact">Compact Pricing data</strong><small data-i18n="optCompactHelp">Tighter spacing between all rows in Pricing data.</small></span>
       <input type="checkbox" class="switch" data-key="compactPricing">
     </label>
+    </div>
   </section>
 
-  <section>
-    <h2 data-i18n="optChart">Chart</h2>
+  <section data-section="chart">
+    <div class="sec-head">
+      <h2><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="sec-chart"><span class="chev" aria-hidden="true"></span><span data-i18n="optChart">Chart</span><span class="sec-count"></span></button></h2>
+      <input type="checkbox" class="switch sec-switch">
+    </div>
+    <div class="sec-body" id="sec-chart" hidden>
     <label class="row">
       <span><strong data-i18n="optPeriodChange">Change for selected period</strong><small data-i18n="optPeriodChangeHelp">Next to the daily change on products and next to the total on the portfolio chart.</small></span>
       <input type="checkbox" class="switch" data-key="periodChange">
@@ -66,10 +81,15 @@
       <span><strong data-i18n="optOrdersClick">Click badge to edit</strong><small data-i18n="optOrdersClickHelp">Opens DEGIRO's Adjust order form for that order.</small></span>
       <input type="checkbox" class="switch" data-key="ordersClick">
     </label>
+    </div>
   </section>
 
-  <section>
-    <h2 data-i18n="optPortfolio">Portfolio</h2>
+  <section data-section="portfolio">
+    <div class="sec-head">
+      <h2><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="sec-portfolio"><span class="chev" aria-hidden="true"></span><span data-i18n="optPortfolio">Portfolio</span><span class="sec-count"></span></button></h2>
+      <input type="checkbox" class="switch sec-switch">
+    </div>
+    <div class="sec-body" id="sec-portfolio" hidden>
     <label class="row">
       <span><strong data-i18n="optPortfolioMerge">Merge holdings into one table</strong><small data-i18n="optPortfolioMergeHelp">Combines Shares, Trackers (ETFs) and Structured products into a single sortable table on the Portfolio page.</small></span>
       <input type="checkbox" class="switch" data-key="portfolioMergedTable">
@@ -78,10 +98,15 @@
       <span><strong data-i18n="optPortfolioPersist">Remember Portfolio table sort &amp; columns</strong><small data-i18n="optPortfolioPersistHelp">Keeps your chosen sort column and hidden columns across reloads and navigation.</small></span>
       <input type="checkbox" class="switch" data-key="portfolioMergedPersist">
     </label>
+    </div>
   </section>
 
-  <section>
-    <h2 data-i18n="optOrders">Orders</h2>
+  <section data-section="orders">
+    <div class="sec-head">
+      <h2><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="sec-orders"><span class="chev" aria-hidden="true"></span><span data-i18n="optOrders">Orders</span><span class="sec-count"></span></button></h2>
+      <input type="checkbox" class="switch sec-switch">
+    </div>
+    <div class="sec-body" id="sec-orders" hidden>
     <label class="row">
       <span><strong data-i18n="optAdjustClose">Click outside or Esc closes Adjust order</strong><small data-i18n="optAdjustCloseHelp">Same as pressing Cancel or ×. Changes are not saved.</small></span>
       <input type="checkbox" class="switch" data-key="adjustClose">
@@ -118,10 +143,15 @@
       <span><strong data-i18n="optAlarmsBackground">Check in the background</strong><small data-i18n="optAlarmsBackgroundHelp">Every minute while Chrome runs, even with DEGIRO closed or logged out. Prices from Yahoo Finance, usually 15 min delayed, and live from Société Générale (sgbeurs.nl) for its own products. Only ticker symbols (e.g. ASML.AS) are sent to Yahoo, and a product's ISIN once when its ticker doesn't match; only the ISINs of SG products are sent to SG.</small><small id="bgStatus" hidden></small><a href="#" role="button" id="bgTest" class="linkish" hidden data-i18n="optBgTest">Send a test notification</a><small id="bgTestNote" hidden></small></span>
       <input type="checkbox" class="switch" data-key="alarmsBackground" data-permission>
     </label>
+    </div>
   </section>
 
-  <section>
-    <h2 data-i18n="optPageCleanup">Page cleanup</h2>
+  <section data-section="cleanup">
+    <div class="sec-head">
+      <h2><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="sec-cleanup"><span class="chev" aria-hidden="true"></span><span data-i18n="optPageCleanup">Page cleanup</span><span class="sec-count"></span></button></h2>
+      <input type="checkbox" class="switch sec-switch">
+    </div>
+    <div class="sec-body" id="sec-cleanup" hidden>
     <label class="row">
       <span><strong data-i18n="optHideSections">Hide sections</strong><small data-i18n="optHideSectionsHelp">Hide DEGIRO sections by their title.</small></span>
       <input type="checkbox" class="switch" data-key="hideSections">
@@ -129,6 +159,7 @@
     <div class="sub" data-depends="hideSections">
       <label for="hiddenTitles" class="muted small" data-i18n="optHiddenTitles">Section titles to hide, one per line (exact title, any case)</label>
       <textarea id="hiddenTitles" rows="3" spellcheck="false"></textarea>
+    </div>
     </div>
   </section>
 

@@ -8,6 +8,18 @@
   "optOnThisPage": {
     "message": "Sur cette page"
   },
+  "optAllSettings": {
+    "message": "Tous les réglages"
+  },
+  "optSectionCount": {
+    "message": "$1 sur $2 activés"
+  },
+  "optSectionAll": {
+    "message": "Tout dans $1"
+  },
+  "statusMissingShort": {
+    "message": "Introuvable"
+  },
   "optPricing": {
     "message": "Cours"
   },

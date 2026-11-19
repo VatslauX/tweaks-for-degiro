@@ -8,6 +8,18 @@
   "optOnThisPage": {
     "message": "En esta página"
   },
+  "optAllSettings": {
+    "message": "Todos los ajustes"
+  },
+  "optSectionCount": {
+    "message": "$1 de $2 activados"
+  },
+  "optSectionAll": {
+    "message": "Todo en $1"
+  },
+  "statusMissingShort": {
+    "message": "No encontrado"
+  },
   "optPricing": {
     "message": "Precios"
   },
