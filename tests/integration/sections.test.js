@@ -1,7 +1,7 @@
 // Hidden sections (hide.js) and compact Pricing data (compact.js): which box is hidden for a title,
 // which lists get a smaller row gap, and what comes back when the setting goes off.
-// Layout stays in Playwright (tests/e2e/features.spec.js): JSDOM has no layout, and it expands no
-// `gap` shorthand, so only rows that declare `row-gap` themselves are seen as row stacks here.
+// Layout stays in Playwright (tests/e2e/compact.spec.js): JSDOM has no layout, and JSDOM 30 expands no
+// `gap` shorthand, so the fixture declares `row-gap` itself on every row stack.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createWorld } = require('./harness');
@@ -152,10 +152,14 @@ test('every list in the Pricing data widget gets the smaller row gap, nothing ou
   const w = createWorld();
   const tab = await product(w);
   await w.advance(200);
-  assert.deepEqual(compacted(tab).sort(), ['pricingDl', 'symbolDl'], 'the Bid list and its widget\'s other list');
+  assert.deepEqual(compacted(tab).sort(), ['askCol', 'bidCol', 'pricingDl', 'symbolDl'],
+    'the Bid list, its Bid and Ask columns, and its widget\'s other list');
   assert.equal(rowGap(tab, '#pricingDl'), '4px');
+  assert.equal(rowGap(tab, '#bidCol'), '4px', 'the flex column of Latest and Bid rows');
+  assert.equal(rowGap(tab, '#askCol'), '4px');
   assert.equal(tab.$('#pricingDl').style.getPropertyPriority('row-gap'), 'important', 'beats DEGIRO\'s own rule');
   assert.equal(rowGap(tab, '#unrelatedDl'), '', 'a list in another widget is left alone');
+  assert.equal(rowGap(tab, '#unrelated'), '', 'a flex column outside the widget is left alone');
   assert.equal(tab.json('__dgt.status().compactPricing'), 'ok');
   noErrors(w);
 });

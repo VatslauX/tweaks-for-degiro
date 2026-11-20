@@ -8,8 +8,9 @@
     .cols { display: flex; gap: 40px; }
     .row { display: flex; justify-content: space-between; width: 300px; }
     /* DEGIRO's Pricing data columns: flex column with a 12px gap between rows */
-    .col { display: flex; flex-direction: column; gap: 12px; }
-    #unrelated { display: flex; flex-direction: column; gap: 12px; }
+    /* longhands, not `gap: 12px`: the same in Chrome, and JSDOM 30 doesn't expand the shorthand into the computed rowGap */
+    .col { display: flex; flex-direction: column; row-gap: 12px; column-gap: 12px; }
+    #unrelated { display: flex; flex-direction: column; row-gap: 12px; column-gap: 12px; }
     /* Pricing data lists are grids with a 12px row gap; text size is set on the inner span */
     dl { display: grid; row-gap: 12px; margin: 0; }
     dt, dd { font-size: 14px; margin: 0; }
