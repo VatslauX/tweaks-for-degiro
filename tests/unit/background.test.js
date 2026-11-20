@@ -261,15 +261,16 @@ test('SG: refused (its firewall\'s HTML page) → its own wait, the product is c
   const w = worker({
     sync: { dgAlarms: [ALARM, SG_ALARM], dgTickers: { ...LINK, ...SG_LINK } },
     local: { dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' }, [`|€|${SG_ISIN}|sg`]: { ok: true, f: 1, y: 'SU054L', sg: SG_META, at: NOW - 3600000 } } },
-    responses: url => (url.startsWith('https://sgbeurs.nl') ? sgSite(26.47, rejected)(url) : yahoo()(url))
+    responses: url => (url.startsWith('https://sgbeurs.nl/') ? sgSite(26.47, rejected)(url) : yahoo()(url))
   });
   await w.tick();
   const local = w.chrome.storage.local.data;
   assert.deepEqual(local.dgAlarmEvents.map(e => e.alarmId), ['a1'], 'the Yahoo alarm fired');
   assert.equal(local.dgTickerCheck[`|€|${SG_ISIN}|sg`], undefined, 'its fields may be stale: checked again later');
   assert.match(local.dgBgStatus.err, /SG HTTP 403/);
-  const sgCalls = () => w.calls.fetch.filter(f => f.url.startsWith('https://sgbeurs.nl')).length;
+  const sgCalls = () => w.calls.fetch.filter(f => f.url.startsWith('https://sgbeurs.nl/')).length;
   const n = sgCalls();
+  assert.ok(n > 0, 'SG was asked');
   await w.tick();
   assert.equal(sgCalls(), n, 'the product waits (2 minutes, doubling) before its link is checked again');
 });
@@ -278,7 +279,7 @@ test('SG: SG refusing to confirm a link doesn\'t stop a Yahoo link from being co
   const rejected = { status: 403, body: '<html>Request Rejected</html>' };
   const w = worker({
     sync: { dgAlarms: [SG_ALARM, ALARM], dgTickers: { ...SG_LINK, ...LINK } }, // the SG link comes first
-    responses: url => (url.startsWith('https://sgbeurs.nl') ? rejected : yahoo()(url))
+    responses: url => (url.startsWith('https://sgbeurs.nl/') ? rejected : yahoo()(url))
   });
   await w.tick();
   const local = w.chrome.storage.local.data;
