@@ -125,7 +125,11 @@ Load the `anthropic-skills:chrome-browser` skill, then the Chrome tools in one T
       actionButton: st(SEL.productActionButton, 'color', 'backgroundColor', 'fontFamily'),
       link: st('main a[href]', 'color'),
       menuItem: st(SEL.menuItem, 'color', 'fontSize', 'fontWeight'),
-      tableCellBorder: st('table td', 'borderBottomColor', 'borderBottomWidth')
+      tableCellBorder: st('table td', 'borderBottomColor', 'borderBottomWidth'),
+      // fonts our chart text copies (chartFont / fontFamilyOf): compare with our overlays beside them
+      axisLabel: st(SEL.chartAxisLabel, 'fontFamily', 'fontSize'),
+      perfCaption: st(SEL.perfCaption, 'fontFamily', 'fontSize'),
+      perfTooltip: st(SEL.perfTooltip, 'fontFamily', 'fontSize') // only while hovering the chart
     }
   });
 })()
@@ -137,7 +141,7 @@ Extend the probe when a feature relies on more DEGIRO DOM than this covers (read
 
 | Page | Hash | Selectors that must match (≥ 1) |
 |---|---|---|
-| Product | `#/products/<id>` | `bidPrice`, `askPrice`, `relativeDifference` (> 1), `mainPageSection` (exactly 1), `measurer`, `productName`, `productBriefInfo`, `productActionButton`, `currentPrice`, `sideBar`, `sideNav`, `productsMenuItem`, `favouritesMenuItem`, `menuItem`; `favouriteStarOn` if it's a favourite; `exDividendDate`/`dividendsTitle` for a stock that pays dividends |
+| Product | `#/products/<id>` | `bidPrice`, `askPrice`, `relativeDifference` (> 1), `mainPageSection` (exactly 1), `measurer`, `productName`, `productBriefInfo`, `productActionButton`, `currentPrice`, `chartAxisLabel`, `sideBar`, `sideNav`, `productsMenuItem`, `favouritesMenuItem`, `menuItem`; `favouriteStarOn` if it's a favourite; `exDividendDate`/`dividendsTitle` for a stock that pays dividends |
 | Favourites | `#/favourites` | `mainContent`, `favourites`, `lastPrice` |
 | Orders | `#/orders/open` | `openOrders`, `rowDate`, `symbolIsin`, `exchangeAbbr`, the order column fields, `buySellBadge` |
 | Transactions | `#/transactions` | `transactions`, `transactionsFilters`, `rowDate`, `txValue`, `txTotal`, `txFee`, `txPrice`, `txLocalValue` |
@@ -155,10 +159,10 @@ Extend the probe when a feature relies on more DEGIRO DOM than this covers (read
 Compare the real computed values (normalised to upper-case hex) with every hard-coded colour and font in `extension/`:
 
 ```
-grep -nE "#[0-9A-Fa-f]{6}\b|font-family|Roboto" extension/*.js extension/*.css | grep -v options
+grep -nE "#[0-9A-Fa-f]{6}\b|font-family|fontFamily|chartFont|Roboto|Inter\b" extension/*.js extension/*.css | grep -v options
 ```
 
-Make one table: constant, `file:line`, what it imitates, the real value, match yes/no. At least: muted label grey (`#798A90`, `#65757B`), up/down green and red (`#1E8302`, `#078307`, `#E3282B`, `#E40101`), DEGIRO blue (`#009FDF`, `#0095D2`), text (`#0F171A`), line (`#D6DDE0`), the font stack (`Roboto, Helvetica, HelveticaNeue, sans-serif`) and font sizes. Two constants for the same role with different values (for example two blues) are a finding: say which one the real page uses.
+Make one table: constant, `file:line`, what it imitates, the real value, match yes/no. At least: muted label grey (`#798A90`, `#65757B`), up/down green and red (`#1E8302`, `#078307`, `#E3282B`, `#E40101`), DEGIRO blue (`#009FDF`, `#0095D2`), text (`#0F171A`), line (`#D6DDE0`), the fallback font stack (`FONT` in `common.js`, `Roboto, Helvetica, HelveticaNeue, sans-serif`) and font sizes. The text on the charts takes its font from DEGIRO's text beside it when drawn (`chartFont`, `fontFamilyOf`: the product chart's axis labels; on Portfolio, the caption next to the total and the hover tooltip), so check those match their neighbour's computed font rather than a constant. Two constants for the same role with different values (for example two blues) are a finding: say which one the real page uses.
 
 Also look at the extension's own elements next to DEGIRO's, if the user has the release candidate loaded (step 6): take one screenshot of the product header and one of the Orders table and check that font, size, colour and alignment match the surrounding DEGIRO text.
 

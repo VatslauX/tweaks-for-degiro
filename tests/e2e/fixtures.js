@@ -255,4 +255,12 @@ async function unstubPermissions(context) {
   await sw?.evaluate(() => { if (globalThis.__contains) chrome.permissions.contains = globalThis.__contains; }).catch(() => {});
 }
 
-module.exports = { test, expect, setFlag, advanceUntilVisible, stubPermissions, unstubPermissions, DEFAULT_ORDERS, EXT, portfolioSeries, CASH_TODAY, cashFundsApi };
+/** the computed font of the product chart's own text (a price axis label), which our labels on the chart follow;
+ * Arial in the mock, as on DEGIRO, not the page's Roboto */
+async function chartAxisFont(page) {
+  const f = await page.evaluate(() => getComputedStyle(document.querySelector('#chart .highcharts-yaxis-labels > *')).fontFamily);
+  expect(f).toBe('Arial'); // the mock is like DEGIRO: otherwise a test comparing with it would prove nothing
+  return f;
+}
+
+module.exports = { test, expect, setFlag, advanceUntilVisible, stubPermissions, unstubPermissions, DEFAULT_ORDERS, EXT, portfolioSeries, CASH_TODAY, cashFundsApi, chartAxisFont };

@@ -6,7 +6,7 @@
   const GOLD = '#e0a100', MAX = 25, ATTR = 'data-dg-alarm-lines';
   const BELL = 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0'; // ui.js BELL (not reachable from here)
   const H_LABEL = 16; // badge height: 14px line + border
-  const { flags: readFlags, mainChart, fmt, page, own, feature } = __dgt; // common.js
+  const { flags: readFlags, chartFont, mainChart, fmt, page, own, feature } = __dgt; // common.js
   /** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean }} DgPageFlags */
   let F = /** @type {DgPageFlags | null} */ (null);
   // the chart identified as main by the last run(): a cheap cache so the redraw hook (which fires
@@ -42,14 +42,14 @@
     return parsed && pid && parsed.id === pid ? parsed.prices : [];
   }
 
-  /** @param {any} chart @param {number} price @param {string} arrow @param {number} right */
-  function badge(chart, price, arrow, right) {
+  /** @param {any} chart @param {number} price @param {string} arrow @param {number} right @param {string} font */
+  function badge(chart, price, arrow, right, font) {
     const d = document.createElement('div');
     d.setAttribute('data-dg-alarm-badge', '');
     d.style.cssText =
       `position:absolute;right:${right}px;transform:translateY(-50%);` +
       'display:flex;align-items:center;gap:3px;background:' + GOLD + ';color:#fff;font-size:11px;font-weight:600;' +
-      'padding:1px 6px;border-radius:3px;white-space:nowrap;font-family:Roboto,Helvetica,HelveticaNeue,sans-serif;line-height:14px;';
+      'padding:1px 6px;border-radius:3px;white-space:nowrap;line-height:14px;';
     // the bell, in the namespace of the chart's own <svg>
     const ns = chart.container.querySelector('svg')?.namespaceURI;
     if (ns) {
@@ -79,6 +79,7 @@
         document.dispatchEvent(new CustomEvent('dg-alarm-edit', { detail: { price } }));
       });
     }
+    d.style.fontFamily = font; // the page's value: set as a property, after the cssText writes
     return d;
   }
 
@@ -107,7 +108,8 @@
     const above = prices.filter(p => p > max).sort((a, b) => a - b);
     const below = prices.filter(p => p < min).sort((a, b) => b - a);
     const inside = prices.filter(p => p >= min && p <= max);
-    const put = (p, y, arrow) => { const d = badge(chart, p, arrow, right); d.style.top = y + 'px'; layer.appendChild(d); };
+    const font = chartFont(chart); // like the axis labels next to the badges; read once per render
+    const put = (p, y, arrow) => { const d = badge(chart, p, arrow, right, font); d.style.top = y + 'px'; layer.appendChild(d); };
     // badges top to bottom; one that would overlap the one above moves down
     let prev = -Infinity;
     inside.map(p => ({ p, y: Math.min(bottom, Math.max(top, ax.toPixels(p))) })).sort((a, b) => a.y - b.y).forEach(o => {

@@ -1,16 +1,15 @@
 // Select a range on the DEGIRO chart by dragging (like Google Finance).
 // Runs in the page context (world: MAIN) so it can see window.Highcharts.
 (() => {
-  // DEGIRO palette and fonts
+  // DEGIRO palette (the font is the chart's own, see chartFont)
   const DG = {
-    font: 'Roboto, Helvetica, HelveticaNeue, sans-serif',
     text: '#0F171A', muted: '#65757B',
     upDot: '#078307', downDot: '#E40101',   // chart markers
     upText: '#1E8302', downText: '#E40101', // change text (+0,26 (+1,58%))
     upFill: 'rgba(7,131,7,.08)', downFill: 'rgba(228,1,1,.08)',
     edge: 'rgba(101,117,123,.7)'
   };
-  const { flags, pageTheme, mainChart, priceSeries, xs, ys, fmt, own, feature } = __dgt; // common.js
+  const { flags, pageTheme, chartFont, mainChart, priceSeries, xs, ys, fmt, own, feature } = __dgt; // common.js
   // per chart: clears its selection (charts are DEGIRO's objects, so nothing is stored on them)
   /** @type {WeakMap<object, () => void>} */
   const selClear = new WeakMap();
@@ -43,7 +42,7 @@
     const band = mk(`position:absolute;pointer-events:none;z-index:5;border-left:1px solid ${DG.edge};border-right:1px solid ${DG.edge};`);
     // like DEGIRO's chart tooltip: rounded, soft shadow (colours from the page theme)
     const label = mk(`position:absolute;pointer-events:none;z-index:6;padding:6px 10px;border-radius:4px;background:#fff;` +
-      `font-family:${DG.font};font-size:12px;line-height:18px;color:${DG.text};box-sizing:border-box;overflow-wrap:anywhere;` +
+      `font-size:12px;line-height:18px;color:${DG.text};box-sizing:border-box;overflow-wrap:anywhere;` +
       `box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.12);`);
 
     // like DEGIRO's max/min markers: 12px circle, 2px white stroke (centred, as in SVG)
@@ -158,6 +157,8 @@
       if (y < chart.plotTop || y > chart.plotTop + chart.plotHeight) return;
       e.preventDefault();
       clear();
+      // the font of the chart's axis labels next to it, read once per drag (render runs on every move)
+      label.style.fontFamily = chartFont(chart);
       try { box.setPointerCapture(e.pointerId); } catch (err) {}
       start = xIn(e); dragging = true; moved = false;
       activeClear = clear;

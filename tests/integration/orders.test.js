@@ -116,6 +116,7 @@ function loadOrders({ flagOrders = true, twoCharts = false, session = false } = 
       flags:      getFlags,
       pageTheme:  () => ({ bg: '#fff', text: '#000', upText: '#0f0', downText: '#f00', border: '0', shadow: '' }),
       mainChart:  () => mainChartObj,
+      chartFont:  () => 'Arial',
       parseNum:   n => parseFloat(String(n).replace(',', '.')),
       fmt:        n => String(n),
       SEL: {

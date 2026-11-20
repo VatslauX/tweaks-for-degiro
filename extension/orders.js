@@ -15,7 +15,7 @@
   // feature flags, bridged from the extension by flags.js (null = not loaded yet)
   /** @typedef {{ periodChange: boolean, chartSelect: boolean, orders: boolean, ordersClick: boolean, alarmLines: boolean, alarmLinesClick: boolean }} DgPageFlags */
   let F = /** @type {DgPageFlags | null} */ (null);
-  const { flags: readFlags, pageTheme, mainChart, parseNum: num, fmt, SEL, LABELS, page, own, feature, schedule, t, ownRequests } = __dgt; // common.js
+  const { flags: readFlags, pageTheme, chartFont, mainChart, parseNum: num, fmt, SEL, LABELS, page, own, feature, schedule, t, ownRequests } = __dgt; // common.js
   // per chart: our plot line ids, badge layer, render signature (charts are DEGIRO's objects)
   /** @type {WeakMap<object, { ids: string[], layer: HTMLElement | null, sig: string, hooked: boolean }>} */
   const state = new WeakMap();
@@ -194,13 +194,15 @@
     const { min, max } = ax.getExtremes();
     const top = chart.plotTop, bottom = chart.plotTop + chart.plotHeight;
     const th = pageTheme(chart.container);
+    const font = chartFont(chart); // like the axis labels next to the badges
     const badge = o => {
       const d = document.createElement('div');
       d.textContent = o.text;
       d.style.cssText =
         `background:${th.bg};border:1px solid ${o.col};color:${o.col};border-radius:2px;` +
-        `font-family:Roboto,Helvetica,HelveticaNeue,sans-serif;font-size:11px;line-height:14px;font-weight:400;padding:0 4px;white-space:nowrap;` +
+        `font-size:11px;line-height:14px;font-weight:400;padding:0 4px;white-space:nowrap;` +
         (clickable && o.order ? 'pointer-events:auto;cursor:pointer;transition:background .1s,color .1s;' : '');
+      d.style.fontFamily = font;
       if (clickable && o.order) {
         d.title = t('badgeEdit');
         d.setAttribute('role', 'button');

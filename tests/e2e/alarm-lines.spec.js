@@ -1,7 +1,7 @@
 // Price alarms on the product chart (alarm-lines.js, page world): gold badges at the alarm prices,
 // fed by alarms.js through data-dg-alarm-lines. Which alarms are published: tests/integration/alarm-lines.test.js.
 // The mock chart's y-axis is set to 12..22, rounded out to its ticks (about 10..25; product 123, price 16,92).
-const { test, expect, setFlag } = require('./fixtures');
+const { test, expect, setFlag, chartAxisFont } = require('./fixtures');
 
 let n = 0;
 const alarm = o => ({ id: 'ln-' + (++n), productId: 123, name: 'Mock ETF', symbol: 'MOCK', currency: '€', price: 20, dir: 'above', repeat: 'each', on: true, created: 1, ...o });
@@ -30,11 +30,11 @@ test('gold badges at the switched-on alarms\' prices, each with a bell and the p
   await seed(settings, [alarm({ price: 20 }), alarm({ price: 14.5, dir: 'below' }), alarm({ price: 18, on: false }), alarm({ productId: 456, price: 15 })]);
   const { page } = await degiro({ orders: [] });
   await expect.poll(() => texts(page)).toEqual(['20,00', '14,50']); // top to bottom
-  const d = await drawn(page);
+  const d = await drawn(page), axisFont = await chartAxisFont(page);
   for (const b of d.badges) {
     expect(b.bg).toBe('rgb(224, 161, 0)'); // #e0a100
     expect(b.bell).toBe(true);
-    expect(b.fontFamily).toBe('Roboto, Helvetica, HelveticaNeue, sans-serif'); // matches DEGIRO's own font, not the stale Inter stack
+    expect(b.fontFamily).toBe(axisFont); // the font of the chart's axis labels beside it (DEGIRO's chart text), not a fixed one
     expect(Math.abs(b.right - d.right)).toBeLessThanOrEqual(1);
   }
   // each badge sits at its price's y on the axis

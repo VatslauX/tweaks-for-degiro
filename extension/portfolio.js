@@ -10,8 +10,9 @@
 (() => {
   const ENDPOINT = '/portfolio-metrics/secure/api/v1/portfolio/value';
   const LINE = [0, 159, 223]; // DEGIRO blue used for the line
+  // DEGIRO palette (fonts are read from DEGIRO's text next to ours, see rowFont and the selection label)
   const DG = {
-    font: 'Roboto, Helvetica, HelveticaNeue, sans-serif', text: '#0F171A', muted: '#65757B',
+    text: '#0F171A', muted: '#65757B',
     upDot: '#078307', downDot: '#E40101', upText: '#1E8302', downText: '#E40101',
     upFill: 'rgba(7,131,7,.08)', downFill: 'rgba(228,1,1,.08)', edge: 'rgba(101,117,123,.7)'
   };
@@ -19,9 +20,12 @@
   const CHANGE_ID = 'dg-portfolio-change';
 
 
-  const { flags, pageTheme, fmt, fmtWhole, parseNum, decimalSep, cashByDay, SEL, page, own, feature, schedule, ownRequests } = __dgt; // common.js
+  const { flags, pageTheme, fontFamilyOf, fmt, fmtWhole, parseNum, decimalSep, cashByDay, SEL, page, own, feature, schedule, ownRequests } = __dgt; // common.js
   /** @type {(sel: string) => HTMLElement | null} */
   const $ = sel => document.querySelector(sel);
+  // The font of our items in the row above the chart: that of DEGIRO's caption beside them ("Today",
+  // or the hovered date), small text like ours (the total next to it is in a larger display font).
+  const rowFont = () => fontFamilyOf($(SEL.perfCaption));
 
   // ---------- data: follow DEGIRO's own requests for the chart ----------
   // `points` is the endpoint's history (it has no entry for today); `data` is the line DEGIRO draws:
@@ -122,14 +126,15 @@
     if (!f?.periodChange || !anchor || data.length < 2) { el?.remove(); lastKey = ''; return; }
     const p1 = data[0].value, p2 = data[data.length - 1].value;
     if (!(p1 > 0)) { el?.remove(); return; }
-    const diff = p2 - p1, pct = diff / p1 * 100, up = diff >= 0, cur = currency(), hide = hideFilter();
-    const key = [period, diff.toFixed(2), pct.toFixed(2), hide].join('|');
+    const diff = p2 - p1, pct = diff / p1 * 100, up = diff >= 0, cur = currency(), hide = hideFilter(), font = rowFont();
+    const key = [period, diff.toFixed(2), pct.toFixed(2), hide, font].join('|');
     if (el && key === lastKey && el.parentElement === anchor) return;
     lastKey = key;
     el?.remove();
     el = own(document.createElement('span'));
     el.id = CHANGE_ID;
-    el.style.cssText = `display:inline-flex;align-items:baseline;gap:6px;margin-left:12px;font-family:${DG.font};`;
+    el.style.cssText = 'display:inline-flex;align-items:baseline;gap:6px;margin-left:12px;';
+    el.style.fontFamily = font;
     el.title = __dgt.t('portfolioTitle');
     const label = document.createElement('span');
     label.textContent = period || '';
@@ -278,14 +283,15 @@
     // empty label while it loads)
     const settled = !!funds || fundsReq.failed || items.length > 0;
     if (!flags()?.portfolioCash || !anchor || !settled) { el?.remove(); cashTopKey = ''; return; }
-    const hide = hideFilter();
-    const key = [items.map(x => x.join(':')).join(','), order.join(','), hide, decimalSep(), linesOn].join('|');
+    const hide = hideFilter(), font = rowFont();
+    const key = [items.map(x => x.join(':')).join(','), order.join(','), hide, decimalSep(), linesOn, font].join('|');
     if (el && key === cashTopKey && el.parentElement === anchor) return;
     cashTopKey = key;
     el?.remove();
     el = own(document.createElement('span'));
     el.id = CASH_ID;
-    el.style.cssText = `display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-left:16px;font-family:${DG.font};`;
+    el.style.cssText = 'display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-left:16px;';
+    el.style.fontFamily = font;
     el.title = __dgt.t('cashTitle');
     const label = document.createElement('span');
     label.textContent = __dgt.t('cashLabel');
@@ -650,7 +656,7 @@
 
     const mk = css => { const d = own(document.createElement('div')); d.style.cssText = css; d.style.display = 'none'; area.appendChild(d); return d; };
     const band = mk(`position:absolute;pointer-events:none;z-index:5;border-left:1px solid ${DG.edge};border-right:1px solid ${DG.edge};`);
-    const label = mk(`position:absolute;pointer-events:none;z-index:6;padding:6px 10px;border-radius:4px;background:#fff;font-family:${DG.font};font-size:12px;line-height:18px;color:${DG.text};white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.12);`);
+    const label = mk(`position:absolute;pointer-events:none;z-index:6;padding:6px 10px;border-radius:4px;background:#fff;font-size:12px;line-height:18px;color:${DG.text};white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.12);`);
     const dotCss = 'position:absolute;pointer-events:none;z-index:7;box-sizing:border-box;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid #fff;';
     const dot1 = mk(dotCss), dot2 = mk(dotCss);
     const parts = [band, label, dot1, dot2];
@@ -658,7 +664,7 @@
     sel.clear = clear;
 
     let geo = /** @type {Geometry | null} */ (null), start = /** @type {number | null} */ (null),
-      dragging = false, moved = false;
+      dragging = false, moved = false, font = '';
     /** @param {Geometry} geo */
     const offset = geo => { const a = area.getBoundingClientRect(), c = geo.canvas.getBoundingClientRect(); return { x: c.left - a.left, y: c.top - a.top }; };
     /** @param {Geometry} geo */
@@ -694,6 +700,9 @@
       const sub = line('', `font-size:11px;color:${DG.muted}`);
       sub.append(amt(`${plain(p1, cur)} → ${plain(p2, cur)}`), ` · ${dateTxt(data[i1].date)} → ${dateTxt(data[i2].date)}`);
       label.replaceChildren(head, sub);
+      // the font of DEGIRO's hover tooltip, the box like ours shown beside it while dragging (else
+      // of the caption above the chart); read once per drag, not on every move
+      if (!font) label.style.fontFamily = font = fontFamilyOf(area?.querySelector(SEL.perfTooltip) || $(SEL.perfCaption));
       sel.hide = hide;
       Object.assign(label.style, { display: 'block', background: th.bg, color: th.text, boxShadow: th.shadow, border: th.border });
       label.style.top = (o.y + 6) + 'px';
@@ -713,7 +722,7 @@
       e.preventDefault();
       clear();
       try { area.setPointerCapture(e.pointerId); } catch (err) {}
-      start = toX(geo, e); dragging = true; moved = false;
+      start = toX(geo, e); dragging = true; moved = false; font = '';
       activeClear = clear;
     }, true); // capture: the chart may stop propagation
     area.addEventListener('pointermove', e => {

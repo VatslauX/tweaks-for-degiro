@@ -16,7 +16,24 @@ test('shows the change for the selected period next to the total', async ({ degi
   await expect(change(page)).toContainText('1Y');
   await expect(change(page)).toContainText(periodPct(s));
   expect(await page.$eval('#dg-portfolio-change', el => el.parentElement.getAttribute('data-name'))).toBe('performance-chart-value');
-  expect(await change(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe('Roboto, Helvetica, HelveticaNeue, sans-serif'); // matches DEGIRO's own font, not the stale Inter stack
+  // the font of DEGIRO's caption beside it ("Today"), not of the total (a larger display font, Inter like DEGIRO's)
+  const f = await page.evaluate(() => Object.fromEntries(['dg-portfolio-change', 'performance-chart-caption', 'performance-chart-amount']
+    .map(k => [k, getComputedStyle(document.getElementById(k) || document.querySelector(`[data-name="${k}"]`)).fontFamily])));
+  expect(f['dg-portfolio-change']).toBe(f['performance-chart-caption']);
+  expect(f['performance-chart-amount']).not.toBe(f['performance-chart-caption']);
+});
+
+// DEGIRO has changed its fonts several times (Inter, Roboto; Arial on its charts): ours follow its text beside them
+const fontOf = (page, sel) => page.$eval(sel, el => getComputedStyle(el).fontFamily);
+test('the period change and the cash follow the font of DEGIRO\'s caption beside them when it changes', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  await expect(page.locator('#dg-portfolio-cash')).toBeVisible();
+  await page.addStyleTag({ content: '[data-name="performance-chart-caption"] { font-family: Georgia, serif !important; }' });
+  const caption = await fontOf(page, '[data-name="performance-chart-caption"]');
+  expect(caption).toBe('Georgia, serif');
+  await expect.poll(() => fontOf(page, '#dg-portfolio-change')).toBe(caption);
+  await expect.poll(() => fontOf(page, '#dg-portfolio-cash')).toBe(caption);
 });
 
 test('follows the period switcher', async ({ degiro }) => {
@@ -63,6 +80,20 @@ test('drag selects a range: € and % change, dates, dots on the line', async ({
   const off = await dotsOff(page);
   expect(off.length).toBe(2);
   for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
+});
+
+test('the selection label takes the font of DEGIRO\'s hover tooltip shown beside it', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  // a font of its own (the mock's tooltip is otherwise in the page's Roboto): the label must follow it
+  await page.addStyleTag({ content: '[data-name="performance-plot-tooltip"] { font-family: Georgia, serif !important; }' });
+  await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
+  await drag(page, 0.25, 0.75);
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  await expect(label).toBeVisible();
+  const tip = await fontOf(page, '[data-name="performance-plot-tooltip"]'); // still hovered: shown
+  expect(tip).toBe('Georgia, serif');
+  expect(await label.evaluate(el => getComputedStyle(el).fontFamily)).toBe(tip);
 });
 
 // each shown selection dot: [x, y] distance (css px) to the nearest point the mock draws (1..n−1)

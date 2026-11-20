@@ -120,6 +120,8 @@
     productBriefInfo: '[data-name=productBriefInfo]', // symbol, then exchange
     productActionButton: '[data-name=productActionButton]',
     favouriteStarOn: 'svg[data-name=icon-starFilled-20]',
+    // product chart (Highcharts): its price axis labels (SVG <text>, or HTML <span> with useHTML)
+    chartAxisLabel: '.highcharts-yaxis-labels > *',
     // portfolio chart
     perfChart: '[data-name="performance-chart"]',
     perfValue: '[data-name="performance-chart-value"]',
@@ -213,6 +215,20 @@
       border: dark ? '1px solid rgba(255,255,255,.14)' : '0'
     };
   }
+
+  // Fonts from the page: our text next to DEGIRO's takes the font of that text, read when drawn
+  // (DEGIRO has switched fonts several times: Inter, Roboto, and Arial on its charts).
+  const FONT = 'Roboto, Helvetica, HelveticaNeue, sans-serif'; // DEGIRO's page font, when nothing is there to read
+  /** @param {Element | null | undefined} el @returns {string} the element's computed font-family, else FONT */
+  const fontFamilyOf = el => {
+    try { return (el && getComputedStyle(el).fontFamily) || FONT; } catch (e) { return FONT; }
+  };
+  // The font of a Highcharts chart's own text (its price axis labels; else the container, which
+  // carries the chart's style.fontFamily), for our labels and badges drawn on it.
+  const chartFont = chart => {
+    const box = chart?.container;
+    return fontFamilyOf(box?.querySelector?.(SEL.chartAxisLabel) || box);
+  };
 
   // ---------- Highcharts (page world only) ----------
   // Series data: getColumn() in newer Highcharts (xData/yData are deprecated there), xData/yData in 4.x.
@@ -406,7 +422,7 @@
     has: href => ownUrls.has(href)
   });
 
-  const api = Object.freeze({ decimalSep, parseNum, fmt, fmtWhole, flags, pageTheme, xs, ys, isPriceSeries, mainChart, priceSeries, cashByDay,
+  const api = Object.freeze({ decimalSep, parseNum, fmt, fmtWhole, flags, pageTheme, FONT, fontFamilyOf, chartFont, xs, ys, isPriceSeries, mainChart, priceSeries, cashByDay,
     SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS, ownRequests });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else if (!(/** @type {any} */ (globalThis).__dgt)) Object.defineProperty(globalThis, '__dgt', { value: api });

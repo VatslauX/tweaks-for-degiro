@@ -68,6 +68,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Switch every feature on or off from the toolbar icon. Changes apply instantly, no reload
 > • The popup shows which features are working on the open page
 > • Available in English, Dutch, German, French, Spanish, Italian and Portuguese
+> • Clear saved data, at the bottom of the settings, erases everything the extension has saved, after a second click
 >
 > SAFE BY DESIGN
 > • Everything runs locally in your browser. No analytics, no tracking, nothing sent to the developer. The only exception is the optional background price check, which sends ticker symbols (and, for a ticker that doesn't match, the ISIN) to Yahoo Finance, and the ISINs of Société Générale products to Société Générale
@@ -98,7 +99,7 @@ Take them from the real page with every personal number replaced: paste `scripts
 Read-only display and navigation aids for the DEGIRO web trader. It never places, changes or cancels orders.
 
 **Permission justifications:**
-- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort, hidden columns and full-name choice (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners. It also saves the price link of each alarm product (Yahoo ticker or ISIN, and Société Générale's product fields and when its price last changed for SG products) and the background check's status (only when the background check is used). The settings popup also remembers which sections are open, in this browser's `localStorage` only.
+- `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort, hidden columns and full-name choice (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners. It also saves the price link of each alarm product (Yahoo ticker or ISIN, and Société Générale's product fields and when its price last changed for SG products) and the background check's status (only when the background check is used). *Clear saved data* in the settings erases all of it. The settings popup also remembers which sections are open, in this browser's `localStorage` only.
 - `alarms` — runs the background price check once a minute, and only while the user has switched on *Check in the background*. It shows no install warning.
 - `notifications` (optional) — shows a system notification when an alarm fires in the background. Requested from the user only when they switch on *Check in the background*; removed when they switch it off.
 - Host access `https://query1.finance.yahoo.com/*` (optional) — fetches Yahoo Finance prices for the ticker symbols of the user's alarm products, and looks up a product's ISIN once when its ticker doesn't match, with no cookies and no other DEGIRO data. Requested only when the user switches on *Check in the background*; removed when they switch it off.

@@ -17,7 +17,8 @@
     dt > span { font-size: 12px; font-weight: 400; line-height: 18px; }
     dd > span { font-size: 12px; font-weight: 500; line-height: 18px; }
     #chart { width: 900px; height: 320px; }
-    #periods button { background: transparent; border: 0; }
+    /* like DEGIRO (2026-11-20): the controls around the chart are in Inter, the chart's own text in Arial (below) */
+    #periods button { background: transparent; border: 0; font: 600 12px Inter, Helvetica, HelveticaNeue, sans-serif; }
     #periods button:hover { background: rgb(230, 235, 237); }
     #periods button.on { background: rgb(15, 23, 26); color: #fff; }
     aside { position: fixed; right: 0; top: 0; width: 360px; height: 100%; background: #fff; border-left: 1px solid #ccc; }
@@ -307,7 +308,8 @@
   for (let i = 0; i <= 3 * 48; i++) week.push([wStart + i * DAY / 48, +(16 + Math.sin(i / 10) + i * 0.004).toFixed(3)]);
   window.__weekData = week;
   window.__chart = new Highcharts.Chart({
-    chart: { renderTo: 'chart', type: 'area', animation: false, marginLeft: 0, spacingLeft: 0 },
+    // style: like DEGIRO (2026-11-20, Highstock 4.2.1), the chart's text is Arial (its chart.style.fontFamily), not the page's Roboto
+    chart: { renderTo: 'chart', type: 'area', animation: false, marginLeft: 0, spacingLeft: 0, style: { fontFamily: 'Arial' } },
     title: { text: null }, legend: { enabled: false }, credits: { enabled: false },
     xAxis: { type: 'datetime' },
     yAxis: { title: { text: null }, opposite: true, min: 12, max: 22 },

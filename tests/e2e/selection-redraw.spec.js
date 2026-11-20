@@ -1,5 +1,5 @@
 // The range selection survives plain redraws (live price ticks) and is cleared by a new period.
-const { test, expect } = require('./fixtures');
+const { test, expect, chartAxisFont } = require('./fixtures');
 
 async function select(page, a = 0.3, b = 0.7, yFrac = 0.05) { // near the top, clear of the order badges (they swallow pointerdown)
   const box = await page.locator('#chart .highcharts-container').boundingBox();
@@ -17,7 +17,8 @@ test('a live tick keeps the selection and updates its values', async ({ degiro }
   await expect(page.locator('[data-dg-sel]')).toHaveCount(1);
   await select(page, 0.3, 0.98);
   await expect(label(page)).toBeVisible();
-  expect(await label(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe('Roboto, Helvetica, HelveticaNeue, sans-serif'); // matches DEGIRO's own font, not the stale Inter stack
+  // the font of the chart's axis labels (DEGIRO's chart text), not a fixed one
+  expect(await label(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe(await chartAxisFont(page));
   const before = await label(page).textContent();
   await page.evaluate(() => { const s = Highcharts.charts.at(-1).series[0]; s.data.at(-1).update(s.data.at(-1).y + 5); });
   await expect.poll(async () => {

@@ -161,6 +161,7 @@ function loadAlarmLines({ alarmLinesClick = true, alarmLines = true, productId =
         try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
       },
       mainChart: () => chart,
+      chartFont: () => 'Arial',
       fmt: n => String(n),
       page: { productId: () => productId },
       own: el => el,

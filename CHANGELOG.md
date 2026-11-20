@@ -13,6 +13,7 @@
 - **Shorter settings popup**: every section starts collapsed and shows how many of its switches are on (*On this page* sums up its states, e.g. *9 Working · 3 Not on this page*); the sections you open are remembered on this computer. A switch next to each section's title turns everything in it on or off, and *All settings* at the top does the same for every switch. Turning everything on never switches on *Check in the background*. A switch can't be clicked again until its change is saved.
 - **Clear saved data** (new, at the bottom of the settings): erases everything the extension has saved (settings, price alarms and their history, table sort and columns, the background check's links, status and permissions, the *Cash columns on the chart* switch) after a second click within 5 seconds. Synced data (settings, alarms, ticker links, table sort and columns) is erased on all your computers, the rest on this one.
 - **Fix**: on a wide Alarms page, the *On* switch sits next to *Edit*. The spare width goes to the text columns instead of a gap between them.
+- **Fix**: the extension's text on DEGIRO's charts (alarm and order badges, the drag-selection label and, on Portfolio, the cash and change next to the total) uses the font next to it on the page, so it matches DEGIRO's own text.
 
 ## 1.23.1 — 2026-11-16
 - **Light-theme grey lines**: the grey borders in light mode now use DEGIRO's own grey, on the Orders and Transactions filter pickers, the merged Portfolio table, the alarm panel and the Alarms page.

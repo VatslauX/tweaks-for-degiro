@@ -14,7 +14,7 @@ globalThis.window = /** @type {any} */ (dom.window);
 globalThis.document = dom.window.document;
 globalThis.location = /** @type {any} */ (dom.window.location);
 globalThis.getComputedStyle = el => dom.window.getComputedStyle(el);
-const { decimalSep, flags, t, pageTheme, isPriceDt, priceDts, mainChart, page, own, OWN, SEL, ownRequests } =
+const { decimalSep, flags, t, pageTheme, FONT, fontFamilyOf, chartFont, isPriceDt, priceDts, mainChart, page, own, OWN, SEL, ownRequests } =
   require('../../extension/common.js');
 
 /** replace the page body with this markup */
@@ -200,6 +200,20 @@ test('mainChart(): the largest connected chart with a price series', () => {
   hc.Highcharts = { charts: [mini, chart(2000, 800, { connected: false }), chart(2000, 800, { series: [{ visible: true, type: 'column', xData: [1, 2, 3] }] }), chart(2000, 800, { series: [{ visible: false, type: 'line', xData: [1, 2, 3] }] }), chart(2000, 800, { series: [{ visible: true, type: 'line', xData: [1] }] })] };
   assert.equal(mainChart(), mini, 'detached, volume-only, hidden and single-point charts do not count');
   delete hc.Highcharts;
+});
+
+test('chartFont() / fontFamilyOf(): the font of DEGIRO\'s text beside ours, else the fallback stack', () => {
+  assert.equal(FONT, 'Roboto, Helvetica, HelveticaNeue, sans-serif');
+  assert.equal(fontFamilyOf(null), FONT, 'no neighbour');
+  assert.equal(chartFont(null), FONT, 'no chart');
+  assert.equal(chartFont({}), FONT, 'a chart without a container');
+  setBody('<div id="box" style="font-family: Verdana"><svg><g class="highcharts-axis-labels highcharts-yaxis-labels"><text style="font-family: Arial">20</text></g></svg></div>');
+  const container = document.getElementById('box');
+  assert.equal(chartFont({ container }), 'Arial', 'the price axis label\'s font, over the container\'s');
+  container?.querySelector('g')?.remove();
+  assert.equal(chartFont({ container }), 'Verdana', 'no axis labels yet: the container\'s (it carries the chart\'s style)');
+  setBody('<span id="cap" style="font-family: Inter, sans-serif">Today</span>');
+  assert.equal(fontFamilyOf(document.getElementById('cap')), 'Inter, sans-serif');
 });
 
 // ── hash routes ─────────────────────────────────────────────────────────────────────────────
