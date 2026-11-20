@@ -1,8 +1,5 @@
 # Release notes
 
-## Unreleased
-- **Fix**: on a wide Alarms page, the *On* switch sits next to *Edit*. The spare width goes to the text columns instead of a gap between them.
-
 ## 1.24.0 — 2026-11-18
 - **Check price alarms in the background** (new, off by default): under *Price alarms*, *Check in the background* checks your alarms every minute while Chrome runs, even with DEGIRO closed or logged out, using Yahoo Finance prices (usually 15 minutes delayed). Only ticker symbols are sent to Yahoo; when a product's ticker doesn't match, its ISIN is looked up once on Yahoo instead (*✓ AVGO (via ISIN)*). Société Générale's own products (turbos, leverage products, certificates), which Yahoo doesn't have, are checked with Société Générale's live bid from sgbeurs.nl (*✓ SU054L (Société Générale)*); only their ISINs and SG's own product fields are sent there. A reached alarm shows a system notification, and the same banner as today appears in DEGIRO. Chrome asks for notification, Yahoo Finance and Société Générale (sgbeurs.nl) access when you switch it on, and removes them when you switch it off. *Send a test notification* under the status line shows what an alarm will look like.
 - **Background column on the Alarms page**: with the background check on, a *Background* column after *Status* shows where each switched-on alarm stands (it can be hidden in *Columns*; a switched-off alarm shows –). *Seen* now sits after *Distance*.
@@ -15,6 +12,7 @@
 - **Tickers are linked by themselves**: from the Favourites list on screen, a product's page, or, for alarm products in other lists, DEGIRO's own product details (symbol, ISIN, exchange), requested once while you're logged in and the background check is on. You don't need to open each list or product.
 - **Shorter settings popup**: every section starts collapsed and shows how many of its switches are on (*On this page* sums up its states, e.g. *9 Working · 3 Not on this page*); the sections you open are remembered on this computer. A switch next to each section's title turns everything in it on or off, and *All settings* at the top does the same for every switch. Turning everything on never switches on *Check in the background*. A switch can't be clicked again until its change is saved.
 - **Clear saved data** (new, at the bottom of the settings): erases everything the extension has saved (settings, price alarms and their history, table sort and columns, the background check's links, status and permissions, the *Cash columns on the chart* switch) after a second click within 5 seconds. Synced data (settings, alarms, ticker links, table sort and columns) is erased on all your computers, the rest on this one.
+- **Fix**: on a wide Alarms page, the *On* switch sits next to *Edit*. The spare width goes to the text columns instead of a gap between them.
 
 ## 1.23.1 — 2026-11-16
 - **Light-theme grey lines**: the grey borders in light mode now use DEGIRO's own grey, on the Orders and Transactions filter pickers, the merged Portfolio table, the alarm panel and the Alarms page.
