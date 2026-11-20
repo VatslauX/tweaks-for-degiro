@@ -208,7 +208,11 @@
     };
     hr.append(headCell('', 'alarmColProduct', false));
     shownCols.forEach(k => hr.append(headCell(k, ALARM_COL_LABEL[k], ALARM_RIGHT_ALIGN.has(k))));
-    hr.append(headCell('', 'alarmColOn', false), headCell('', '', false));
+    // On and the Edit/delete cell shrink to their content (width:1%), so the spare width of the
+    // 100%-wide table goes to the text columns, not into a gap between the switch and Edit
+    const onHead = headCell('', 'alarmColOn', false), actHead = headCell('', '', false);
+    onHead.style.width = actHead.style.width = '1%';
+    hr.append(onHead, actHead);
     thead.append(hr);
     const tbody = document.createElement('tbody');
     const td = (/** @type {string} */ css = '') => el('td', `padding:9px 12px;border-bottom:1px solid ${th.line};white-space:nowrap;${css}`);

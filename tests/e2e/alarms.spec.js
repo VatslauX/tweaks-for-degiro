@@ -396,6 +396,21 @@ test('Alarms page rows: a last-seen price (no live price) stays one line tall, l
   expect(seenH).toBe(liveH);
 });
 
+// stays in Playwright: getBoundingClientRect
+test('Alarms page: on a wide window the On switch sits next to Edit, no spare width between them', async ({ degiro, settings }) => {
+  await seed(settings, [alarm()]);
+  const { page } = await degiro({ url: ALARMS });
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await expect(rows(page)).toHaveCount(1);
+  // the two cells' paddings (12px each) are all that may separate the switch's track and Edit
+  await expect.poll(() => page.evaluate(() => {
+    const row = document.querySelector('[data-dg-alarms-page] tr[data-dg-alarm-id]');
+    const sw = row?.querySelector('[data-dg-toggle]')?.getBoundingClientRect();
+    const edit = row?.querySelector('[data-dg-alarm-edit]')?.getBoundingClientRect();
+    return sw && edit && sw.width > 0 && edit.width > 0 ? Math.round(edit.left - sw.right) : Infinity;
+  })).toBeLessThanOrEqual(24);
+});
+
 // stays in Playwright: clicking a real checkbox dropdown, storage round-trip
 test('Alarms page: all columns are visible by default; the Columns picker hides and persists them', async ({ degiro, settings }) => {
   const live = alarm({ productId: 123, price: 18 });
