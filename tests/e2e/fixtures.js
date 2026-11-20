@@ -233,17 +233,24 @@ async function backgroundWorker(context) {
 /**
  * Stub Chrome's permission prompt on the settings page, and (`grant`) the worker's view of the permissions too:
  * without them the worker switches the setting back off. No alarm is stored, so the worker never polls Yahoo.
+ * `answerMs`: the prompt answers that long after the click (a slow runner, or a user taking a moment), not at once.
  * A spec that uses it calls unstubPermissions(context) in afterEach.
  * @param {import('@playwright/test').BrowserContext} context @param {import('@playwright/test').Page} opt @param {boolean} grant
+ * @param {{ answerMs?: number }} [o]
  */
-async function stubPermissions(context, opt, grant) {
-  await opt.evaluate(g => {
+async function stubPermissions(context, opt, grant, { answerMs = 0 } = {}) {
+  await opt.evaluate(([g, ms]) => {
     window.__perm = { requested: [], removed: [] };
     window.__granted = false;
     chrome.permissions.contains = async () => window.__granted;
-    chrome.permissions.request = async p => { window.__perm.requested.push(p); window.__granted = g; return g; };
+    chrome.permissions.request = async p => {
+      window.__perm.requested.push(p);
+      if (ms) await new Promise(r => setTimeout(r, ms));
+      window.__granted = g;
+      return g;
+    };
     chrome.permissions.remove = async p => { window.__perm.removed.push(p); return true; };
-  }, grant);
+  }, [grant, answerMs]);
   if (grant) {
     const sw = await backgroundWorker(context);
     await sw.evaluate(() => { globalThis.__contains = chrome.permissions.contains; chrome.permissions.contains = async () => true; });

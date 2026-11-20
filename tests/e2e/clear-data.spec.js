@@ -50,11 +50,15 @@ test('the second click erases sync, local and session storage and the switches s
   await expect(opt.locator('#clearData')).toHaveText(IDLE);
 });
 
-test('erasing gives the background permissions back', async ({ context, settings }) => {
+// The switch shows checked at once, but until Chrome's answer and the save are in (the switch locked, aria-disabled)
+// a click on Clear disarms instead of arming (see the tests below): wait for it. Chrome answering slowly (a busy
+// runner, a user taking a moment) is the same wait, longer.
+for (const [name, answerMs] of [['', 0], [' (Chrome\'s prompt answered after 1 s)', 1000]]) test(`erasing gives the background permissions back${name}`, async ({ context, settings }) => {
   const opt = await settings();
-  await stubPermissions(context, opt, true);
+  await stubPermissions(context, opt, true, { answerMs });
   await opt.locator('label.row:has(input[data-key=alarmsBackground])').click();
   await expect(opt.locator('input[data-key=alarmsBackground]')).toBeChecked();
+  await expect(opt.locator('input[data-key=alarmsBackground]')).not.toHaveAttribute('aria-disabled');
   await opt.locator('#clearData').click();
   await opt.locator('#clearData').click();
   await expect.poll(() => opt.evaluate(() => window.__perm.removed.length)).toBe(1);
