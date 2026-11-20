@@ -70,6 +70,11 @@
     <h1 id="product">Mock ETF</h1>
     <div id="priceRow" style="display:flex;flex-wrap:wrap;align-items:baseline"><!-- like DEGIRO: a flex parent without gap holds the price line -->
     <div id="priceHeader" style="display:flex;align-items:baseline;gap:6px">
+      <!-- like DEGIRO (2026-11-20): one hidden, absolutely placed [data-name=measurer] holding a copy of the header
+           price (same data-id; live it computes visibility:hidden, position:absolute). Where DEGIRO puts it wasn't
+           captured: here it sits in the price line, BEFORE the visible price, so code that takes the first
+           CurrentPrice would read it (the extension filters it out) -->
+      <div data-name="measurer" style="position:absolute;visibility:hidden"><span data-id="123" data-field="CurrentPrice" title="16,92">€16,92</span></div>
       <div><span data-id="123" data-field="CurrentPrice" title="16,92">€16,92</span></div>
       <span id="dayChange"><h4 style="display:inline;margin:0"><span data-field="AbsoluteDifference">+0,10</span></h4><h4 style="display:inline;margin:0"><span data-field="RelativeDifference">(+0,59%)</span></h4></span>
     </div>

@@ -48,5 +48,8 @@ test('live ticker: the extension does not retrigger itself', async ({ degiro }) 
   // the extension adds at most its spread texts. Features must not run more than about once per tick.
   expect(result.foreign / result.ticks).toBeLessThan(80);
   expect(result.own / result.ticks).toBeLessThanOrEqual(6);
-  expect(result.runs).toBeLessThanOrEqual(result.ticks + 4);
+  // + 8: a tick within the 150 ms throttle of the last run adds a follow-up flush, and a full suite on
+  // six workers jitters the ticks (19 runs on 15 ticks seen alone); a retrigger loop runs once a frame
+  // (about 180 runs in this sample), far above this
+  expect(result.runs).toBeLessThanOrEqual(result.ticks + 8);
 });

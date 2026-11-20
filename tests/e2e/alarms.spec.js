@@ -129,7 +129,7 @@ test('currency missing at first: the header is read again once the price has its
   const opt = await settings();
   const { page } = await degiro({ url: PRODUCT, initScript: () => addEventListener('DOMContentLoaded', () => document.querySelectorAll('[data-field=CurrentPrice]').forEach(e => { e.textContent = e.textContent.replace('€', ''); })) });
   await page.bringToFront();
-  await expect(page.locator('[data-field=CurrentPrice]').first()).not.toContainText('€');
+  await expect(page.locator('[data-field=CurrentPrice]:not([data-name=measurer] *)').first()).not.toContainText('€');
   await setPrice(page, 123, 16.92);
   // The feature rechecks a header whose currency was missing on first discovery.
   await page.waitForTimeout(1300);

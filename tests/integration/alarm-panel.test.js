@@ -86,6 +86,56 @@ test('names from storage stay text in the banner (XSS guard)', async () => {
   noErrors(w);
 });
 
+// DEGIRO's product page keeps a hidden [data-name=measurer] copy of the header price (same data-id);
+// the mock puts it before the visible price. Here it carries another price than the one shown.
+/** @param {string} s a price as DEGIRO writes it ("17,50"), or '' for none */
+function measurerAt(tab, s) {
+  const e = tab.$('[data-name=measurer] [data-field=CurrentPrice]');
+  assert.ok(e, "the mock has DEGIRO's measurer copy of the price");
+  if (s) { e.title = s; e.textContent = '€' + s; } else { e.removeAttribute('title'); e.textContent = '€ —'; }
+}
+
+test("product page: alarms check the visible header price, not DEGIRO's hidden measurer copy", async () => {
+  const a = alarm({ price: 17 }); // above 17
+  const { w, tab } = await setupProduct([a]);
+  measurerAt(tab, '17,50'); // shown: 16,92
+  await w.advance(300);
+  assert.equal(banners(tab).length, 0, 'the hidden copy above the alarm does not fire it');
+  assert.equal(stateOf(w, a.id).last, 16.92, 'the last price seen is the visible one');
+  // the panel's current price is the visible one too
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel opened');
+  assert.match(tab.$('[data-dg-alarm-price]').value, /^16[,.]92$/);
+  tab.$('[data-dg-alarm-x]').click();
+  await w.advance(100);
+  // the visible price passes the alarm while the hidden copy stays below it: it fires, at the visible price
+  tab.setPrice(123, 17.3);
+  measurerAt(tab, '16,50');
+  await w.advance(300);
+  assert.equal(banners(tab).length, 1, 'the visible price fires it');
+  assert.ok(tab.$('[data-dg-alarm-banner]').textContent.includes('17,30'));
+  noErrors(w);
+});
+
+test("product page: with no visible price the panel doesn't take one from DEGIRO's hidden measurer copy", async () => {
+  const { w, tab } = await setupProduct();
+  // the shown price goes blank (no title to fall back on) while the hidden copy still has one
+  const shown = tab.$$('[data-field=CurrentPrice]').find(e => !e.closest('[data-name=measurer]'));
+  shown.textContent = '$ —'; shown.removeAttribute('title');
+  measurerAt(tab, '20,00');
+  await w.advance(1300); // let the scheduler forget the earlier (valid) reading
+  tab.$('[data-dg-alarm-button]').click();
+  await w.advance(200);
+  assert.ok(panel(tab), 'panel opened');
+  assert.equal(tab.$('[data-dg-alarm-price]').value, '', 'no prefill from the hidden copy');
+  assert.ok(!panel(tab).textContent.includes('Latest'), 'no Latest line: current price unknown');
+  fill(tab, '[data-dg-alarm-price]', '18');
+  await w.advance(100);
+  assert.notEqual(tab.$('[data-dg-alarm-dir-wrap]')?.style.display, 'none', 'a direction to choose: no current price known');
+  noErrors(w);
+});
+
 for (const repeat of ['each', 'daily']) {
   test(`two tabs that disagree about the price do not loop (${repeat})`, async () => {
     const a = alarm({ repeat });

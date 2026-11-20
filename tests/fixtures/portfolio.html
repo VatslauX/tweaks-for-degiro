@@ -177,8 +177,10 @@
       tip = document.createElement('div');
       tip.setAttribute('data-name', 'performance-plot-tooltip');
       tip.className = 'mockTip';
-      tip.style.cssText = 'position:absolute;top:10px;left:10px;z-index:8;display:flex;flex-direction:column;gap:4px;padding:8px 12px;background:#fff;font:12px Roboto,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.2)';
-      tip.innerHTML = '<div class="tipDate" style="font-weight:600"></div><div class="tipRow" style="display:flex;gap:16px;justify-content:space-between"><span class="tipLabel" style="color:#65757B">Portfolio value</span><span class="tipValue" style="font-weight:600"></span></div>';
+      // like DEGIRO (2026-11-20, light theme): the tooltip in Inter 12px 400 (not the caption's Roboto),
+      // its date heading 600, the "Portfolio value" row's label and value 400
+      tip.style.cssText = 'position:absolute;top:10px;left:10px;z-index:8;display:flex;flex-direction:column;gap:4px;padding:8px 12px;background:#fff;font:400 12px Inter, Helvetica, HelveticaNeue, sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.2)';
+      tip.innerHTML = '<div class="tipDate" style="font-weight:600"></div><div class="tipRow" style="display:flex;gap:16px;justify-content:space-between"><span class="tipLabel" style="color:#65757B">Portfolio value</span><span class="tipValue"></span></div>';
       area.appendChild(tip);
     }
     tip.dataset.date = pts[i].date;

@@ -82,10 +82,27 @@ test('drag selects a range: € and % change, dates, dots on the line', async ({
   for (const [dx, dy] of off) { expect(dx).toBeLessThanOrEqual(1); expect(dy).toBeLessThanOrEqual(3); }
 });
 
+test('the selection label takes the font of DEGIRO\'s hover tooltip, not of the caption above the chart', async ({ degiro }) => {
+  const { page } = await degiro({ url: URL_P });
+  await expect(change(page)).toBeVisible();
+  // the mock as DEGIRO is: the tooltip in Inter, the caption in Roboto, so reading the caption shows
+  await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
+  await drag(page, 0.25, 0.75);
+  const label = page.locator('[data-name="performance-chart-interaction-area"] > div', { hasText: '→' });
+  await expect(label).toBeVisible();
+  const tip = await fontOf(page, '[data-name="performance-plot-tooltip"]'); // still hovered: shown
+  const caption = await fontOf(page, '[data-name="performance-chart-caption"]');
+  expect(tip).toMatch(/^Inter\b/);
+  expect(caption).toMatch(/^Roboto\b/);
+  const font = await label.evaluate(el => getComputedStyle(el).fontFamily);
+  expect(font).toBe(tip);
+  expect(font).not.toBe(caption);
+});
+
 test('the selection label takes the font of DEGIRO\'s hover tooltip shown beside it', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_P });
   await expect(change(page)).toBeVisible();
-  // a font of its own (the mock's tooltip is otherwise in the page's Roboto): the label must follow it
+  // a font of its own (other than the mock's Inter): the label must follow it
   await page.addStyleTag({ content: '[data-name="performance-plot-tooltip"] { font-family: Georgia, serif !important; }' });
   await page.mouse.move(5, 5); // not hovering, so the line geometry can be read
   await drag(page, 0.25, 0.75);
