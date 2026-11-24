@@ -37,7 +37,24 @@ const listeners = () => { const fns = []; return { fns, addListener: fn => fns.p
 function worker({ sync = {}, local = {}, granted = true, sound = true, responses = () => ({ status: 404 }) } = {}) {
   const calls = { fetch: [], notes: [], cleared: [], tabs: [], alarms: new Map(), offscreen: [], sent: [] };
   const clock = { now: NOW };
-  const ev = { alarm: listeners(), installed: listeners(), startup: listeners(), added: listeners(), removed: listeners(), changed: listeners(), clicked: listeners(), message: listeners() };
+  const ev = { alarm: listeners(), installed: listeners(), startup: listeners(), added: listeners(), removed: listeners(), changed: listeners(), clicked: listeners(), message: listeners(), connect: listeners() };
+  // the worker's timers (the lock's lease) run on the test's clock: `later(ms)` moves it on and runs what is due
+  let timerSeq = 0;
+  const timers = new Map();
+  const fakeTimeout = (fn, ms) => { timers.set(++timerSeq, { fn, at: clock.now + (Number(ms) || 0) }); return timerSeq; };
+  const later = async ms => {
+    const end = clock.now + ms;
+    for (;;) {
+      const [id, t] = [...timers].filter(([, x]) => x.at <= end).sort((a, b) => a[1].at - b[1].at || a[0] - b[0])[0] || [];
+      if (!t) break;
+      timers.delete(id);
+      clock.now = Math.max(clock.now, t.at);
+      t.fn();
+      await settle();
+    }
+    clock.now = end;
+    await settle();
+  };
   const chrome = {
     storage: {
       sync: area({ priceAlarms: true, alarmsBackground: true, dgAlarms: [ALARM], dgTickers: LINK, ...sync }),
@@ -49,7 +66,7 @@ function worker({ sync = {}, local = {}, granted = true, sound = true, responses
     },
     // `sound`: the chime's offscreen permission, asked for apart from the check's own
     permissions: { contains: async p => (p.origins ? granted : p.permissions?.includes('offscreen') ? sound : granted), onAdded: ev.added, onRemoved: ev.removed },
-    runtime: { id: 'ext', onInstalled: ev.installed, onStartup: ev.startup, onMessage: ev.message, sendMessage: async m => { calls.sent.push(m); return true; } },
+    runtime: { id: 'ext', onInstalled: ev.installed, onStartup: ev.startup, onMessage: ev.message, onConnect: ev.connect, sendMessage: async m => { calls.sent.push(m); return true; } },
     // only with its permission granted; one document at a time, as in Chrome
     offscreen: sound ? { createDocument: async o => { if (calls.offscreen.length) throw new Error('Only a single offscreen document may be created.'); calls.offscreen.push(o); } } : undefined,
     // as in Chrome 111 (the minimum) to 115: callbacks only, no Promise returned
@@ -67,13 +84,36 @@ function worker({ sync = {}, local = {}, granted = true, sound = true, responses
     return { status: r.status ?? 200, ok: (r.status ?? 200) < 300, json: async () => r.body,
       text: async () => (typeof r.body === 'string' ? r.body : JSON.stringify(r.body)) };
   };
-  const ctx = vm.createContext({ chrome, fetch, TextEncoder, AbortSignal, URLSearchParams, setTimeout, Date: class extends Date { constructor(...a) { if (a.length) super(...a); else super(clock.now); } static now() { return clock.now; } } });
+  const ctx = vm.createContext({ chrome, fetch, TextEncoder, AbortSignal, URLSearchParams, setTimeout: fakeTimeout, clearTimeout: id => { timers.delete(id); },
+    Date: class extends Date { constructor(...a) { if (a.length) super(...a); else super(clock.now); } static now() { return clock.now; } } });
   ctx.importScripts = (...files) => files.forEach(f => vm.runInContext(fs.readFileSync(path.join(EXT, f), 'utf8'), ctx, { filename: f }));
   vm.runInContext(WORKER, ctx, { filename: 'background.js' });
   const tick = async () => { ev.alarm.fns.forEach(fn => fn({ name: 'dgPoll' })); await settle(); };
   /** `n` ticks, a minute apart: the first one now, and the clock ends a minute after the last */
   const ticks = async n => { for (let i = 0; i < n; i++) { await tick(); clock.now += 60000; } };
-  return { chrome, calls, ev, tick, ticks, clock };
+  /**
+   * A lock client as alarm-lock.js is one (a DEGIRO tab, `sender`; the settings page has no tab): `connect()` opens
+   * its port, `ask()` sends its message; `granted` turns true with the reply `true`, `refused` with `false`.
+   * `release()` disconnects the port, as the client does when done or its tab closes.
+   */
+  const client = (token, sender = { id: 'ext', tab: { id: 1 } }) => {
+    const c = { token, granted: false, refused: false, port: null, disconnected: false };
+    const gone = [];
+    c.connect = () => {
+      c.port = { name: `dg-lock:${token}`, sender, onDisconnect: { addListener: fn => gone.push(fn) }, disconnect: () => { c.disconnected = true; } };
+      ev.connect.fns.forEach(fn => fn(c.port));
+      return c;
+    };
+    c.ask = () => {
+      const reply = v => { if (v === true) c.granted = true; else c.refused = true; };
+      const async = ev.message.fns.map(fn => fn({ type: 'dg-lock', token }, sender, reply)).some(r => r === true);
+      c.async = async;
+      return c;
+    };
+    c.release = async () => { gone.forEach(fn => fn()); await settle(); };
+    return c;
+  };
+  return { chrome, calls, ev, tick, ticks, clock, later, client, timers };
 }
 const yahoo = (chart = CHART, sparkBody = spark(1050)) => url =>
   url.includes('/v8/finance/chart/') ? { body: chart } : url.includes('/v8/finance/spark') ? { body: sparkBody } : { status: 404 };
@@ -742,4 +782,173 @@ test('clicking the settings\' test notification without an alarm (dgtest|…) cl
   await settle();
   assert.deepEqual(w.calls.tabs, []);
   assert.deepEqual(w.calls.cleared, ['dgtest|1763467200000']);
+});
+
+// ---------- the alarm-data lock (DEGIRO tabs and the settings page via alarm-lock.js; the worker's own merge) ----------
+const TOKEN = n => `tok-${String(n).padStart(4, '0')}`;
+const SETTINGS = { id: 'ext', url: 'chrome-extension://ext/options.html' };
+
+test('lock: one holder at a time, in turn (first come, first served); the port\'s disconnect releases it', async () => {
+  const w = worker();
+  const a = w.client(TOKEN(1)).connect().ask(), b = w.client(TOKEN(2)).connect().ask(), c = w.client(TOKEN(3), SETTINGS).connect().ask();
+  assert.equal(a.async, true, 'replies on its turn');
+  await settle();
+  assert.deepEqual([a.granted, b.granted, c.granted], [true, false, false]);
+  await a.release();
+  assert.deepEqual([b.granted, c.granted], [true, false]);
+  await b.release();
+  assert.equal(c.granted, true, 'the settings page waits its turn like a tab');
+  await c.release();
+  const d = w.client(TOKEN(4)).connect().ask();
+  await settle();
+  assert.equal(d.granted, true, 'free again: granted at once');
+});
+
+test('lock: a waiter whose port goes (its tab closed) leaves the queue, answered false', async () => {
+  const w = worker();
+  const a = w.client(TOKEN(1)).connect().ask(), b = w.client(TOKEN(2)).connect().ask(), c = w.client(TOKEN(3)).connect().ask();
+  await settle();
+  await b.release();
+  assert.equal(b.refused, true);
+  await a.release();
+  assert.deepEqual([b.granted, c.granted], [false, true]);
+});
+
+test('lock: port and message in either order; a message after its port went gets no turn', async () => {
+  const w = worker();
+  const a = w.client(TOKEN(1)).ask(); // message first
+  await settle();
+  assert.equal(a.granted, true);
+  a.connect();
+  const b = w.client(TOKEN(2)).connect().ask();
+  await settle();
+  assert.equal(b.granted, false);
+  await a.release();
+  assert.equal(b.granted, true, 'a port that came after its message still releases the lock');
+  await b.release();
+  // a client that gave up (no answer in 2 s): its port went before its message reached the worker
+  const late = w.client(TOKEN(3)).connect();
+  await late.release();
+  late.ask();
+  await settle();
+  assert.deepEqual([late.granted, late.refused], [false, true]);
+  const next = w.client(TOKEN(4)).connect().ask();
+  await settle();
+  assert.equal(next.granted, true, 'nobody holds it for the client that gave up');
+});
+
+test('lock: a turn lasts at most 5 s; the old holder\'s disconnect then frees nobody else\'s turn', async () => {
+  const w = worker();
+  const a = w.client(TOKEN(1)).connect().ask(), b = w.client(TOKEN(2)).connect().ask(), c = w.client(TOKEN(3)).connect().ask();
+  await settle();
+  await w.later(4999);
+  assert.equal(b.granted, false);
+  await w.later(1);
+  assert.equal(b.granted, true, 'a\'s lease is over');
+  await a.release();
+  assert.equal(c.granted, false, 'a going late does not end b\'s turn');
+  await b.release();
+  assert.equal(c.granted, true);
+});
+
+test('lock: only this extension\'s pages and tabs; malformed tokens are refused', async () => {
+  const w = worker();
+  const foreign = w.client(TOKEN(1), { id: 'other', tab: { id: 9 } }).connect().ask();
+  assert.equal(foreign.async, false, 'no reply to another extension');
+  await settle();
+  assert.deepEqual([foreign.granted, foreign.refused], [false, false]);
+  for (const bad of ['', 'x', 'a b c d e f g h', '../../../etc', 'x'.repeat(65), 'bg:1']) {
+    const c = w.client(bad).connect().ask();
+    await settle();
+    assert.deepEqual([c.granted, c.refused, c.disconnected], [false, true, true], JSON.stringify(bad));
+  }
+  const odd = { granted: false };
+  w.ev.message.fns.forEach(fn => fn({ type: 'dg-lock', token: { length: 10 } }, { id: 'ext' }, v => { odd.granted = v; }));
+  assert.equal(odd.granted, false);
+  // nobody holds it now
+  const ok = w.client(TOKEN(2)).connect().ask();
+  await settle();
+  assert.equal(ok.granted, true);
+});
+
+test('lock: the worker\'s merge waits for a DEGIRO tab\'s turn, goes after the waiting tabs, and notifies and chimes after its own', async () => {
+  const w = worker({ responses: yahoo() });
+  // at the notification and the chime the lock is free again: a probe is granted at once
+  const free = [];
+  const probe = async () => { const p = w.client(TOKEN(900 + free.length)).connect().ask(); free.push(p.granted); await p.release(); };
+  const create = w.chrome.notifications.create;
+  w.chrome.notifications.create = (id, o, cb) => { probe(); create(id, o, cb); };
+  const doc = w.chrome.offscreen.createDocument;
+  w.chrome.offscreen.createDocument = async o => { await probe(); return doc(o); };
+  const a = w.client(TOKEN(1)).connect().ask();
+  await settle();
+  await w.tick(); // fires: its merge waits for the lock
+  const b = w.client(TOKEN(2), SETTINGS).connect().ask();
+  await settle();
+  const local = w.chrome.storage.local.data;
+  assert.equal(local.dgAlarmEvents, undefined, 'nothing merged while a tab holds the lock');
+  assert.deepEqual(w.calls.notes, []);
+  await a.release();
+  assert.equal(b.granted, true, 'the settings page, which asked after the worker, goes first');
+  assert.equal(local.dgAlarmEvents, undefined);
+  await b.release();
+  await settle(); // the probes' own releases
+  assert.deepEqual(plain(local.dgAlarmEvents), [{ alarmId: 'a1', price: 1050, at: NOW - 900000 }]);
+  assert.equal(w.chrome.storage.sync.data.dgAlarms[0].on, false);
+  assert.equal(w.calls.notes.length, 1);
+  assert.equal(w.calls.offscreen.length, 1);
+  assert.deepEqual(free, [true, true], 'the notification and the chime come after the worker let go');
+});
+
+test('lock: "Clear saved data" while the worker waits for its turn: nothing of the tick is written back or shown', async () => {
+  const w = worker({ responses: yahoo() });
+  const opt = w.client(TOKEN(1), SETTINGS).connect().ask();
+  await settle();
+  await w.tick();
+  for (const a of ['sync', 'local', 'session']) await w.chrome.storage[a].clear();
+  await opt.release();
+  for (const a of ['sync', 'local']) assert.deepEqual(plain(w.chrome.storage[a].data), {}, a);
+  assert.deepEqual(w.calls.notes, []);
+  const next = w.client(TOKEN(2)).connect().ask();
+  await settle();
+  assert.equal(next.granted, true, 'the worker let go');
+});
+
+for (const [name, change] of [
+  ['deleted', () => []],
+  ['switched off', () => [{ ...ALARM, on: false }]],
+  ['edited', () => [{ ...ALARM, price: 1100 }]]
+]) {
+  test(`lock: the fired alarm ${name} in a tab's turn while the worker waited: no firing, banner or notification from the old alarm`, async () => {
+    const w = worker({ responses: yahoo() });
+    const tab = w.client(TOKEN(1)).connect().ask();
+    await settle();
+    await w.tick();
+    w.chrome.storage.sync.data.dgAlarms = change();
+    await tab.release();
+    const local = w.chrome.storage.local.data;
+    assert.equal(local.dgAlarmEvents, undefined);
+    assert.equal(local.dgAlarmState?.a1?.firedAt, undefined);
+    assert.deepEqual(plain(w.chrome.storage.sync.data.dgAlarms), plain(change()), 'the tab\'s change stays');
+    assert.deepEqual([w.calls.notes.length, w.calls.offscreen.length], [0, 0]);
+  });
+}
+
+test('lock: the worker gets no turn in 10 s (tabs writing all the while): it goes on without the lock', async () => {
+  const w = worker({ responses: yahoo() });
+  const a = w.client(TOKEN(1)).connect().ask();
+  await settle();
+  await w.tick();
+  const b = w.client(TOKEN(2)).connect().ask();
+  await w.later(5000);
+  assert.equal(b.granted, true, 'tabs first');
+  assert.equal(w.chrome.storage.local.data.dgAlarmEvents, undefined);
+  await w.later(5000);
+  assert.deepEqual(plain(w.chrome.storage.local.data.dgAlarmEvents), [{ alarmId: 'a1', price: 1050, at: NOW - 900000 }]);
+  assert.equal(w.calls.notes.length, 1);
+  await a.release();
+  await b.release();
+  const c = w.client(TOKEN(3)).connect().ask();
+  await settle();
+  assert.equal(c.granted, true, 'the worker never took the lock after it gave up');
 });

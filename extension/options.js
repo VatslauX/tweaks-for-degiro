@@ -402,14 +402,19 @@
     clearTimeout(deb); // a list typed just before must not be saved after
     const release = lock(switches);
     try {
-      try { await chrome.storage.sync.clear(); } catch (e) { show(t('optSaveFailed', e?.message || e), true); return false; }
-      Object.assign(dgSettings, dgSanitize(null)); // the defaults now; flags.js's re-read finds the same
-      // started together, so a popup closed now leaves as little half done as can be; each one's failure is its own
-      await Promise.allSettled([
-        () => chrome.storage.local.clear(),
-        () => chrome.storage.session.clear(),
-        () => chrome.permissions.remove(BG_ASK)
-      ].map(async step => step()));
+      // holding the alarm-data lock (alarm-lock.js), before DEGIRO tabs' and the worker's turns: a merge of theirs
+      // that read before the erase can't write the erased alarm data back after it
+      const unlock = await dgAlarmLock.hold();
+      try {
+        try { await chrome.storage.sync.clear(); } catch (e) { show(t('optSaveFailed', e?.message || e), true); return false; }
+        Object.assign(dgSettings, dgSanitize(null)); // the defaults now; flags.js's re-read finds the same
+        // started together, so a popup closed now leaves as little half done as can be; each one's failure is its own
+        await Promise.allSettled([
+          () => chrome.storage.local.clear(),
+          () => chrome.storage.session.clear(),
+          () => chrome.permissions.remove(BG_ASK)
+        ].map(async step => step()));
+      } finally { unlock(); }
       try { sections.forEach(s => setOpen(s.dataset.section || '', false)); } catch (e) {}
       try { localStorage.clear(); } catch (e) {} // after setOpen, which stores the open sections
       // after the local clear has finished, or that would erase it too

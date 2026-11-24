@@ -636,3 +636,202 @@ test('Alarms page: a listed product without a price says "No trading now"; one n
   assert.equal(events(w).length, 1);
   noErrors(w);
 });
+
+// ---------- the alarm-data lock (alarm-lock.js; the keeper is the background worker, faked here) ----------
+
+/**
+ * A stand-in for background.js's lock keeper, wired into these tabs' chrome.runtime: one holder, first come first
+ * served. `log` records each client's steps with the number of storage writes so far (`w.log.length`), so a test can
+ * tell what was written while it held the lock. `hold()` takes it as another writer would (the worker's merge).
+ * mode 'silent': never answers (a worker that hangs); 'throw': connect throws (the extension's context is gone);
+ * 'reject': the port opens but the message fails (the worker restarting).
+ */
+function keeper(w, tabs, mode = 'ok') {
+  const k = { holder: '', queue: [], log: [], ports: new Map(), seq: 0 };
+  const step = (what, who) => k.log.push([what, who, w.log.length]);
+  const next = () => {
+    if (k.holder || !k.queue.length) return;
+    const q = k.queue.shift();
+    k.holder = q.token;
+    step('grant', q.who);
+    q.go();
+  };
+  const free = token => { if (k.holder !== token) return; k.holder = ''; next(); };
+  const gone = token => { k.ports.delete(token); k.queue = k.queue.filter(q => q.token !== token); free(token); };
+  k.hold = who => new Promise(resolve => {
+    const token = `test-${++k.seq}`;
+    k.queue.push({ token, who, go: () => resolve(() => { step('release', who); free(token); }) });
+    next();
+  });
+  /** the worker went (stopped, restarted): every port disconnects, the lock is forgotten */
+  k.kill = () => { const all = [...k.ports.values()]; k.ports.clear(); k.queue = []; k.holder = ''; all.forEach(p => p.gone.forEach(fn => fn())); };
+  tabs.forEach((tab, i) => {
+    const who = `tab${i}`, rt = tab.window.chrome.runtime;
+    rt.connect = ({ name }) => {
+      if (mode === 'throw') throw new Error('Extension context invalidated.');
+      const token = name.replace(/^dg-lock:/, ''), p = { gone: [] };
+      k.ports.set(token, p);
+      step('connect', who);
+      return { name, onDisconnect: { addListener: fn => p.gone.push(fn) }, disconnect: () => { step('disconnect', who); gone(token); } };
+    };
+    rt.sendMessage = msg => new Promise(resolve => {
+      if (msg?.type !== 'dg-lock') { resolve(undefined); return; }
+      step('ask', who);
+      if (mode === 'silent') return;
+      if (mode === 'reject') { Promise.resolve().then(() => { throw new Error('The message port closed before a response was received.'); }).catch(e => { k.rejected = (k.rejected || 0) + 1; resolve(Promise.reject(e)); }); return; }
+      Promise.resolve().then(() => {
+        if (!k.ports.has(msg.token)) { resolve(false); return; }
+        k.queue.push({ token: msg.token, who, go: () => resolve(true) });
+        next();
+      });
+    });
+  });
+  k.steps = who => k.log.filter(l => l[1] === who).map(l => l[0]);
+  return k;
+}
+const close = tab => tab.$('[data-dg-alarm-close]').click();
+
+test('lock: a check\'s write waits while another writer holds the lock, then takes it, writes and lets go', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' });
+  const { w, tab } = await setup([a]);
+  const k = keeper(w, [tab]);
+  const release = await k.hold('worker');
+  await price(tab, 123, 17.5, 1000);
+  assert.deepEqual(events(w), [], 'not written while the lock is held');
+  assert.equal(listOf(w)[0].on, true);
+  assert.deepEqual(k.steps('tab0'), ['connect', 'ask']);
+  release();
+  await w.advance(200);
+  assert.deepEqual(events(w).map(e => e.alarmId), [a.id]);
+  assert.deepEqual(banners(tab), [a.id]);
+  assert.equal(listOf(w)[0].on, false, 'the switch-off is written in the same turn');
+  const tabSteps = k.log.filter(l => l[1] === 'tab0').slice(0, 4); // then the orphan clean-up's own turn
+  assert.deepEqual(tabSteps.map(l => l[0]), ['connect', 'ask', 'grant', 'disconnect']);
+  const [, , atGrant] = tabSteps[2], [, , atRelease] = tabSteps[3];
+  const during = w.log.slice(atGrant, atRelease).map(l => l.keys.join());
+  assert.ok(during.includes('dgAlarmState,dgAlarmEvents') && during.includes('dgAlarms'), JSON.stringify(during));
+  assert.equal(k.holder, '', 'released');
+  noErrors(w);
+});
+
+test('lock: closing a banner, deleting, switching and editing alarms each take the lock around their write', async () => {
+  const a = alarm({ price: 17, repeat: 'each' }), b = alarm({ price: 30 });
+  const { w, tab } = await setup([a, b]);
+  await price(tab, 123, 17.5);
+  const k = keeper(w, [tab]);
+  const writes = async (what, fn) => {
+    const release = await k.hold('worker');
+    const before = w.log.length;
+    await fn();
+    await w.advance(500);
+    assert.equal(w.log.length, before, `${what}: nothing written while the lock is held`);
+    release();
+    await w.advance(200);
+    assert.ok(w.log.length > before, `${what}: written once it is free`);
+    assert.equal(k.holder, '', `${what}: released`);
+  };
+  await writes('close', () => close(tab));
+  assert.deepEqual(events(w), []);
+  await writes('setOn', () => { tab.run(`dgAlarmStore.setOn(${JSON.stringify(b.id)}, false)`); });
+  assert.equal(listOf(w)[1].on, false);
+  await writes('update', () => { tab.run(`dgAlarmStore.update(${JSON.stringify(b.id)}, { price: 31, dir: 'above', repeat: 'once' })`); });
+  assert.equal(listOf(w)[1].price, 31);
+  await writes('remove', () => { tab.run(`dgAlarmStore.remove(${JSON.stringify(b.id)})`); });
+  assert.deepEqual(listOf(w).map(x => x.id), [a.id]);
+  await writes('add', () => { tab.run(`dgAlarmStore.add(${JSON.stringify(alarm({ price: 40 }))})`); });
+  assert.equal(listOf(w).length, 2);
+  noErrors(w);
+});
+
+test('lock: no answer within 2 s (the worker hangs): the write goes ahead without it, and the tab leaves the queue', async () => {
+  const a = alarm({ price: 17, repeat: 'once' });
+  const { w, tab } = await setup([a]);
+  const k = keeper(w, [tab], 'silent');
+  await price(tab, 123, 17.5, 1900);
+  assert.deepEqual(events(w), []);
+  await w.advance(200);
+  assert.deepEqual(events(w).map(e => e.alarmId), [a.id]);
+  assert.equal(listOf(w)[0].on, false);
+  const [, , dropped] = k.log[2];
+  assert.deepEqual(k.log.slice(0, 3).map(l => l[0]), ['connect', 'ask', 'disconnect']);
+  assert.ok(w.log.slice(dropped).some(l => l.keys.includes('dgAlarmEvents')), 'gave up its place, then wrote');
+  noErrors(w);
+});
+
+test('lock: the worker unreachable (connect throws, the message fails) or gone while waiting: the write goes ahead at once', async () => {
+  for (const how of ['throw', 'reject', 'kill']) {
+    const a = alarm({ price: 17, repeat: 'once' });
+    const { w, tab } = await setup([a]);
+    const k = keeper(w, [tab], how === 'kill' ? 'ok' : how);
+    const release = how === 'kill' ? await k.hold('worker') : null;
+    await price(tab, 123, 17.5, 100);
+    if (how === 'kill') { assert.deepEqual(events(w), [], how); k.kill(); await w.advance(50); }
+    assert.deepEqual(events(w).map(e => e.alarmId), [a.id], how);
+    if (how === 'reject') {
+      assert.ok(k.rejected >= 1); // the write's, then the orphan clean-up's own
+      const [, , dropped] = k.log[2];
+      assert.deepEqual(k.log.slice(0, 3).map(l => l[0]), ['connect', 'ask', 'disconnect'], 'gave its port back');
+      assert.ok(w.log.slice(dropped).some(l => l.keys.includes('dgAlarmEvents')), 'then wrote');
+    }
+    release?.();
+    noErrors(w);
+  }
+});
+
+// The lost update the lock prevents: another writer (the worker's merge) reads the events, a tab fires and writes
+// meanwhile, and that writer's write, made from what it read before, drops the tab's event.
+async function raceWithWorker(withLock) {
+  const a = alarm({ price: 17, repeat: 'once' }), b = alarm({ price: 900, productId: 999 });
+  const { w, tab } = await setup([a, b]);
+  const k = withLock ? keeper(w, [tab]) : null;
+  const release = k ? await k.hold('worker') : () => {};
+  const read = w.stored('local').dgAlarmEvents || []; // the worker's fresh read before its merge
+  await price(tab, 123, 17.5, 50); // the tab fires in between
+  const at = w.now - 600000;
+  await w.set('local', { dgAlarmEvents: [...read, { alarmId: b.id, price: 901, at }], dgAlarmState: { ...w.stored('local').dgAlarmState, [b.id]: { firedAt: at } } });
+  release();
+  await w.advance(200);
+  noErrors(w);
+  return { a, b, w, tab };
+}
+test('lock: a tab\'s firing and the worker\'s merge a few ms apart: without the lock one is lost, with it both stay', async () => {
+  {
+    const { a, w } = await raceWithWorker(false);
+    assert.ok(!events(w).some(e => e.alarmId === a.id), 'without the lock: the worker\'s write drops the tab\'s event');
+  }
+  const { a, b, w, tab } = await raceWithWorker(true);
+  assert.deepEqual(events(w).map(e => e.alarmId).sort(), [a.id, b.id].sort(), 'the tab waited, then merged into the worker\'s write');
+  assert.ok(stateOf(w, a.id).firedAt && stateOf(w, b.id).firedAt);
+  assert.deepEqual(banners(tab).sort(), [a.id, b.id].sort());
+});
+
+test('lock: another writer\'s switch-off stored while a tab\'s switch waits for the lock stays (the tab writes on the stored list)', async () => {
+  const a = alarm({ price: 17 }), b = alarm({ price: 900, productId: 999 });
+  const { w, tab } = await setup([a, b]);
+  const k = keeper(w, [tab]);
+  const release = await k.hold('worker');
+  tab.run(`dgAlarmStore.setOn(${JSON.stringify(a.id)}, false)`);
+  await w.set('sync', { dgAlarms: [a, { ...b, on: false }] }); // the worker's 'once' switch-off of b
+  release();
+  await w.advance(200);
+  assert.deepEqual(listOf(w).map(x => x.on), [false, false]);
+  noErrors(w);
+});
+
+test('lock: two tabs take turns, in the order they asked', async () => {
+  const a = alarm({ price: 17, repeat: 'each' });
+  const { w, tabs: [A, B] } = await setup([a], 2);
+  await price(A, 123, 17.5);
+  const k = keeper(w, [A, B]);
+  const release = await k.hold('worker');
+  close(A);
+  await w.advance(10);
+  close(B);
+  await w.advance(10);
+  release();
+  await w.advance(500);
+  const grants = k.log.filter(l => l[0] === 'grant').map(l => l[1]);
+  assert.deepEqual(grants, ['worker', 'tab0', 'tab1']);
+  assert.deepEqual(events(w), []);
+  noErrors(w);
+});

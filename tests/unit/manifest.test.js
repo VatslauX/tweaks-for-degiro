@@ -82,4 +82,15 @@ test('type-check projects list the same scripts as each manifest world', () => {
   const worker = fs.readFileSync(path.join(EXT, m.background.service_worker), 'utf8');
   const imported = [...worker.matchAll(/importScripts\(([^)]*)\)/g)].flatMap(x => x[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')));
   assert.deepStrictEqual(tsFiles('tsconfig.background.json'), [...imported, m.background.service_worker]);
+  // the settings page: its scripts in page order, then the offscreen document's (chime.js is listed once)
+  const html = name => [...fs.readFileSync(path.join(EXT, name), 'utf8').matchAll(/<script src="([^"]+)"/g)].map(x => x[1]);
+  assert.deepStrictEqual(tsFiles('tsconfig.options.json'), [...new Set([...html('options.html'), ...html('offscreen.html')])]);
+});
+
+test('the alarm-data lock client loads before every writer of alarm data that uses it', () => {
+  const isolated = m.content_scripts.find(cs => cs.world !== 'MAIN').js;
+  assert.ok(isolated.includes('alarm-lock.js') && isolated.indexOf('alarm-lock.js') < isolated.indexOf('alarms.js'));
+  assert.ok(!m.content_scripts.find(cs => cs.world === 'MAIN').js.includes('alarm-lock.js'), 'never in the page world');
+  const opt = [...fs.readFileSync(path.join(EXT, 'options.html'), 'utf8').matchAll(/<script src="([^"]+)"/g)].map(x => x[1]);
+  assert.ok(opt.indexOf('alarm-lock.js') >= 0 && opt.indexOf('alarm-lock.js') < opt.indexOf('options.js'));
 });

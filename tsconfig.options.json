@@ -1,6 +1,6 @@
 {
-  // Settings page (options.html): flags.js, chime.js, options.js; and the background check's offscreen.html: offscreen.js.
+  // Settings page (options.html): flags.js, chime.js, alarm-lock.js, options.js; and the background check's offscreen.html: offscreen.js.
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "types": ["chrome"] },
-  "files": ["extension/flags.js", "extension/chime.js", "extension/options.js", "extension/offscreen.js"]
+  "files": ["extension/flags.js", "extension/chime.js", "extension/alarm-lock.js", "extension/options.js", "extension/offscreen.js"]
 }

@@ -57,6 +57,7 @@
         "portfolio-table.js",
         "alarm-rules.js",
         "chime.js",
+        "alarm-lock.js",
         "alarms.js",
         "alarm-panel.js",
         "alarms-page.js",

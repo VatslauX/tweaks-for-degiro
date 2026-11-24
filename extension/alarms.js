@@ -115,17 +115,23 @@ const dgAlarmStore = (() => {
   } catch (e) {}
 
   // every writer of local storage runs one after the other: each reads the stored values, merges its own
-  // change and writes back, so overlapping calls would lose each other's updates
+  // change and writes back, so overlapping calls would lose each other's updates. Other DEGIRO tabs, the settings page
+  // and the background worker do the same: each queue item that reads and writes alarm data does it holding the
+  // alarm-data lock (alarm-lock.js), taken inside the item so this tab's own order stays as queued
   let queue = Promise.resolve();
   /** @param {() => Promise<any>} fn */
   const serial = fn => (queue = queue.then(fn, fn));
+  /** a queue item holding the alarm-data lock @template T @param {() => Promise<T>} fn @returns {Promise<T>} */
+  const locked = fn => serial(() => dgAlarmLock.run(fn));
 
-  /** ids of the alarms in storage (this tab's list if storage refuses) */
-  async function storedIds() {
-    try { return R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] }))?.dgAlarms).map(a => a.id); } catch (e) { return alarms.map(a => a.id); }
+  /** the alarms in storage (this tab's list if storage refuses) */
+  async function storedList() {
+    try { return R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] }))?.dgAlarms); } catch (e) { return alarms; }
   }
+  /** ids of the alarms in storage (this tab's list if storage refuses) */
+  const storedIds = async () => (await storedList()).map(a => a.id);
   // events of alarms that no longer exist go (nothing would ever close them)
-  const dropOrphans = () => serial(async () => {
+  const dropOrphans = () => locked(async () => {
     try {
       const ids = await storedIds();
       const r = await chrome.storage.local.get({ dgAlarmEvents: [] });
@@ -137,45 +143,64 @@ const dgAlarmStore = (() => {
     } catch (e) {}
   });
 
-  // the list is shown changed at once; if storage refuses, it comes back from storage
+  // Write the list: shown at once; if storage refuses, it comes back from storage. Only inside a queue item that
+  // holds the lock, on a list made from the stored one (a fresh read in that item). Never await `saveAlarms` or any
+  // other `locked()` call inside such an item: it would queue behind it and never start, stopping this tab's writes
   /** @param {any[]} list */
-  async function saveAlarms(list) {
+  async function writeAlarms(list) {
     alarms = withOffing(R.sanitize(list));
     changed();
     try { await chrome.storage.sync.set({ dgAlarms: alarms }); } catch (e) { reload(); return false; }
     // a switch-off storage refused before is stored now: the list just written holds it
     for (const [id, o] of offing) if (o.done && !alarms.some(a => a.id === id && a.on)) offing.delete(id);
-    dropOrphans(); // not awaited: record() calls this from inside the queue
+    dropOrphans(); // not awaited: called from inside the queue
     return true;
   }
+  /**
+   * The user's change to the list (`edit` of a list; null: not possible on that list): shown on this tab's list at
+   * once, then made to the stored list, read again holding the lock, so a change another writer stored meanwhile (a
+   * tab's, another computer's, the worker's 'once' switch-off) stays. `edit` may run twice on the same list.
+   * @param {(list: any[]) => any[] | null} edit @returns {Promise<boolean>}
+   */
+  const saveAlarms = edit => {
+    const shown = edit(alarms);
+    if (shown) { alarms = withOffing(R.sanitize(shown)); changed(); }
+    return locked(async () => {
+      const next = edit(await storedList());
+      if (!next) { reload(); return false; }
+      return writeAlarms(next);
+    });
+  };
   /** @param {any} a @returns {Promise<'ok' | 'full' | 'error'>} */
   async function add(a) {
     if (alarms.length >= R.MAX) return 'full';
-    return (await saveAlarms([...alarms, a])) ? 'ok' : 'error';
+    // added once, whichever list it lands on; a list that filled up meanwhile (another computer's) takes no more
+    const ok = await saveAlarms(list => (list.some(x => x.id === a.id) ? list : list.length >= R.MAX ? null : [...list, a]));
+    return ok ? 'ok' : 'error';
   }
   /** @param {string} id @param {boolean} on */
   const setOn = (id, on) => {
     offing.delete(id); // the user's choice: no switch-off of this tab's is laid over it
-    return saveAlarms(alarms.map(a => (a.id === id ? { ...a, on } : a)));
+    return saveAlarms(list => list.map(a => (a.id === id ? { ...a, on } : a)));
   };
   /** @param {string} id */
-  const remove = id => saveAlarms(alarms.filter(a => a.id !== id));
+  const remove = id => saveAlarms(list => list.filter(a => a.id !== id));
 
   /**
    * Change an alarm's price, direction and repeat in place (same id and position), switch it on and let it
-   * fire again: its fired time and open banner go, `last`/`lastAt` stay. Runs in the queue, like `record`.
+   * fire again: its fired time and open banner go, `last`/`lastAt` stay. Runs in the queue holding the lock, like
+   * `record`.
    * @param {string} id @param {{ price: number, dir: string, repeat: string }} patch @returns {Promise<'ok' | 'gone' | 'error'>}
    */
-  const update = (id, patch) => serial(async () => {
+  const update = (id, patch) => locked(async () => {
     try {
-      let base = alarms;
-      try { base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] }))?.dgAlarms); } catch (e) {}
+      const base = await storedList();
       const old = base.find(a => a.id === id);
       if (!old) return 'gone';
       const [next] = R.sanitize([{ ...old, price: patch.price, dir: patch.dir, repeat: patch.repeat, on: true }]);
       if (!next) return 'error';
       offing.delete(id); // edited: switched on, whatever this tab switched off before
-      if (!(await saveAlarms(base.map(a => (a.id === id ? next : a))))) return 'error';
+      if (!(await writeAlarms(base.map(a => (a.id === id ? next : a))))) return 'error';
       // saved: the rest is best effort (like closeEvent), a failing local write must not report an error
       try {
         pending.delete(id); // the edit starts the alarm afresh: nothing of before is laid over it again
@@ -196,7 +221,7 @@ const dgAlarmStore = (() => {
     events = events.filter(e => e.alarmId !== alarmId);
     changed();
     // remove only this event from the stored ones: another tab may have added others meanwhile
-    serial(async () => {
+    locked(async () => {
       try {
         const r = await chrome.storage.local.get({ dgAlarmEvents: [] });
         await chrome.storage.local.set({ dgAlarmEvents: R.sanitizeEvents(r?.dgAlarmEvents).filter(e => e.alarmId !== alarmId) });
@@ -228,7 +253,9 @@ const dgAlarmStore = (() => {
     off.forEach(id => offing.set(id, mark));
     if (off.length) alarms = withOffing(alarms);
     changed();
-    return serial(async () => {
+    // the merge, its write and the switch-offs hold the lock: another writer's merge can't land between this read
+    // and this write. `onKept` (the chime) only starts the sound or asks the worker for it, without waiting
+    return locked(async () => {
       let offKept = off; // storage failing before the merge: all of them, as before
       let refused = false;
       try {
@@ -245,8 +272,8 @@ const dgAlarmStore = (() => {
           state = withPending(merged.state); // and a later check's, still queued, stay
           events = merged.events;
           // a firing the merge dropped (another writer's won) doesn't chime, nor is switched off here (the winner does
-          // that); two tabs whose merges interleave within a few ms may each keep theirs for a moment (one event stays)
-          // and both chime
+          // that); two tabs whose merges interleave within a few ms (only without the lock: a worker that didn't answer)
+          // may each keep theirs for a moment (one event stays) and both chime
           const kept = fired.filter(f => events.some(e => e.alarmId === f.alarmId && e.at === f.at));
           offKept = off.filter(id => kept.some(f => f.alarmId === id));
           if (onKept && kept.length) onKept();
@@ -256,9 +283,8 @@ const dgAlarmStore = (() => {
         offsLeft(id => offKept.includes(id)); // a dropped firing's switch-off isn't this tab's: the stored list says
         if (offKept.length) {
           // switch off on the stored list, so alarms another tab added or changed meanwhile are kept
-          let base = alarms;
-          try { base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] }))?.dgAlarms); } catch (e) {}
-          refused = !(await saveAlarms(base.map(a => (offKept.includes(a.id) ? { ...a, on: false } : a))));
+          const base = await storedList();
+          refused = !(await writeAlarms(base.map(a => (offKept.includes(a.id) ? { ...a, on: false } : a))));
         } else if (off.length) reload(); // switched off above in this tab only: the stored list says what holds
       } finally {
         // stored: the stored list holds the switch-off. Refused: it stays over this tab's list, or the alarm would fire

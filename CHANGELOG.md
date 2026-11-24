@@ -6,6 +6,7 @@
 - **Fix**: an alarm a DEGIRO tab fired while the background check was running could fire a second time with Yahoo's older price: a second notification, and the banner showing the older price. The tab's firing now wins.
 - **Fix**: an alarm the background check had fired could fire again in a DEGIRO tab that saw the price at the same time, or that came back to the Favourites page later with the price still past the alarm: a second chime, and the banner showing the tab's price instead. The tab now recognises the background check's firing, and a *Once* alarm is switched off before its notification.
 - **Fix**: a *Once* alarm, or a *Once a day* alarm on its first firing, could fire twice in a DEGIRO tab when alarm data was being saved at the same moment (for another alarm by the same tab, by another tab, or by the background check): a second chime, and the banner replaced. It now fires once. A *Once* alarm whose switch-off can't be saved no longer fires again on every check.
+- **Fix**: alarm data saved by a DEGIRO tab, the background check and the settings page at the same moment could lose one of the saves (a banner closed, an alarm switched or edited, a firing, *Clear saved data*); they now take turns, DEGIRO first.
 
 ## 1.24.1 — 2026-11-20
 - **No change in behaviour**: this release only updates the extension's tests, so the extension works exactly as in 1.24.0.

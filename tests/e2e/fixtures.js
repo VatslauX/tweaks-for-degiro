@@ -270,4 +270,4 @@ async function chartAxisFont(page) {
   return f;
 }
 
-module.exports = { test, expect, setFlag, advanceUntilVisible, stubPermissions, unstubPermissions, DEFAULT_ORDERS, EXT, portfolioSeries, CASH_TODAY, cashFundsApi, chartAxisFont };
+module.exports = { test, expect, setFlag, advanceUntilVisible, stubPermissions, unstubPermissions, backgroundWorker, DEFAULT_ORDERS, EXT, portfolioSeries, CASH_TODAY, cashFundsApi, chartAxisFont };

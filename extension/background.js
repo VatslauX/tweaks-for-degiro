@@ -206,6 +206,80 @@ importScripts('alarm-rules.js');
     });
   };
 
+  // ---------- the alarm-data lock ----------
+  // DEGIRO tabs, the settings page and this worker each read, merge and write back alarm data (sync dgAlarms, local
+  // dgAlarmState and dgAlarmEvents); they share no Web Lock (the tabs run on DEGIRO's origin), so this worker keeps
+  // the lock, in memory: one holder at a time, the others wait. A DEGIRO tab or the settings page (alarm-lock.js) goes
+  // before this worker's own write; each kind in turn. A started write is never interrupted, but a turn lasts at most
+  // LOCK_LEASE. A client opens a port named `dg-lock:<token>` (its disconnect, or its tab closing, frees its turn or
+  // its place in the queue) and asks with `{ type: 'dg-lock', token }`; the reply `true` is its turn. Port and message
+  // may come in either order; a message whose port went first is answered `false`. Clients that get no answer within
+  // 2 s go on without the lock, as does this worker after LOCK_WAIT.
+  const LOCK_LEASE = 5000;
+  const LOCK_WAIT = 10000;
+  const LOCK_TOKEN = /^[\w-]{8,64}$/;
+  /** @typedef {{ token: string, high: boolean, go: () => void, no: () => void }} LockWaiter */
+  /** @type {LockWaiter[]} */ const lockQueue = [];
+  /** @type {{ token: string, timer: ReturnType<typeof setTimeout> } | null} */ let lockHolder = null;
+  /** clients' open ports, by token @type {Map<string, chrome.runtime.Port>} */ const lockPorts = new Map();
+  /** tokens whose port went, for a lease's time: a message coming after it gets no turn @type {Set<string>} */ const lockGone = new Set();
+  let lockSeq = 0;
+  const lockNext = () => {
+    if (lockHolder || !lockQueue.length) return;
+    const i = lockQueue.findIndex(w => w.high);
+    const [w] = lockQueue.splice(i < 0 ? 0 : i, 1);
+    lockHolder = { token: w.token, timer: setTimeout(() => lockFree(w.token), LOCK_LEASE) };
+    w.go();
+  };
+  /** the holder's turn ends (released, its port gone, its lease over); anyone else's call is ignored @param {string} token */
+  const lockFree = token => {
+    if (lockHolder?.token !== token) return;
+    clearTimeout(lockHolder.timer);
+    lockHolder = null;
+    lockNext();
+  };
+  /** a client's port went: its turn ends, or it leaves the queue @param {string} token */
+  const lockGo = token => {
+    lockPorts.delete(token);
+    lockGone.add(token);
+    setTimeout(() => lockGone.delete(token), LOCK_LEASE);
+    const i = lockQueue.findIndex(w => w.token === token);
+    if (i >= 0) lockQueue.splice(i, 1)[0].no();
+    lockFree(token);
+  };
+  /** @param {string} token @param {boolean} high @param {() => void} go @param {() => void} no */
+  const lockAsk = (token, high, go, no) => { lockQueue.push({ token, high, go, no }); lockNext(); };
+  /**
+   * This worker's own turn, after the waiting DEGIRO tabs and settings page; resolves with its release. After
+   * LOCK_WAIT without a turn (tabs writing all the while) it goes on without the lock, as a client does after 2 s.
+   * @returns {Promise<() => void>}
+   */
+  const lockOwn = () => new Promise(resolve => {
+    const token = `bg:${++lockSeq}`; // never a client's (LOCK_TOKEN)
+    const wait = setTimeout(() => {
+      const i = lockQueue.findIndex(w => w.token === token);
+      if (i >= 0) { lockQueue.splice(i, 1); resolve(() => {}); }
+    }, LOCK_WAIT);
+    lockAsk(token, false, () => { clearTimeout(wait); resolve(() => lockFree(token)); }, () => {});
+  });
+  chrome.runtime.onConnect.addListener(port => {
+    const m = /^dg-lock:(.*)$/.exec(port.name);
+    if (!m || port.sender?.id !== chrome.runtime.id) return;
+    const token = m[1];
+    if (!LOCK_TOKEN.test(token) || lockPorts.has(token)) { try { port.disconnect(); } catch (e) {} return; }
+    lockPorts.set(token, port);
+    port.onDisconnect.addListener(() => { void chrome.runtime.lastError; lockGo(token); });
+  });
+  chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+    if (sender.id !== chrome.runtime.id || msg?.type !== 'dg-lock') return;
+    const token = msg.token;
+    const answer = (/** @type {boolean} */ v) => { try { reply(v); } catch (e) {} };
+    if (typeof token !== 'string' || !LOCK_TOKEN.test(token) || lockGone.has(token)
+      || lockHolder?.token === token || lockQueue.some(w => w.token === token)) { answer(false); return; }
+    lockAsk(token, true, () => answer(true), () => answer(false));
+    return true; // replies on its turn
+  });
+
   // ---------- one check ----------
   /** @param {Record<string, any>} status */
   const setStatus = status => chrome.storage.local.set({ dgBgStatus: status }).catch(() => {});
@@ -421,26 +495,44 @@ importScripts('alarm-rules.js');
       await chrome.storage.session.set({ dgBgArmed: armedMap });
 
       if (fired.length) {
-        // merged into freshly read storage: a tab may have fired the same alarm meanwhile, its firing wins. A tab's
-        // firedAt is its clock's time, this one the (delayed) trade's: a firing at or after the trade wins as well as
-        // one within the window, as the check above does against the state read at the tick's start
-        // the stored alarm ids are read again too: an alarm a tab added meanwhile keeps its state and banner
-        const [fresh, now2] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), chrome.storage.sync.get({ dgAlarms: [] })]);
-        const known = [...new Set([...alarms.map(a => a.id), ...R.sanitize(now2.dgAlarms).map(a => a.id)])];
-        const mine = new Set(fired.map(f => f.at));
-        const merged = R.merge({ state: R.sanitizeState(fresh.dgAlarmState), events: R.sanitizeEvents(fresh.dgAlarmEvents) },
-          upd, fired, alarms, known, (a, at, when) => !!at && !mine.has(at) && (at >= when || R.within(a, at, when)));
-        await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
-        // only the firings the merge kept: one it dropped is another writer's to show, chime and switch off
-        const kept = fired.filter(f => merged.events.some(e => e.alarmId === f.alarmId && e.at === f.at));
-        // 'once' alarms go off first: until then a DEGIRO tab may fire one again (the chime can take a moment to open
-        // its offscreen document). A failing switch-off still lets the stored firing be notified
-        if (off.some(id => kept.some(f => f.alarmId === id))) {
-          try {
-            const base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] })).dgAlarms);
-            await chrome.storage.sync.set({ dgAlarms: base.map(a => (off.includes(a.id) && kept.some(f => f.alarmId === a.id) ? { ...a, on: false } : a)) });
-          } catch (e) { err = String(e?.message || e).slice(0, 80); }
-        }
+        // The merge, its write and the 'once' switch-offs hold the alarm-data lock (after any DEGIRO tab or settings
+        // page waiting for it): another writer's read-merge-write can't land in between. Notifications and the chime
+        // come after, without it.
+        /** @type {typeof fired} */ let kept = [];
+        const unlock = await lockOwn();
+        try {
+          // "Clear saved data" or the check switched off while this one waited: nothing of it is written back
+          if (await stop()) return;
+          // merged into freshly read storage: a tab may have fired the same alarm meanwhile, its firing wins. A tab's
+          // firedAt is its clock's time, this one the (delayed) trade's: a firing at or after the trade wins as well as
+          // one within the window, as the check above does against the state read at the tick's start
+          // the stored alarm ids are read again too: an alarm a tab added meanwhile keeps its state and banner
+          const [fresh, now2] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), chrome.storage.sync.get({ dgAlarms: [] })]);
+          const storedNow = R.sanitize(now2.dgAlarms);
+          const known = [...new Set([...alarms.map(a => a.id), ...storedNow.map(a => a.id)])];
+          // an alarm deleted, switched off or edited meanwhile (a tab's turn just before this one, say) doesn't fire
+          // as it was at the tick's start
+          const still = fired.filter(f => {
+            const a = alarms.find(x => x.id === f.alarmId), s = storedNow.find(x => x.id === f.alarmId);
+            return !!a && !!s && s.on && s.price === a.price && s.dir === a.dir && s.repeat === a.repeat;
+          });
+          /** @type {Record<string, any>} */ const updNow = {};
+          for (const f of still) updNow[f.alarmId] = upd[f.alarmId];
+          const mine = new Set(still.map(f => f.at));
+          const merged = R.merge({ state: R.sanitizeState(fresh.dgAlarmState), events: R.sanitizeEvents(fresh.dgAlarmEvents) },
+            updNow, still, alarms, known, (a, at, when) => !!at && !mine.has(at) && (at >= when || R.within(a, at, when)));
+          if (still.length) await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
+          // only the firings the merge kept: one it dropped is another writer's to show, chime and switch off
+          kept = still.filter(f => merged.events.some(e => e.alarmId === f.alarmId && e.at === f.at));
+          // 'once' alarms go off first: until then a DEGIRO tab may fire one again (the chime can take a moment to open
+          // its offscreen document). A failing switch-off still lets the stored firing be notified
+          if (off.some(id => kept.some(f => f.alarmId === id))) {
+            try {
+              const base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] })).dgAlarms);
+              await chrome.storage.sync.set({ dgAlarms: base.map(a => (off.includes(a.id) && kept.some(f => f.alarmId === a.id) ? { ...a, on: false } : a)) });
+            } catch (e) { err = String(e?.message || e).slice(0, 80); }
+          }
+        } finally { unlock(); }
         let shown = 0;
         for (const f of kept) {
           const a = alarms.find(x => x.id === f.alarmId);
