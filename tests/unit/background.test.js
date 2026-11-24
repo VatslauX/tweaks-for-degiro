@@ -600,6 +600,17 @@ test('an alarm a tab fires while the worker waits for Yahoo is not fired again w
   }
 });
 
+test('a once alarm the worker fired is switched off before its notification and chime (a tab may fire it meanwhile)', async () => {
+  const w = worker({ responses: yahoo() });
+  const order = [];
+  const { sync } = w.chrome.storage, set = sync.set, create = w.chrome.offscreen.createDocument, note = w.chrome.notifications.create;
+  sync.set = async p => { if (p.dgAlarms) order.push(`dgAlarms on: ${p.dgAlarms.map(a => a.on)}`); return set(p); };
+  w.chrome.notifications.create = (...a) => { order.push('notification'); return note(...a); };
+  w.chrome.offscreen.createDocument = async o => { order.push('chime'); return create(o); };
+  await w.tick();
+  assert.deepEqual(order, ['dgAlarms on: false', 'notification', 'chime']);
+});
+
 test('an \'each\' alarm a tab fired an hour ago fires again once it crossed back and over', async () => {
   const each = { ...ALARM, repeat: 'each' };
   const earlier = NOW - 3600000;
@@ -613,6 +624,36 @@ test('an \'each\' alarm a tab fired an hour ago fires again once it crossed back
   const local = w.chrome.storage.local.data;
   assert.deepEqual(plain(local.dgAlarmEvents), [{ alarmId: 'a1', price: 1050, at: NOW - 840000 }]);
   assert.equal(local.dgAlarmState.a1.firedAt, NOW - 840000);
+  assert.equal(w.calls.notes.length, 1);
+});
+
+test('an \'each\' alarm the worker saw armed, then a tab fired, is not fired again once the worker takes the product back', async () => {
+  // the worker sees the price below (armed); a DEGIRO tab then prices the product, fires it and leaves; once the tab's
+  // price is older than 3 minutes and Yahoo's delayed trade is newer than the tab's firing, the price is still above
+  const each = { ...ALARM, repeat: 'each' };
+  const min = 60000, tabAt = NOW + min;
+  let next = spark(990);
+  const w = worker({ sync: { dgAlarms: [each] }, local: { dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' } } },
+    responses: url => (url.includes('spark') ? { body: next } : yahoo()(url)) });
+  await w.tick();
+  assert.equal(w.calls.notes.length, 0, 'below: armed, nothing fires');
+  const tab = { alarmId: 'a1', price: 1040, at: tabAt };
+  Object.assign(w.chrome.storage.local.data, { dgAlarmState: { a1: { firedAt: tabAt, last: 1040, lastAt: tabAt } }, dgAlarmEvents: [tab] });
+  w.clock.now = NOW + 20 * min;
+  next = spark(1050, (NOW + 5 * min) / 1000); // a trade minutes after the tab's firing, still above
+  await w.tick();
+  const local = w.chrome.storage.local.data;
+  assert.deepEqual(plain(local.dgAlarmEvents), [tab], 'the tab\'s banner and price stay');
+  assert.equal(local.dgAlarmState.a1.firedAt, tabAt);
+  assert.deepEqual([w.calls.notes.length, w.calls.offscreen.length], [0, 0], 'no second notification, no chime');
+  // back below and over again: a new crossing fires
+  w.clock.now += min;
+  next = spark(990, (NOW + 6 * min) / 1000);
+  await w.tick();
+  w.clock.now += min;
+  next = spark(1050, (NOW + 7 * min) / 1000);
+  await w.tick();
+  assert.deepEqual(plain(local.dgAlarmEvents), [{ alarmId: 'a1', price: 1050, at: NOW + 7 * min }]);
   assert.equal(w.calls.notes.length, 1);
 });
 

@@ -229,6 +229,107 @@ test('two tabs, each: the other tab\'s firing is not repeated (no ping-pong), an
   noErrors(w);
 });
 
+// ---------- the background worker and a tab ----------
+
+// The worker (background.js) stores its firing as a tab does, but its firedAt is the trade's time: Yahoo's price is
+// about 15 minutes old (a closed market's close, hours). Written as the worker does: state and event, then later
+// (not here) the 'once' switch-off in sync.
+async function workerFired(w, a, price = 17.4) {
+  const at = w.now - 15 * 60e3;
+  await w.set('local', {
+    dgAlarmState: { ...(w.stored('local').dgAlarmState || {}), [a.id]: { ...stateOf(w, a.id), firedAt: at } },
+    dgAlarmEvents: [...events(w).filter(e => e.alarmId !== a.id), { alarmId: a.id, price, at }]
+  });
+  return at;
+}
+const alarmWrites = (w, from) => w.log.slice(from).filter(l => l.area === 'sync' && l.keys.includes('dgAlarms')).length;
+
+/** the worker fires `repeat` while the tab, which saw the price below, is about to see it reached */
+async function workerThenTab(repeat) {
+  const a = alarm({ price: 17, dir: 'above', repeat });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  await price(tab, 123, 16.5); // below: an 'each' alarm is armed in this tab
+  const at = await workerFired(w, a); // its storage event reaches the tab
+  const from = w.log.length;
+  await price(tab, 123, 17.5);
+  assert.deepEqual(events(w), [{ alarmId: a.id, price: 17.4, at }], 'the worker\'s event stays, no second one');
+  assert.equal(stateOf(w, a.id).firedAt, at);
+  assert.deepEqual([s.played, s.asked.length], [0, 0], 'no chime, none asked of the worker');
+  assert.equal(alarmWrites(w, from), 0, 'the tab switches nothing off (the worker does)');
+  assert.deepEqual(banners(tab), [a.id]);
+  noErrors(w);
+}
+
+test('background: a tab does not fire a once alarm again that the worker just fired with Yahoo\'s older trade', () => workerThenTab('once'));
+
+test('background: nor an \'each\' alarm', () => workerThenTab('each'));
+
+test('background: a tab whose storage event lags still drops its firing once the worker\'s is stored', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  const held = tab.listeners.splice(0); // the worker's write is stored, but its onChanged hasn't reached this tab yet
+  const at = await workerFired(w, a);
+  const from = w.log.length;
+  await price(tab, 123, 17.5); // the tab still sees the alarm on and unfired: it fires, and its merge reads storage
+  tab.listeners.push(...held);
+  await w.advance(200);
+  assert.deepEqual(events(w), [{ alarmId: a.id, price: 17.4, at }], 'the merge dropped the tab\'s firing');
+  assert.equal(stateOf(w, a.id).firedAt, at);
+  assert.deepEqual([s.played, s.asked.length], [0, 0], 'no chime');
+  assert.equal(alarmWrites(w, from), 0, 'a dropped firing is not switched off by the tab');
+  noErrors(w);
+});
+
+test('background: an \'each\' alarm the worker fired while the tab was on another page is not fired again when it comes back', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'each' });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  await price(tab, 123, 16.5); // below: armed in this tab
+  await tab.go('/portfolio'); // the tab stops pricing the product; after 3 minutes the worker checks it
+  await w.advance(200);
+  tab.setPrice(123, 17.5); // DEGIRO's price moves on meanwhile (not read on this page)
+  await w.skip(3 * 60e3);
+  const at = await workerFired(w, a);
+  await w.advance(200); // its storage event reaches the tab
+  await w.skip(90e3); // the user comes back more than a minute later, the price still above
+  const from = w.log.length;
+  await tab.go('/favourites');
+  await w.advance(200);
+  assert.deepEqual(events(w), [{ alarmId: a.id, price: 17.4, at }], 'the worker\'s event stays, no second one');
+  assert.equal(stateOf(w, a.id).firedAt, at);
+  assert.deepEqual([s.played, s.asked.length], [0, 0], 'no chime, none asked of the worker');
+  assert.equal(w.log.slice(from).filter(l => l.keys.includes('dgAlarmEvents')).length, 0, 'no event written');
+  // back below and over again: a new crossing fires in this tab
+  await price(tab, 123, 16.5);
+  await price(tab, 123, 17.6);
+  assert.deepEqual(events(w).map(e => [e.alarmId, e.price]), [[a.id, 17.6]]);
+  assert.ok(events(w)[0].at > at && stateOf(w, a.id).firedAt === events(w)[0].at);
+  assert.equal(s.played, 1);
+  noErrors(w);
+});
+
+test('background: a once alarm switched back on fires, though an older firing of it was stored before the tab opened', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once', on: false });
+  const w = createWorld();
+  await w.set('sync', { dgAlarms: [a] });
+  const old = w.now - 15 * 60e3; // e.g. the worker's firing, before the user switched it back on
+  await w.set('local', { dgAlarmState: { [a.id]: { firedAt: old } }, dgAlarmEvents: [] });
+  const tab = await w.open({ fixture: 'favourites', hash: '/favourites' });
+  await w.advance(200); // its first price is stored: that storage event carries the old firedAt again
+  assert.equal(stateOf(w, a.id).firedAt, old);
+  assert.ok(stateOf(w, a.id).lastAt, 'the first price was written after the tab loaded');
+  const s = sound(tab, true);
+  assert.equal(await tab.run(`dgAlarmStore.setOn(${JSON.stringify(a.id)}, true)`), true);
+  await w.advance(200);
+  await price(tab, 123, 17.5);
+  assert.deepEqual(events(w).map(e => [e.alarmId, e.price]), [[a.id, 17.5]], 'fires at once, not held back');
+  assert.equal(listOf(w)[0].on, false);
+  assert.equal(s.played, 1);
+  noErrors(w);
+});
+
 test('banners show in every tab, and closing in one closes it in the other', async () => {
   const a = alarm({ price: 17 });
   const { w, tabs: [A, B] } = await setup([a], 2);
@@ -252,6 +353,156 @@ test('a tab opened later shows the banners that are still open', async () => {
 });
 
 // ---------- races ----------
+
+// An alarm fires for the first time (no firedAt stored yet); while record() still reads storage for its merge, another
+// tab stores only another alarm's `last`. Its storage event carries the stored state, without this tab's new firedAt:
+// the tab keeps its own until written, so the next check doesn't fire the alarm a second time.
+async function otherWriteMidMerge(repeat) {
+  const a = alarm({ price: 17, dir: 'above', repeat });
+  const b = alarm({ productId: 999, price: 5, dir: 'above', repeat: 'each' }); // its product isn't in this tab's list
+  const { w, tab } = await setup([a, b]);
+  const s = sound(tab, true);
+  const before = w.stored('local').dgAlarmState || {};
+  assert.equal(before[a.id]?.firedAt, undefined, 'never fired before');
+  w.latency.get = 50; // record()'s read for its merge takes 50 ms
+  tab.setPrice(123, 17.5);
+  await w.advance(20); // fired: in this tab's state, not stored yet
+  w.latency.get = 0;
+  await w.set('local', { dgAlarmState: { ...before, [b.id]: { last: 4, lastAt: w.now } } });
+  await w.advance(1000);
+  assert.equal(events(w).length, 1);
+  const [e] = events(w);
+  assert.deepEqual([e.alarmId, e.price], [a.id, 17.5]);
+  assert.equal(stateOf(w, a.id).firedAt, e.at, 'the first firing stays');
+  assert.equal(stateOf(w, b.id).last, 4, 'the other tab\'s write is kept');
+  assert.equal(writesTo(w, 'dgAlarmEvents'), 1, 'fired once');
+  assert.equal(s.played, 1, 'one chime');
+  return { w, tab, a, s, at: e.at };
+}
+
+test('race: an \'each\' alarm\'s first firing is not repeated when another alarm\'s state is written during its merge', async () => {
+  const { w } = await otherWriteMidMerge('each');
+  noErrors(w);
+});
+
+test('race: nor a \'daily\' alarm\'s', async () => {
+  const { w } = await otherWriteMidMerge('daily');
+  noErrors(w);
+});
+
+test('race: the tab\'s unsaved state outlives no write: later stored changes count again', async () => {
+  const { w, tab, a, s, at } = await otherWriteMidMerge('daily');
+  // another tab's edit clears the firing (as update() does): this tab sees it, and the price, still past the alarm,
+  // fires it again today
+  await w.skip(5000);
+  const st = { ...stateOf(w, a.id) };
+  delete st.firedAt;
+  await w.set('local', { dgAlarmState: { ...w.stored('local').dgAlarmState, [a.id]: st }, dgAlarmEvents: [] });
+  await w.advance(200);
+  assert.deepEqual(events(w).map(e => [e.alarmId, e.price]), [[a.id, 17.5]], 'fired again after the edit');
+  assert.ok(events(w)[0].at > at && stateOf(w, a.id).firedAt === events(w)[0].at);
+  assert.equal(tab.json(`dgAlarmStore.state()[${JSON.stringify(a.id)}].firedAt`), events(w)[0].at);
+  assert.equal(s.played, 2);
+  // the worker's later firing reaches this tab's state too
+  const later = stateOf(w, a.id).firedAt + 1000;
+  await w.set('local', { dgAlarmState: { ...w.stored('local').dgAlarmState, [a.id]: { ...stateOf(w, a.id), firedAt: later } } });
+  await w.advance(200);
+  assert.equal(tab.json(`dgAlarmStore.state()[${JSON.stringify(a.id)}].firedAt`), later);
+  noErrors(w);
+});
+
+// A 'once' alarm that fired is switched off in the tab at once, and in storage only at the end of record(): until then
+// the tab's `on: false` is all that keeps the next check from firing it again, whatever replaces the list meanwhile.
+const onIn = (tab, id) => tab.json(`dgAlarmStore.list().find(x => x.id === ${JSON.stringify(id)}).on`);
+
+test('race: a once alarm is not fired again when another writer stores the alarm list during its switch-off', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' });
+  const b = alarm({ productId: 999, price: 5, dir: 'above', repeat: 'each', on: false }); // not in this tab's list
+  const { w, tab } = await setup([a, b]);
+  const s = sound(tab, true);
+  w.latency.get = 50; // record()'s read for its merge takes 50 ms
+  tab.setPrice(123, 17.5);
+  await w.advance(20); // fired and switched off in this tab, not stored yet
+  assert.equal(onIn(tab, a.id), false);
+  w.latency.get = 0;
+  await w.set('sync', { dgAlarms: [a, { ...b, on: true }] }); // another tab switches b on: a is still stored on
+  assert.equal(onIn(tab, b.id), true, 'the other writer\'s change is taken');
+  await w.advance(1000); // the price is still past the alarm
+  assert.deepEqual(events(w).map(e => [e.alarmId, e.price]), [[a.id, 17.5]]);
+  assert.equal(writesTo(w, 'dgAlarmEvents'), 1, 'fired once');
+  assert.equal(s.played, 1, 'one chime');
+  assert.deepEqual(listOf(w).map(x => [x.id, x.on]), [[a.id, false], [b.id, true]]);
+  assert.deepEqual(banners(tab), [a.id]);
+  noErrors(w);
+});
+
+test('race: two once alarms firing in separate checks while the first one\'s write is in flight each fire once', async () => {
+  const x = alarm({ price: 17, productId: 123, repeat: 'once' }), y = alarm({ price: 1300, productId: 456, repeat: 'once' });
+  const { w, tab } = await setup([x, y]);
+  const s = sound(tab, true);
+  w.latency.set = 50; // every write takes 50 ms: x's switch-off is stored (from the stored list) after y fired
+  tab.setPrice(123, 17.5);
+  await w.advance(20);
+  tab.setPrice(456, 1301); // a later check: y fires while x's record() is still writing
+  await w.advance(3000); // both prices stay past their alarms
+  assert.deepEqual(events(w).map(e => e.alarmId).sort(), [x.id, y.id].sort(), 'one event per alarm');
+  assert.equal(writesTo(w, 'dgAlarmEvents'), 2, 'each fired once');
+  assert.equal(s.played, 2, 'one chime per firing');
+  assert.deepEqual(listOf(w).map(a => a.on), [false, false], 'both switched off');
+  assert.deepEqual([onIn(tab, x.id), onIn(tab, y.id)], [false, false]);
+  noErrors(w);
+});
+
+test('race: a once alarm the user switches back on after its switch-off is on again and fires again', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  await price(tab, 123, 17.5);
+  assert.equal(listOf(w)[0].on, false);
+  await price(tab, 123, 16.5);
+  assert.equal(await tab.run(`dgAlarmStore.setOn(${JSON.stringify(a.id)}, true)`), true);
+  await w.advance(200);
+  assert.deepEqual([listOf(w)[0].on, onIn(tab, a.id)], [true, true], 'nothing of the switch-off is laid over it');
+  await price(tab, 123, 17.6);
+  assert.deepEqual(events(w).map(e => [e.alarmId, e.price]), [[a.id, 17.6]], 'fired again');
+  assert.equal(listOf(w)[0].on, false);
+  assert.equal(s.played, 2);
+  noErrors(w);
+});
+
+test('a once alarm whose switch-off storage refuses stays off in the tab (no firing on every check) until switched on', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  w.faults.set = true;
+  await price(tab, 123, 17.5, 1000);
+  assert.equal(s.played, 1, 'fired once, not again on every check');
+  assert.equal(onIn(tab, a.id), false, 'off in this tab');
+  assert.equal(listOf(w)[0].on, true, 'storage refused the switch-off');
+  w.faults.set = false;
+  assert.equal(await tab.run(`dgAlarmStore.setOn(${JSON.stringify(a.id)}, true)`), true);
+  await w.advance(200); // the price is still past the alarm: switched on, it fires
+  assert.equal(s.played, 2);
+  assert.deepEqual(events(w).map(e => e.alarmId), [a.id]);
+  assert.equal(listOf(w)[0].on, false);
+  noErrors(w);
+});
+
+test('a once alarm whose switch-off storage refused is on again once edited', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  w.faults.set = true;
+  await price(tab, 123, 17.5, 1000);
+  assert.deepEqual([s.played, onIn(tab, a.id)], [1, false]);
+  w.faults.set = false;
+  assert.equal(await tab.run(`dgAlarmStore.update(${JSON.stringify(a.id)}, { price: 17.2, dir: 'above', repeat: 'once' })`), 'ok');
+  assert.equal(onIn(tab, a.id), true, 'the edit switched it on');
+  await w.advance(200); // the price is still past the edited alarm: it fires
+  assert.equal(s.played, 2);
+  assert.equal(listOf(w)[0].on, false);
+  noErrors(w);
+});
 
 test('race: closing a banner while record() is still writing loses neither update', async () => {
   const x = alarm({ price: 17, productId: 123 }), y = alarm({ price: 1300, productId: 456, name: 'Mock Tech' });

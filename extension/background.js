@@ -213,7 +213,7 @@ importScripts('alarm-rules.js');
   async function check() {
     const now = Date.now();
     /** @typedef {Record<string, { at: number, gap: number }>} Holds */
-    const sess = /** @type {{ dgBgSkip: number, dgBgGap: number, dgBgArmed: Record<string, { sig: string, armed: boolean }>, dgBgVerifyAt: number, dgBgVerifyGap: number, dgBgSgVerifyAt: number, dgBgSgVerifyGap: number, dgBgSgAt: number, dgBgSgGap: number, dgBgSgNext: number, dgBgHold: Holds, dgBgSgHold: Holds }} */ (
+    const sess = /** @type {{ dgBgSkip: number, dgBgGap: number, dgBgArmed: Record<string, { sig: string, fa?: number, armed: boolean }>, dgBgVerifyAt: number, dgBgVerifyGap: number, dgBgSgVerifyAt: number, dgBgSgVerifyGap: number, dgBgSgAt: number, dgBgSgGap: number, dgBgSgNext: number, dgBgHold: Holds, dgBgSgHold: Holds }} */ (
       await chrome.storage.session.get({ dgBgSkip: 0, dgBgGap: 0, dgBgArmed: {}, dgBgVerifyAt: 0, dgBgVerifyGap: 0, dgBgSgVerifyAt: 0, dgBgSgVerifyGap: 0, dgBgSgAt: 0, dgBgSgGap: 0, dgBgSgNext: 0, dgBgHold: {}, dgBgSgHold: {} }));
     // after Yahoo price errors, Yahoo waits a few ticks; SG has its own waits (below), so one source never holds up the other
     const yahooWait = sess.dgBgSkip > 0;
@@ -395,7 +395,7 @@ importScripts('alarm-rules.js');
       /** @type {Record<string, any>} */ const upd = {};
       /** @type {{ alarmId: string, price: number, at: number, src?: 'sg' }[]} */ const fired = [];
       /** @type {string[]} */ const off = [];
-      /** @type {Record<string, { sig: string, armed: boolean }>} */ const armedMap = { ...sess.dgBgArmed };
+      /** @type {Record<string, { sig: string, fa?: number, armed: boolean }>} */ const armedMap = { ...sess.dgBgArmed };
       for (const a of live) {
         const q = quotes.get(qKey(a.productId));
         if (!q || !cOf(a.productId)) continue;
@@ -404,12 +404,15 @@ importScripts('alarm-rules.js');
         const st = state[a.id] || {};
         // a price no newer than the last firing (a closed market's close, seen again after a restart) never fires
         if (st.firedAt && at <= st.firedAt) continue;
-        // first sight of an 'every time' alarm already past its price after it fired: quiet until it crosses back
+        // first sight of an 'every time' alarm already past its price after it fired: quiet until it crosses back. The
+        // memory holds only while the stored firedAt is the one it was based on: a tab that fired it meanwhile (while
+        // the worker left the product to it) makes it start fresh, so a price still past the alarm doesn't fire again
         const sig = `${a.price}|${a.dir}|${a.repeat}`, mem = armedMap[a.id];
-        const armed = mem && mem.sig === sig ? mem.armed : !(R.reached(a, price) && st.firedAt);
+        const armed = mem && mem.sig === sig && mem.fa === st.firedAt ? mem.armed : !(R.reached(a, price) && st.firedAt);
         const d = R.decide(a, { ...st, armed }, price, at);
-        armedMap[a.id] = { sig, armed: d.armed };
+        armedMap[a.id] = { sig, fa: st.firedAt, armed: d.armed };
         if (!d.fire || (st.firedAt && R.within(a, st.firedAt, at))) continue;
+        armedMap[a.id] = { sig, fa: at, armed: d.armed }; // its own firing keeps the memory
         // only firedAt: `last`/`lastAt` stay DEGIRO's (what a tab saw), which the link check and tabSeen rely on
         upd[a.id] = { ...st, firedAt: at };
         fired.push({ alarmId: a.id, price, at, ...(q.src ? { src: q.src } : {}) });
@@ -430,17 +433,20 @@ importScripts('alarm-rules.js');
         await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
         // only the firings the merge kept: one it dropped is another writer's to show, chime and switch off
         const kept = fired.filter(f => merged.events.some(e => e.alarmId === f.alarmId && e.at === f.at));
+        // 'once' alarms go off first: until then a DEGIRO tab may fire one again (the chime can take a moment to open
+        // its offscreen document). A failing switch-off still lets the stored firing be notified
+        if (off.some(id => kept.some(f => f.alarmId === id))) {
+          try {
+            const base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] })).dgAlarms);
+            await chrome.storage.sync.set({ dgAlarms: base.map(a => (off.includes(a.id) && kept.some(f => f.alarmId === a.id) ? { ...a, on: false } : a)) });
+          } catch (e) { err = String(e?.message || e).slice(0, 80); }
+        }
         let shown = 0;
         for (const f of kept) {
           const a = alarms.find(x => x.id === f.alarmId);
           if (a) { notify(a, f); shown++; }
         }
         if (shown) await chime(); // once per tick, however many fired; a tab's own firing chimes in that tab
-
-        if (off.some(id => kept.some(f => f.alarmId === id))) {
-          const base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] })).dgAlarms);
-          await chrome.storage.sync.set({ dgAlarms: base.map(a => (off.includes(a.id) && kept.some(f => f.alarmId === a.id) ? { ...a, on: false } : a)) });
-        }
       }
     } catch (e) {
       err = String(e?.message || e).slice(0, 80); // storage failed: the next tick tries again

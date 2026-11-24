@@ -20,17 +20,71 @@ const dgAlarmStore = (() => {
   let syncLoaded = false, localLoaded = false, tickersLoaded = false, checksLoaded = false;
   /** firedAt values this tab wrote: any other stored firedAt belongs to another tab @type {Set<number>} */
   const mine = new Set();
+  /**
+   * 'once' alarms this tab's checks switched off whose switch-off isn't stored yet (`record()` writes it last): the
+   * switch-off is laid over every list that replaces `alarms` from storage (`onChanged`, `reload`, `saveAlarms`), or
+   * the next check would fire the alarm a second time. Each entry is the record() call's own object, so only that call
+   * removes it once written; kept when storage refused it (`done`), until a later list write of this tab's stores it or
+   * the user switches the alarm on or edits it.
+   * @type {Map<string, { done: boolean }>}
+   */
+  const offing = new Map();
+  /** @param {any[]} list sanitized */
+  const withOffing = list => (offing.size ? list.map(a => (a.on && offing.has(a.id) ? { ...a, on: false } : a)) : list);
   const reload = () => {
-    try { chrome.storage.sync.get({ dgAlarms: [] }, r => { alarms = R.sanitize(r?.dgAlarms); syncLoaded = true; changed(); }); } catch (e) {}
+    try { chrome.storage.sync.get({ dgAlarms: [] }, r => { alarms = withOffing(R.sanitize(r?.dgAlarms)); syncLoaded = true; changed(); }); } catch (e) {}
   };
-  // another tab fired this alarm within the window (a minute, or today for 'daily'): this tab must not fire it too
+  /**
+   * Each alarm's stored firedAt as this tab last saw it, and when (this tab's clock) a new one first appeared: 0 for
+   * this tab's own and for one already stored when the tab loaded. One entry per alarm with a firedAt.
+   * @type {Map<string, { at: number, seenAt: number }>}
+   */
+  const seen = new Map();
+  /** @param {Record<string, any>} st stored state, sanitized @param {boolean} fresh false: what was stored at load */
+  const observe = (st, fresh) => {
+    for (const id of [...seen.keys()]) if (!st[id]?.firedAt) seen.delete(id);
+    for (const [id, s] of Object.entries(st)) {
+      const at = s?.firedAt;
+      if (at && seen.get(id)?.at !== at) seen.set(id, { at, seenAt: fresh && !mine.has(at) ? Date.now() : 0 });
+    }
+  };
+  // another writer (tab, background worker) fired this alarm within the window (a minute, or today for 'daily'): this
+  // tab must not fire it too. The worker's firedAt is the trade's time (Yahoo's ~15-minute delay, or a closed market's
+  // close), not its clock's: a firedAt this tab first saw less than a minute ago is that same firing too
   /** @param {any} a @param {number | undefined} at @param {number} now */
-  const foreignWithin = (a, at, now) => !!at && !mine.has(at) && R.within(a, at, now);
+  const foreignWithin = (a, at, now) => {
+    if (!at || mine.has(at)) return false;
+    const s = seen.get(a.id);
+    return R.within(a, at, now) || (!!s && s.at === at && s.seenAt > 0 && Math.abs(now - s.seenAt) < 60000);
+  };
+  /**
+   * What this tab's checks handed `record()` and isn't stored yet, per alarm: `last`/`lastAt`, and `firedAt` when it
+   * fired (after the merge: the firing that won). A storage change landing meanwhile (another tab's or the worker's
+   * write, this tab's own earlier one) carries the stored state without it: it is laid over `state` again, or the next
+   * check would fire the alarm a second time. `by`: the record() call it belongs to, which removes it once written.
+   * @type {Map<string, { by: object, p: Record<string, number> }>}
+   */
+  const pending = new Map();
+  /** @param {any} st an alarm's new state @param {boolean} fired */
+  const patchOf = (st, fired) => {
+    /** @type {Record<string, number>} */ const p = {};
+    for (const k of fired ? ['last', 'lastAt', 'firedAt'] : ['last', 'lastAt']) if (st?.[k] !== undefined) p[k] = st[k];
+    return p;
+  };
+  /** stored state with this tab's unsaved changes on top (only of alarms it still has) @param {Record<string, any>} st */
+  const withPending = st => {
+    if (!pending.size) return st;
+    const out = { ...st };
+    for (const [id, { p }] of pending) if (alarms.some(a => a.id === id)) out[id] = { ...out[id], ...p };
+    return out;
+  };
 
   try {
     reload();
     chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }, r => {
-      state = R.sanitizeState(r?.dgAlarmState); events = R.sanitizeEvents(r?.dgAlarmEvents); localLoaded = true; changed();
+      state = R.sanitizeState(r?.dgAlarmState); events = R.sanitizeEvents(r?.dgAlarmEvents); localLoaded = true;
+      observe(state, false);
+      changed();
     });
     chrome.storage.sync.get({ dgTickers: {} }, r => { tickers = R.sanitizeTickers(r?.dgTickers); tickersLoaded = true; changed(); });
     chrome.storage.local.get({ dgTickerCheck: {}, dgBgStatus: null, dgNoTicker: {} }, r => {
@@ -38,7 +92,7 @@ const dgAlarmStore = (() => {
     });
     chrome.storage.onChanged.addListener((c, area) => {
       let hit = false;
-      if (area === 'sync' && c.dgAlarms) { alarms = R.sanitize(c.dgAlarms.newValue); hit = true; }
+      if (area === 'sync' && c.dgAlarms) { alarms = withOffing(R.sanitize(c.dgAlarms.newValue)); hit = true; }
       if (area === 'sync' && c.dgTickers) {
         tickers = R.sanitizeTickers(c.dgTickers.newValue);
         // another writer (tab, computer) dropped a product's link, or it went with its alarms: link it again when seen.
@@ -46,7 +100,12 @@ const dgAlarmStore = (() => {
         for (const k of [...linkedKeys]) if (!tickers[k.split('|')[0]]) linkedKeys.delete(k);
         hit = true;
       }
-      if (area === 'local' && c.dgAlarmState) { state = R.sanitizeState(c.dgAlarmState.newValue); hit = true; }
+      if (area === 'local' && c.dgAlarmState) {
+        const st = R.sanitizeState(c.dgAlarmState.newValue);
+        observe(st, true);
+        state = withPending(st); // a write of this tab's still in flight: what it holds isn't stored yet
+        hit = true;
+      }
       if (area === 'local' && c.dgAlarmEvents) { events = R.sanitizeEvents(c.dgAlarmEvents.newValue); hit = true; }
       if (area === 'local' && c.dgTickerCheck) { checks = R.sanitizeChecks(c.dgTickerCheck.newValue); hit = true; }
       if (area === 'local' && c.dgBgStatus) { bgAt = bgTime(c.dgBgStatus.newValue); hit = true; }
@@ -81,9 +140,11 @@ const dgAlarmStore = (() => {
   // the list is shown changed at once; if storage refuses, it comes back from storage
   /** @param {any[]} list */
   async function saveAlarms(list) {
-    alarms = R.sanitize(list);
+    alarms = withOffing(R.sanitize(list));
     changed();
     try { await chrome.storage.sync.set({ dgAlarms: alarms }); } catch (e) { reload(); return false; }
+    // a switch-off storage refused before is stored now: the list just written holds it
+    for (const [id, o] of offing) if (o.done && !alarms.some(a => a.id === id && a.on)) offing.delete(id);
     dropOrphans(); // not awaited: record() calls this from inside the queue
     return true;
   }
@@ -93,7 +154,10 @@ const dgAlarmStore = (() => {
     return (await saveAlarms([...alarms, a])) ? 'ok' : 'error';
   }
   /** @param {string} id @param {boolean} on */
-  const setOn = (id, on) => saveAlarms(alarms.map(a => (a.id === id ? { ...a, on } : a)));
+  const setOn = (id, on) => {
+    offing.delete(id); // the user's choice: no switch-off of this tab's is laid over it
+    return saveAlarms(alarms.map(a => (a.id === id ? { ...a, on } : a)));
+  };
   /** @param {string} id */
   const remove = id => saveAlarms(alarms.filter(a => a.id !== id));
 
@@ -110,9 +174,11 @@ const dgAlarmStore = (() => {
       if (!old) return 'gone';
       const [next] = R.sanitize([{ ...old, price: patch.price, dir: patch.dir, repeat: patch.repeat, on: true }]);
       if (!next) return 'error';
+      offing.delete(id); // edited: switched on, whatever this tab switched off before
       if (!(await saveAlarms(base.map(a => (a.id === id ? next : a))))) return 'error';
       // saved: the rest is best effort (like closeEvent), a failing local write must not report an error
       try {
+        pending.delete(id); // the edit starts the alarm afresh: nothing of before is laid over it again
         if (state[id]) { const rest = { ...state[id] }; delete rest.firedAt; state = { ...state, [id]: rest }; }
         events = events.filter(e => e.alarmId !== id);
         changed();
@@ -141,8 +207,9 @@ const dgAlarmStore = (() => {
   /**
    * Store what a check found: new per-alarm state (`last`, `firedAt`), the alarms that fired, 'once'
    * alarms to switch off. Applied here at once (the next check, a frame later, must see it), then
-   * written. Another DEGIRO tab may have fired the same alarm a moment earlier (a minute, or the same
-   * day for 'daily'): its firing wins and this one is dropped. `armed` is never stored.
+   * written. Another DEGIRO tab or the background worker may have fired the same alarm a moment earlier
+   * (`foreignWithin`): its firing wins and this one is dropped, neither chimed nor switched off here.
+   * `armed` is never stored.
    * `kept` runs once one of `fired` is kept (this tab's firing: it chimes), before the writes.
    * @param {Record<string, any>} upd @param {{ alarmId: string, price: number, at: number }[]} fired @param {string[]} off
    * @param {() => void} [onKept]
@@ -150,27 +217,54 @@ const dgAlarmStore = (() => {
   function record(upd, fired, off, onKept) {
     fired.forEach(f => mine.add(f.at));
     state = { ...state, ...upd };
-    if (off.length) alarms = alarms.map(a => (off.includes(a.id) ? { ...a, on: false } : a));
+    const by = {}, firedIds = new Set(fired.map(f => f.alarmId));
+    for (const [id, st] of Object.entries(upd)) pending.set(id, { by, p: patchOf(st, firedIds.has(id)) });
+    /** this call's entries in `pending` @param {(id: string) => void} fn */
+    const ours = fn => Object.keys(upd).forEach(id => { if (pending.get(id)?.by === by) fn(id); });
+    // this call's switch-offs, laid over the list until stored (`offing`)
+    const mark = { done: false };
+    /** this call's entries in `offing` @param {(id: string) => boolean} keep */
+    const offsLeft = keep => off.forEach(id => { if (offing.get(id) === mark && !keep(id)) offing.delete(id); });
+    off.forEach(id => offing.set(id, mark));
+    if (off.length) alarms = withOffing(alarms);
     changed();
     return serial(async () => {
+      let offKept = off; // storage failing before the merge: all of them, as before
+      let refused = false;
       try {
-        const [r, ids] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), storedIds()]);
-        // its alarms are gone meanwhile (deleted, or "Clear saved data"): nothing to store, nor to switch off
-        if (!Object.keys(upd).some(id => ids.includes(id))) return;
-        const known = [...new Set([...alarms.map(a => a.id), ...ids])]; // this tab's list and the stored one
-        ({ state, events } = R.merge({ state: R.sanitizeState(r?.dgAlarmState), events: R.sanitizeEvents(r?.dgAlarmEvents) },
-          upd, fired, alarms, known, foreignWithin));
-        // a firing the merge dropped (another tab's won) doesn't chime; two tabs whose merges interleave within a few ms
-        // may each keep theirs for a moment (one event stays) and both chime
-        if (onKept && fired.some(f => events.some(e => e.alarmId === f.alarmId && e.at === f.at))) onKept();
-        changed();
-        await chrome.storage.local.set({ dgAlarmState: state, dgAlarmEvents: events });
-      } catch (e) {}
-      if (off.length) {
-        // switch off on the stored list, so alarms another tab added or changed meanwhile are kept
-        let base = alarms;
-        try { base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] }))?.dgAlarms); } catch (e) {}
-        await saveAlarms(base.map(a => (off.includes(a.id) ? { ...a, on: false } : a)));
+        try {
+          const [r, ids] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), storedIds()]);
+          // its alarms are gone meanwhile (deleted, or "Clear saved data"): nothing to store, nor to switch off
+          if (!Object.keys(upd).some(id => ids.includes(id))) return;
+          const known = [...new Set([...alarms.map(a => a.id), ...ids])]; // this tab's list and the stored one
+          const stored = R.sanitizeState(r?.dgAlarmState);
+          observe(stored, true); // the worker's firing may be stored before its storage event reaches this tab
+          const merged = R.merge({ state: stored, events: R.sanitizeEvents(r?.dgAlarmEvents) }, upd, fired, alarms, known, foreignWithin);
+          // until written, this call's entries hold what the merge made of them (a dropped firing: the winner's firedAt)
+          ours(id => { if (merged.state[id]) pending.set(id, { by, p: patchOf(merged.state[id], firedIds.has(id)) }); else pending.delete(id); });
+          state = withPending(merged.state); // and a later check's, still queued, stay
+          events = merged.events;
+          // a firing the merge dropped (another writer's won) doesn't chime, nor is switched off here (the winner does
+          // that); two tabs whose merges interleave within a few ms may each keep theirs for a moment (one event stays)
+          // and both chime
+          const kept = fired.filter(f => events.some(e => e.alarmId === f.alarmId && e.at === f.at));
+          offKept = off.filter(id => kept.some(f => f.alarmId === id));
+          if (onKept && kept.length) onKept();
+          changed();
+          await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
+        } catch (e) {} finally { ours(id => pending.delete(id)); } // stored, or storage refused it: storage says what holds
+        offsLeft(id => offKept.includes(id)); // a dropped firing's switch-off isn't this tab's: the stored list says
+        if (offKept.length) {
+          // switch off on the stored list, so alarms another tab added or changed meanwhile are kept
+          let base = alarms;
+          try { base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] }))?.dgAlarms); } catch (e) {}
+          refused = !(await saveAlarms(base.map(a => (offKept.includes(a.id) ? { ...a, on: false } : a))));
+        } else if (off.length) reload(); // switched off above in this tab only: the stored list says what holds
+      } finally {
+        // stored: the stored list holds the switch-off. Refused: it stays over this tab's list, or the alarm would fire
+        // again on every check (a chime each time) for as long as storage refuses
+        mark.done = true;
+        offsLeft(() => refused);
       }
     });
   }
@@ -298,8 +392,10 @@ const dgAlarmStore = (() => {
   }
 
   // `armed` ('every time' alarms) is this tab's own memory and never stored: tabs would re-arm each other
-  // keyed by the alarm's price, direction and repeat too: an edited alarm starts fresh, in every tab
-  /** @type {Map<string, { sig: string, armed: boolean }>} */
+  // keyed by the alarm's price, direction and repeat too: an edited alarm starts fresh, in every tab. `fa` is the stored
+  // firedAt the memory was based on: another writer's firing since (the background worker's while this tab wasn't
+  // pricing the product, another tab's) makes it start fresh too, so a price still past the alarm doesn't fire it again
+  /** @type {Map<string, { sig: string, fa: number | undefined, armed: boolean }>} */
   const armedMap = new Map();
 
   /** @param {Map<number, number>} prices */
@@ -314,13 +410,14 @@ const dgAlarmStore = (() => {
       const next = { ...st };
       // first sight of an 'every time' alarm already past its price after it fired: stay quiet until it crosses back
       const sig = `${a.price}|${a.dir}|${a.repeat}`, mem = armedMap.get(a.id);
-      const armed = mem && mem.sig === sig ? mem.armed : !(R.reached(a, price) && st.firedAt);
+      const armed = mem && mem.sig === sig && mem.fa === st.firedAt ? mem.armed : !(R.reached(a, price) && st.firedAt);
       if (!st.lastAt || now - st.lastAt >= SEEN_EVERY) { next.last = price; next.lastAt = now; }
       if (a.on) {
         const d = R.decide(a, { ...st, armed }, price, now);
-        armedMap.set(a.id, { sig, armed: d.armed });
+        armedMap.set(a.id, { sig, fa: st.firedAt, armed: d.armed });
         if (d.fire && S.foreign(a, st.firedAt, now)) d.fire = false; // another tab fired it just now
         if (d.fire) {
+          armedMap.set(a.id, { sig, fa: now, armed: d.armed }); // this tab's own firing keeps its memory
           Object.assign(next, { firedAt: now, last: price, lastAt: now });
           fired.push({ alarmId: a.id, price, at: now });
           if (!d.on) off.push(a.id);
