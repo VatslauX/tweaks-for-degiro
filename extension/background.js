@@ -418,25 +418,28 @@ importScripts('alarm-rules.js');
       await chrome.storage.session.set({ dgBgArmed: armedMap });
 
       if (fired.length) {
-        // merged into freshly read storage: a tab may have fired the same alarm meanwhile, its firing wins
+        // merged into freshly read storage: a tab may have fired the same alarm meanwhile, its firing wins. A tab's
+        // firedAt is its clock's time, this one the (delayed) trade's: a firing at or after the trade wins as well as
+        // one within the window, as the check above does against the state read at the tick's start
         // the stored alarm ids are read again too: an alarm a tab added meanwhile keeps its state and banner
         const [fresh, now2] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), chrome.storage.sync.get({ dgAlarms: [] })]);
         const known = [...new Set([...alarms.map(a => a.id), ...R.sanitize(now2.dgAlarms).map(a => a.id)])];
         const mine = new Set(fired.map(f => f.at));
         const merged = R.merge({ state: R.sanitizeState(fresh.dgAlarmState), events: R.sanitizeEvents(fresh.dgAlarmEvents) },
-          upd, fired, alarms, known, (a, at, when) => !!at && !mine.has(at) && R.within(a, at, when));
+          upd, fired, alarms, known, (a, at, when) => !!at && !mine.has(at) && (at >= when || R.within(a, at, when)));
         await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
+        // only the firings the merge kept: one it dropped is another writer's to show, chime and switch off
+        const kept = fired.filter(f => merged.events.some(e => e.alarmId === f.alarmId && e.at === f.at));
         let shown = 0;
-        for (const f of fired) {
-          if (!merged.events.some(e => e.alarmId === f.alarmId && e.at === f.at)) continue;
+        for (const f of kept) {
           const a = alarms.find(x => x.id === f.alarmId);
           if (a) { notify(a, f); shown++; }
         }
         if (shown) await chime(); // once per tick, however many fired; a tab's own firing chimes in that tab
 
-        if (off.length) {
+        if (off.some(id => kept.some(f => f.alarmId === id))) {
           const base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] })).dgAlarms);
-          await chrome.storage.sync.set({ dgAlarms: base.map(a => (off.includes(a.id) && merged.events.some(e => e.alarmId === a.id) ? { ...a, on: false } : a)) });
+          await chrome.storage.sync.set({ dgAlarms: base.map(a => (off.includes(a.id) && kept.some(f => f.alarmId === a.id) ? { ...a, on: false } : a)) });
         }
       }
     } catch (e) {

@@ -577,6 +577,45 @@ test('an alarm a tab adds (and fires) while the worker waits for Yahoo keeps its
   assert.equal(local.dgAlarmState.a2.firedAt, NOW - 5000);
 });
 
+test('an alarm a tab fires while the worker waits for Yahoo is not fired again with Yahoo\'s older trade', async () => {
+  // the tab fires at the clock's time; Yahoo's trade (15 minutes delayed) is older than that, so outside the minute
+  for (const repeat of ['once', 'each']) {
+    const tab = { alarmId: 'a1', price: 1040, at: NOW };
+    let w;
+    w = worker({ sync: { dgAlarms: [{ ...ALARM, repeat }] }, local: { dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' } } }, responses: url => {
+      if (url.includes('spark')) {
+        w.chrome.storage.local.data.dgAlarmState = { a1: { firedAt: NOW, last: 1040, lastAt: NOW } };
+        w.chrome.storage.local.data.dgAlarmEvents = [tab];
+      }
+      return yahoo()(url); // its trade: NOW - 15 minutes
+    } });
+    await w.tick();
+    const local = w.chrome.storage.local.data;
+    assert.ok(w.calls.fetch.some(f => f.url.includes('spark')), repeat);
+    assert.deepEqual(plain(local.dgAlarmEvents), [tab], `${repeat}: the tab's banner and price stay`);
+    assert.equal(local.dgAlarmState.a1.firedAt, NOW, `${repeat}: the tab's firing time stays`);
+    assert.deepEqual(w.calls.notes, [], `${repeat}: no second notification`);
+    assert.deepEqual(w.calls.offscreen, [], `${repeat}: no second chime`);
+    assert.equal(w.chrome.storage.sync.data.dgAlarms[0].on, true, `${repeat}: the worker doesn't switch it off (the tab does)`);
+  }
+});
+
+test('an \'each\' alarm a tab fired an hour ago fires again once it crossed back and over', async () => {
+  const each = { ...ALARM, repeat: 'each' };
+  const earlier = NOW - 3600000;
+  let sparks = 0;
+  const w = worker({ sync: { dgAlarms: [each] }, local: { dgAlarmState: { a1: { firedAt: earlier } }, dgAlarmEvents: [{ alarmId: 'a1', price: 1010, at: earlier }],
+    dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' } } }, responses: url => {
+    if (!url.includes('spark')) return yahoo()(url);
+    return { body: ++sparks === 1 ? spark(990) : spark(1050, NOW / 1000 - 840) }; // below (re-armed), then above
+  } });
+  await w.ticks(2);
+  const local = w.chrome.storage.local.data;
+  assert.deepEqual(plain(local.dgAlarmEvents), [{ alarmId: 'a1', price: 1050, at: NOW - 840000 }]);
+  assert.equal(local.dgAlarmState.a1.firedAt, NOW - 840000);
+  assert.equal(w.calls.notes.length, 1);
+});
+
 // ---------- "Clear saved data" while a request is out ----------
 /**
  * A tick whose request to `part` is held open. Meanwhile the settings popup's "Clear saved data" erases every storage
