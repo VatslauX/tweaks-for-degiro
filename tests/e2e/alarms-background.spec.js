@@ -24,7 +24,7 @@ test('switching on asks Chrome for the Yahoo host and notifications, then saves'
   await opt.locator(ROW).click();
   await expect(opt.locator(SWITCH)).toBeChecked();
   await expect.poll(() => opt.evaluate(() => chrome.storage.sync.get('alarmsBackground').then(r => r.alarmsBackground))).toBe(true);
-  expect(await opt.evaluate(() => window.__perm.requested)).toEqual([{ permissions: ['notifications'], origins: ['https://query1.finance.yahoo.com/*', 'https://sgbeurs.nl/*'] }]);
+  expect(await opt.evaluate(() => window.__perm.requested)).toEqual([{ permissions: ['notifications', 'offscreen'], origins: ['https://query1.finance.yahoo.com/*', 'https://sgbeurs.nl/*'] }]);
   await expect(opt.locator('#bgStatus')).toBeVisible();
   await expect(opt.locator('#bgStatus')).toHaveText('Waiting for the first check.');
 });
@@ -56,6 +56,7 @@ test('"Send a test notification" shows one for the first switched-on alarm, with
   expect(n.title).toBe('ASML Holding fell to € 1,188.40');
   expect(n.message).toMatch(/^alarm ↓ € 1,200\.00 · Test notification, .+$/);
   expect(n.requireInteraction).toBe(true);
+  expect(n.silent).toBe(false);
   await expect(opt.locator('#bgTestNote')).toHaveText(/^Sent at .+\. Not on screen\? Allow Google Chrome in System Settings/);
   await expect(opt.locator(SWITCH)).toBeChecked();
   // Chrome blocking this extension's notifications says so, and shows none
@@ -228,6 +229,82 @@ test('a new background status updates the line without locking any switch', asyn
   await expect(opt.locator('#allSwitch')).not.toHaveAttribute('aria-disabled');
   await expect(opt.locator(SWITCH)).not.toHaveAttribute('aria-disabled');
   await expect(opt.locator(SWITCH)).toBeChecked();
+});
+
+test('switched on before the sound came (no offscreen permission): "Allow sound with DEGIRO closed" asks for it alone', async ({ context, settings }) => {
+  const opt = await settings();
+  await stubPermissions(context, opt, true);
+  await opt.evaluate(() => {
+    window.__granted = true;
+    window.__sound = false;
+    // the check's own permissions granted, the chime's not
+    chrome.permissions.contains = async p => (p.origins ? window.__granted : window.__sound);
+    chrome.permissions.request = async p => { window.__perm.requested.push(p); window.__sound = true; return true; };
+    return chrome.storage.sync.set({ alarmsBackground: true });
+  });
+  const allow = opt.locator('#soundAllow');
+  await expect(allow).toBeVisible();
+  await expect(allow).toHaveText('Allow sound with DEGIRO closed');
+  await expect(opt.locator(SWITCH)).toBeChecked();
+  // the sound switched off: nothing to allow
+  await opt.locator('[data-key="alarmSound"]').click();
+  await expect(opt.locator('[data-key="alarmSound"]')).not.toBeChecked();
+  await expect(allow).toBeHidden();
+  await opt.locator('[data-key="alarmSound"]').click();
+  await expect(opt.locator('[data-key="alarmSound"]')).toBeChecked();
+  await expect(allow).toBeVisible();
+  await allow.click();
+  await expect(allow).toBeHidden();
+  expect(await opt.evaluate(() => window.__perm.requested)).toEqual([{ permissions: ['offscreen'] }]);
+  await expect(opt.locator('[data-key="alarmSound"]')).toBeChecked(); // the link inside the row's label doesn't toggle it
+});
+
+// Web Audio stand-in: counts the chimes (one AudioContext each); headless Chromium plays nothing anyway
+const COUNT_CHIMES = () => {
+  window.__chimes = 0;
+  const node = () => ({ connect: n => n, start() {}, stop() {}, frequency: {}, gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} } });
+  window.AudioContext = class { constructor() { window.__chimes++; this.currentTime = 0; this.destination = {}; } createOscillator() { return node(); } createGain() { return node(); } close() { return Promise.resolve(); } };
+};
+
+test('offscreen.html chimes when it opens, and again when the worker asks it (dg-chime-play), nothing else', async ({ context, extId, settings }) => {
+  const page = await context.newPage();
+  await page.addInitScript(COUNT_CHIMES);
+  await page.goto(`chrome-extension://${extId}/offscreen.html`);
+  await expect.poll(() => page.evaluate(() => window.__chimes)).toBe(1);
+  const opt = await settings();
+  // a runtime message reaches every page of the extension, this one included
+  expect(await opt.evaluate(() => chrome.runtime.sendMessage({ type: 'dg-chime-play' }))).toBe(true);
+  expect(await page.evaluate(() => window.__chimes)).toBe(2);
+  // the worker's own message (it has no sound permission here: it answers false); this page ignores it
+  expect(await opt.evaluate(() => chrome.runtime.sendMessage({ type: 'dg-chime' }))).toBe(false);
+  expect(await page.evaluate(() => window.__chimes)).toBe(2);
+  await page.close();
+});
+
+test('the test notification chimes too: the worker plays it, or the settings do when it can\'t', async ({ context, settings }) => {
+  const opt = await settings();
+  await stubPermissions(context, opt, true);
+  await opt.evaluate(COUNT_CHIMES);
+  await opt.evaluate(() => {
+    window.__asked = [];
+    window.__workerPlays = true;
+    /** @type {any} */ (chrome).notifications = { getPermissionLevel: cb => { cb?.('granted'); }, create: (id, o, cb) => { cb?.(id); } };
+    chrome.runtime.sendMessage = async m => { window.__asked.push(m); return window.__workerPlays; };
+  });
+  await opt.locator(ROW).click();
+  await expect(opt.locator('#bgTest')).toBeVisible();
+  await opt.locator('#bgTest').click();
+  await expect.poll(() => opt.evaluate(() => window.__asked)).toEqual([{ type: 'dg-chime' }]);
+  expect(await opt.evaluate(() => window.__chimes)).toBe(0); // the worker played it
+  await opt.evaluate(() => { window.__workerPlays = false; });
+  await opt.locator('#bgTest').click();
+  await expect.poll(() => opt.evaluate(() => window.__chimes)).toBe(1);
+  // the sound switched off: no chime at all
+  await opt.locator('[data-key="alarmSound"]').click();
+  await expect(opt.locator('[data-key="alarmSound"]')).not.toBeChecked();
+  await opt.locator('#bgTest').click();
+  await expect(opt.locator('#bgTestNote')).toBeVisible();
+  expect(await opt.evaluate(() => [window.__asked.length, window.__chimes])).toEqual([2, 1]);
 });
 
 test('a permission request that throws leaves the switch off, unlocked, with the error shown', async ({ context, settings }) => {

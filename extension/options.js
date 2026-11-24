@@ -141,6 +141,10 @@
 
   // Check in the background: needs the optional Yahoo host and notifications permissions (see bgStatus below).
   const BG_PERMS = { permissions: /** @type {chrome.runtime.ManifestPermission[]} */ (['notifications']), origins: ['https://query1.finance.yahoo.com/*', 'https://sgbeurs.nl/*'] };
+  // The chime with DEGIRO closed (offscreen.html; no prompt, no warning): asked for and given back with BG_PERMS, but
+  // the check doesn't need it. A computer that switched the check on before the sound came lacks it: #soundAllow.
+  const SOUND = { permissions: /** @type {chrome.runtime.ManifestPermission[]} */ (['offscreen']) };
+  const BG_ASK = { permissions: [...BG_PERMS.permissions, ...SOUND.permissions], origins: BG_PERMS.origins };
   const bgSwitch = switches.find(cb => cb.hasAttribute('data-permission'));
 
   dgOnSettings(s => {
@@ -167,14 +171,14 @@
       bgOwn++;
       try {
         if (want) {
-          const got = /** @type {boolean} */ (/** @type {unknown} */ (await chrome.permissions.request(BG_PERMS)));
+          const got = /** @type {boolean} */ (/** @type {unknown} */ (await chrome.permissions.request(BG_ASK)));
           ok = got && await save({ alarmsBackground: true });
           if (ok) stored({ alarmsBackground: true });
         } else {
           ok = await save({ alarmsBackground: false });
           if (ok) {
             stored({ alarmsBackground: false });
-            await chrome.permissions.remove(BG_PERMS).catch(() => {});
+            await chrome.permissions.remove(BG_ASK).catch(() => {});
           }
         }
       } catch (e) { show(t('optSaveFailed', e?.message || e), true); } finally { bgOwn--; }
@@ -198,6 +202,7 @@
       if (bgSwitch && !bgOwn) bgSwitch.checked = bgOn;
       renderBulk();
     } finally { release(); }
+    soundLink(bgOn); // not awaited: its own permission answer
     await bgLine();
   }
   // The status line alone: a new status from the worker changes nothing else, so it locks nothing.
@@ -217,6 +222,17 @@
     el.textContent = !ok ? t('optBgWaiting')
       : st.err ? t('optBgError', time)
       : t('optBgStatus', time, Number(st.linked) || 0, Number(st.total) || 0);
+  }
+  // "Allow sound with DEGIRO closed": while the check runs here with the sound on but without its permission. Checked
+  // with the switch (bgStatus), never by the status line, and not awaited.
+  let soundAsked = 0;
+  /** @param {boolean} on the check runs here */
+  async function soundLink(on) {
+    const el = $('#soundAllow'), asked = ++soundAsked;
+    if (!el) return;
+    let has = true;
+    if (on && dgSettings.alarmSound) try { has = !!(await chrome.permissions.contains(SOUND)); } catch (e) {}
+    if (asked === soundAsked) el.hidden = !on || !dgSettings.alarmSound || has;
   }
   // The product's name as the worker's notification shows it: R.label (alarm-rules.js, not loaded here) of an alarm
   // R.sanitize cleaned, which trims its texts and drops a name or symbol that isn't text (the alarm panel saves them
@@ -249,10 +265,27 @@
       // it (macOS: Chrome's notifications off, or a Focus mode): say so next to the link
       const level = await note('getPermissionLevel').catch(() => 'granted');
       if (level === 'denied') { testNote(t('optBgTestDenied'), true); return; }
-      // a test stays until dismissed, so it can't be missed
-      await note('create', a ? `dg|${a.productId}|test|${Date.now()}` : `dgtest|${Date.now()}`, { type: 'basic', iconUrl: 'icons/icon128.png', priority: 2, requireInteraction: true, ...opts });
+      // a test stays until dismissed, so it can't be missed; with the system's sound, as an alarm's
+      await note('create', a ? `dg|${a.productId}|test|${Date.now()}` : `dgtest|${Date.now()}`, { type: 'basic', iconUrl: 'icons/icon128.png', priority: 2, requireInteraction: true, silent: false, ...opts });
       testNote(t('optBgTestSent', time), false);
+      // and the chime, as the worker plays it with DEGIRO closed; here if it can't (no sound permission yet)
+      if (dgSettings.alarmSound) {
+        let played = false;
+        try { played = (await chrome.runtime.sendMessage({ type: 'dg-chime' })) === true; } catch (e) {}
+        if (!played) dgPlayChime();
+      }
     } catch (err) { testNote(t('optBgTestFailed', err?.message || err), true); }
+  });
+  // An earlier switch-on of the background check didn't ask for the sound permission: one click (no prompt) adds it.
+  $('#soundAllow')?.addEventListener('keydown', e => {
+    if (/** @type {KeyboardEvent} */ (e).key !== ' ') return;
+    e.preventDefault();
+    /** @type {HTMLElement} */ (e.currentTarget).click();
+  });
+  $('#soundAllow')?.addEventListener('click', e => {
+    e.preventDefault();
+    // inside the click, before anything is awaited (Chrome's rule); permissions.onAdded then hides the link
+    chrome.permissions.request(SOUND).catch(() => false).then(() => soundLink(bgOn));
   });
   /**
    * A chrome.notifications call in its callback form: it returns a Promise only from Chrome 116, and the minimum is
@@ -320,7 +353,7 @@
         ok = await save(patch);
         if (ok) {
           stored(patch);
-          if (bgOff) await chrome.permissions.remove(BG_PERMS).catch(() => {});
+          if (bgOff) await chrome.permissions.remove(BG_ASK).catch(() => {});
         }
       } finally { if (bgOff) bgOwn--; }
       if (ok) {
@@ -375,7 +408,7 @@
       await Promise.allSettled([
         () => chrome.storage.local.clear(),
         () => chrome.storage.session.clear(),
-        () => chrome.permissions.remove(BG_PERMS)
+        () => chrome.permissions.remove(BG_ASK)
       ].map(async step => step()));
       try { sections.forEach(s => setOpen(s.dataset.section || '', false)); } catch (e) {}
       try { localStorage.clear(); } catch (e) {} // after setOpen, which stores the open sections

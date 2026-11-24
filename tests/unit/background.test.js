@@ -34,10 +34,10 @@ const listeners = () => { const fns = []; return { fns, addListener: fn => fns.p
  * `ticks(n)` runs n ticks a minute apart, as Chrome's alarm does (`clock.now` moves on).
  * Each test's clock is its own: a fixed NOW stays right for the tests that tick once.
  */
-function worker({ sync = {}, local = {}, granted = true, responses = () => ({ status: 404 }) } = {}) {
-  const calls = { fetch: [], notes: [], cleared: [], tabs: [], alarms: new Map() };
+function worker({ sync = {}, local = {}, granted = true, sound = true, responses = () => ({ status: 404 }) } = {}) {
+  const calls = { fetch: [], notes: [], cleared: [], tabs: [], alarms: new Map(), offscreen: [], sent: [] };
   const clock = { now: NOW };
-  const ev = { alarm: listeners(), installed: listeners(), startup: listeners(), added: listeners(), removed: listeners(), changed: listeners(), clicked: listeners() };
+  const ev = { alarm: listeners(), installed: listeners(), startup: listeners(), added: listeners(), removed: listeners(), changed: listeners(), clicked: listeners(), message: listeners() };
   const chrome = {
     storage: {
       sync: area({ priceAlarms: true, alarmsBackground: true, dgAlarms: [ALARM], dgTickers: LINK, ...sync }),
@@ -47,8 +47,11 @@ function worker({ sync = {}, local = {}, granted = true, responses = () => ({ st
       get: async n => calls.alarms.get(n), create: async (n, o) => { calls.alarms.set(n, o); },
       clear: async n => calls.alarms.delete(n), onAlarm: ev.alarm
     },
-    permissions: { contains: async () => granted, onAdded: ev.added, onRemoved: ev.removed },
-    runtime: { onInstalled: ev.installed, onStartup: ev.startup },
+    // `sound`: the chime's offscreen permission, asked for apart from the check's own
+    permissions: { contains: async p => (p.origins ? granted : p.permissions?.includes('offscreen') ? sound : granted), onAdded: ev.added, onRemoved: ev.removed },
+    runtime: { id: 'ext', onInstalled: ev.installed, onStartup: ev.startup, onMessage: ev.message, sendMessage: async m => { calls.sent.push(m); return true; } },
+    // only with its permission granted; one document at a time, as in Chrome
+    offscreen: sound ? { createDocument: async o => { if (calls.offscreen.length) throw new Error('Only a single offscreen document may be created.'); calls.offscreen.push(o); } } : undefined,
     // as in Chrome 111 (the minimum) to 115: callbacks only, no Promise returned
     notifications: {
       create: (id, o, cb) => { calls.notes.push({ id, ...o }); if (cb) cb(id); },
@@ -98,6 +101,54 @@ test('a linked alarm whose price is reached fires: event, state at the trade tim
   assert.match(w.calls.notes[0].title, /^bannerRose\(ASML,€ 1,050\.00\)$/);
   assert.equal(w.chrome.storage.sync.data.dgAlarms[0].on, false);
   assert.deepEqual(plain(local.dgBgStatus), { at: NOW, linked: 1, total: 1, err: '' });
+});
+
+test('an alarm\'s notification is the system\'s banner with its sound, kept in the notification history', async () => {
+  const w = worker({ responses: yahoo() });
+  await w.tick();
+  const n = w.calls.notes[0];
+  assert.equal(n.silent, false);
+  assert.equal(n.requireInteraction, undefined, 'the system\'s banner time, not on screen until dismissed');
+  await settle();
+  assert.deepEqual(w.calls.cleared, [], 'never cleared: it stays in Notification Center');
+});
+
+test('a firing chimes once in an offscreen document (Chrome on macOS shows notifications silently)', async () => {
+  const two = { ...ALARM, id: 'a2', price: 1010 };
+  const w = worker({ sync: { dgAlarms: [ALARM, two] }, responses: yahoo() });
+  await w.tick();
+  assert.equal(w.calls.notes.length, 2);
+  assert.equal(w.calls.offscreen.length, 1, 'one chime a tick, however many fired');
+  assert.deepEqual(plain(w.calls.offscreen[0]), { url: 'offscreen.html', reasons: ['AUDIO_PLAYBACK'], justification: 'Plays the price alarm chime.' });
+  assert.deepEqual(w.calls.sent, []);
+});
+
+test('no chime with the sound switched off, or without its permission; the check runs all the same', async () => {
+  for (const opts of [{ sync: { alarmSound: false } }, { sound: false }]) {
+    const w = worker({ ...opts, responses: yahoo() });
+    await w.tick();
+    assert.equal(w.calls.notes.length, 1, JSON.stringify(opts));
+    assert.deepEqual(w.calls.offscreen, [], JSON.stringify(opts));
+    assert.deepEqual(w.calls.sent, [], JSON.stringify(opts));
+  }
+});
+
+test('a tab or the settings ask for the chime: played offscreen, again in the open document, and only for this extension', async () => {
+  const w = worker();
+  const ask = (msg, sender = { id: 'ext' }) => new Promise(resolve => {
+    const async = w.ev.message.fns.map(fn => fn(msg, sender, resolve)).some(r => r === true);
+    if (!async) resolve('no reply');
+  });
+  assert.equal(await ask({ type: 'dg-chime' }), true);
+  assert.equal(w.calls.offscreen.length, 1);
+  // still open (Chrome closes it after 30 s of silence): asked to play again
+  assert.equal(await ask({ type: 'dg-chime' }), true);
+  assert.deepEqual(plain(w.calls.sent), [{ type: 'dg-chime-play' }]);
+  assert.equal(await ask({ type: 'dg-chime' }, { id: 'other' }), 'no reply');
+  assert.equal(await ask({ type: 'dg-status' }), 'no reply');
+  const off = worker({ sound: false });
+  const reply = await new Promise(resolve => off.ev.message.fns.forEach(fn => fn({ type: 'dg-chime' }, { id: 'ext' }, resolve)));
+  assert.equal(reply, false, 'without the permission: the asker plays it itself');
 });
 
 test('a price not newer than the last firing never fires again (a closed market after a restart)', async () => {

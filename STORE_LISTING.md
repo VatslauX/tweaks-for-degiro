@@ -54,7 +54,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 >
 > PRICE ALARMS FOR YOUR FAVOURITES
 > • Alarm button on the page of any product in your Favourites: set a price, above or below, once, once a day or every time
-> • A banner appears in every open DEGIRO tab when the price is reached
+> • A banner appears in every open DEGIRO tab when the price is reached, with a short chime (on by default, can be switched off)
 > • An Alarms page and sidebar item to see, switch and delete all alarms, with a choice of columns
 > • Gold alarm badges at the alarm prices on the product chart. Click one to edit that alarm
 > • Checked while DEGIRO's Favourites or a product page is open
@@ -72,7 +72,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 >
 > SAFE BY DESIGN
 > • Everything runs locally in your browser. No analytics, no tracking, nothing sent to the developer. The only exception is the optional background price check, which sends ticker symbols (and, for a ticker that doesn't match, the ISIN) to Yahoo Finance, and the ISINs of Société Générale products to Société Générale
-> • Permissions: storage and alarms (no install warning), plus notifications and Yahoo Finance and Société Générale (sgbeurs.nl) access, which are requested only when you switch on the background check. Runs only on trader.degiro.nl
+> • Permissions: storage and alarms (no install warning), plus notifications, offscreen (the alarm chime) and Yahoo Finance and Société Générale (sgbeurs.nl) access, which are requested only when you switch on the background check. Runs only on trader.degiro.nl
 > • Read-only: it never places, changes or cancels orders
 > • Open source: you can read every line of code
 >
@@ -102,6 +102,7 @@ Read-only display and navigation aids for the DEGIRO web trader. It never places
 - `storage` — saves the user's feature on/off settings, the list of page sections to hide, the columns hidden on the Orders, Transactions and Alarms pages, the Orders sort column and direction, the merged Portfolio table's sort, hidden columns and full-name choice (when its remember setting is on), and the user's price alarms (product, price, repeat, on/off), last seen prices and open alarm banners. It also saves the price link of each alarm product (Yahoo ticker or ISIN, and Société Générale's product fields and when its price last changed for SG products) and the background check's status (only when the background check is used). *Clear saved data* in the settings erases all of it. The settings popup also remembers which sections are open, in this browser's `localStorage` only.
 - `alarms` — runs the background price check once a minute, and only while the user has switched on *Check in the background*. It shows no install warning.
 - `notifications` (optional) — shows a system notification when an alarm fires in the background. Requested from the user only when they switch on *Check in the background*; removed when they switch it off.
+- `offscreen` (optional) — opens a hidden page that plays the price alarm chime when the background check finds a reached alarm while DEGIRO is closed (Chrome on macOS plays no sound for notifications). The page holds no data and sends nothing. Requested and removed together with the background check's permissions; it shows no install warning.
 - Host access `https://query1.finance.yahoo.com/*` (optional) — fetches Yahoo Finance prices for the ticker symbols of the user's alarm products, and looks up a product's ISIN once when its ticker doesn't match, with no cookies and no other DEGIRO data. Requested only when the user switches on *Check in the background*; removed when they switch it off.
 - Host access `https://sgbeurs.nl/*` (optional) — fetches Société Générale's live prices for the user's alarm products issued by Société Générale (turbos, leverage products, certificates), which Yahoo Finance doesn't have. Only their ISINs and Société Générale's own product fields are sent, with no cookies. Requested and removed together with the Yahoo Finance access.
 - Host access `https://trader.degiro.nl/trader/*` (content scripts) — the extension only adds features to DEGIRO web trader pages, so it must run on them.

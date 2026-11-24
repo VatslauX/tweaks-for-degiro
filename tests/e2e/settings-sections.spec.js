@@ -199,7 +199,7 @@ test('a mixed switch with all it can turn on already on turns everything off', a
   await secSwitch(opt, 'orders').click();
   await expect.poll(() => isMixed(secSwitch(opt, 'orders'))).toBe(true);
   await secSwitch(opt, 'orders').click();
-  await expect(count(opt, 'orders')).toHaveText('0 of 9 on');
+  await expect(count(opt, 'orders')).toHaveText('0 of 10 on');
 });
 
 test('all off without permissions here does not write alarmsBackground', async ({ settings }) => {

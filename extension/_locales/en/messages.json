@@ -274,6 +274,15 @@
   "optAlarmLinesClickHelp": {
     "message": "Opens the alarm editor for that price."
   },
+  "optAlarmSound": {
+    "message": "Sound"
+  },
+  "optAlarmSoundHelp": {
+    "message": "A short chime when an alarm is reached: in the DEGIRO tab that saw it, and with DEGIRO closed while Check in the background is on."
+  },
+  "optAlarmSoundAllow": {
+    "message": "Allow sound with DEGIRO closed"
+  },
   "navOrders": {
     "message": "Orders",
     "description": "Sidebar link, DEGIRO's own wording"

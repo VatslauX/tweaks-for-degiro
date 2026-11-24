@@ -143,9 +143,11 @@ const dgAlarmStore = (() => {
    * alarms to switch off. Applied here at once (the next check, a frame later, must see it), then
    * written. Another DEGIRO tab may have fired the same alarm a moment earlier (a minute, or the same
    * day for 'daily'): its firing wins and this one is dropped. `armed` is never stored.
+   * `kept` runs once one of `fired` is kept (this tab's firing: it chimes), before the writes.
    * @param {Record<string, any>} upd @param {{ alarmId: string, price: number, at: number }[]} fired @param {string[]} off
+   * @param {() => void} [onKept]
    */
-  function record(upd, fired, off) {
+  function record(upd, fired, off, onKept) {
     fired.forEach(f => mine.add(f.at));
     state = { ...state, ...upd };
     if (off.length) alarms = alarms.map(a => (off.includes(a.id) ? { ...a, on: false } : a));
@@ -158,6 +160,9 @@ const dgAlarmStore = (() => {
         const known = [...new Set([...alarms.map(a => a.id), ...ids])]; // this tab's list and the stored one
         ({ state, events } = R.merge({ state: R.sanitizeState(r?.dgAlarmState), events: R.sanitizeEvents(r?.dgAlarmEvents) },
           upd, fired, alarms, known, foreignWithin));
+        // a firing the merge dropped (another tab's won) doesn't chime; two tabs whose merges interleave within a few ms
+        // may each keep theirs for a moment (one event stays) and both chime
+        if (onKept && fired.some(f => events.some(e => e.alarmId === f.alarmId && e.at === f.at))) onKept();
         changed();
         await chrome.storage.local.set({ dgAlarmState: state, dgAlarmEvents: events });
       } catch (e) {}
@@ -323,7 +328,19 @@ const dgAlarmStore = (() => {
       }
       if (JSON.stringify(next) !== JSON.stringify(st)) upd[a.id] = next;
     }
-    if (Object.keys(upd).length) S.record(upd, fired, off);
+    if (Object.keys(upd).length) S.record(upd, fired, off, fired.length ? chime : undefined);
+  }
+
+  /**
+   * The chime for alarms this tab fired and kept (once, however many; never for a banner another tab or the background
+   * check fired, which chimes there). Chrome lets a page play sound only once it has been clicked or typed in; before
+   * that (a DEGIRO tab reopened after a restart, say) the background worker plays it, if it has the sound permission
+   * (Check in the background on); otherwise this one stays quiet.
+   */
+  function chime() {
+    if (!dgSettings.alarmSound) return;
+    if (navigator.userActivation?.hasBeenActive && dgPlayChime()) return;
+    try { chrome.runtime.sendMessage({ type: 'dg-chime' }).catch(() => {}); } catch (e) {}
   }
 
   // ---------- banner ----------

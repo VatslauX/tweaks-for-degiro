@@ -160,6 +160,52 @@ test('two tabs, daily: the second tab does not fire on the same day', async () =
   assert.equal(writesTo(w, 'dgAlarmEvents'), 1);
 });
 
+// chime.js plays through Web Audio, which JSDOM lacks: a stand-in counts the chimes (one AudioContext each), and
+// `active` stands for Chrome's autoplay rule (the tab was clicked in). Asking the worker is recorded too.
+function sound(tab, active) {
+  const s = { played: 0, asked: [] };
+  const node = () => ({ connect: n => n, start() {}, stop() {}, type: '', frequency: {}, gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} } });
+  tab.window.AudioContext = class { constructor() { s.played++; this.currentTime = 0; this.destination = {}; } createOscillator() { return node(); } createGain() { return node(); } close() { return Promise.resolve(); } };
+  Object.defineProperty(tab.window.navigator, 'userActivation', { configurable: true, value: { hasBeenActive: active } });
+  tab.window.chrome.runtime.sendMessage = async m => { s.asked.push(m); };
+  return s;
+}
+
+test('chime: only the tab that fired plays it, once; another tab\'s banner and a banner shown again on load stay quiet', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'once' }), b = alarm({ price: 17.2, dir: 'above', repeat: 'once' });
+  const { w, tabs: [A, B] } = await setup([a, b], 2);
+  const sa = sound(A, true), sb = sound(B, true);
+  await price(A, 123, 17.5);
+  assert.equal(events(w).length, 2);
+  assert.equal(sa.played, 1, 'two alarms in one check: one chime');
+  assert.deepEqual(banners(B).sort(), [a.id, b.id].sort());
+  assert.equal(sb.played, 0, 'the other tab shows the banners without a chime');
+  const C = await w.open({ fixture: 'favourites', hash: '/favourites' });
+  const sc = sound(C, true);
+  await w.advance(200);
+  assert.equal(banners(C).length, 2);
+  assert.deepEqual([sa.played, sb.played, sc.played], [1, 0, 0], 'a reopened page shows the banners again, quietly');
+  assert.deepEqual([...sa.asked, ...sb.asked, ...sc.asked], []);
+  noErrors(w);
+});
+
+
+test('chime: a tab not clicked in yet (no sound allowed) asks the background worker; the switch off silences it', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'each' });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, false);
+  await price(tab, 123, 17.5);
+  assert.equal(s.played, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(s.asked)), [{ type: 'dg-chime' }]);
+  await tab.setFlag('alarmSound', false);
+  await price(tab, 123, 16);
+  await price(tab, 123, 17.6);
+  assert.equal(events(w).at(-1).price, 17.6, 'fired again');
+  assert.equal(s.played, 0);
+  assert.equal(s.asked.length, 1, 'switched off: no chime asked for');
+  noErrors(w);
+});
+
 test('two tabs, each: the other tab\'s firing is not repeated (no ping-pong), and a real new crossing is', async () => {
   const a = alarm({ price: 17, dir: 'above', repeat: 'each' });
   const { w, tabs: [A, B] } = await setup([a], 2);

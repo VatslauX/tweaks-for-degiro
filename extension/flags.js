@@ -16,6 +16,7 @@ const DG_DEFAULTS = {
   priceAlarms: true,   // price alarms: Alarm button on favourites, Alarms page, banner (alarms*.js)
   alarmLines: true,    // price alarms as gold badges on the product chart (needs priceAlarms too)
   alarmLinesClick: true, // click an alarm badge to open the alarm editor for that price
+  alarmSound: true,    // a chime when an alarm fires: in the tab that fired it, or from the background check (chime.js)
   alarmsBackground: false, // check alarms in the background with Yahoo Finance prices (background.js; opt-in, needs permissions)
   ordersFilter: true,  // Orders page: filters and buy/sell totals
   ordersHiddenColumns: ['exchange'], // Orders columns to hide (DG_ORDER_COLUMNS)

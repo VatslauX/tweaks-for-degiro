@@ -1,6 +1,6 @@
 # Privacy Policy — Tweaks for DEGIRO (unofficial)
 
-_Last updated: 19 November 2026_
+_Last updated: 24 November 2026_
 
 Tweaks for DEGIRO is an unofficial browser extension that adds display features to the DEGIRO web trader at `trader.degiro.nl`. It is not affiliated with DEGIRO or flatexDEGIRO Bank.
 
@@ -40,6 +40,7 @@ The extension does not collect, sell or share your personal data. It stores only
 - **alarms** — to run the background price check once a minute. Chrome shows no install warning for it.
 - **Access to `trader.degiro.nl/trader/`** (via content scripts) — to add the features to the DEGIRO web trader pages.
 - **Optional: notifications** — to show a system notification when an alarm fires in the background. Requested only when you switch on *Check in the background*.
+- **Optional: offscreen** — to play the price alarm chime with DEGIRO closed, through a hidden page that holds no data and plays only that sound. Requested and removed together with the background check's permissions (computers that switched the check on before 1.25.0 are asked for it alone, from the *Sound* setting).
 - **Optional: access to `query1.finance.yahoo.com`** — to fetch Yahoo Finance prices for the ticker symbols of your alarms, and to look up a ticker by ISIN when one doesn't match. Requested only when you switch on *Check in the background*, and removed when you switch it off.
 - **Optional: access to `sgbeurs.nl`** — to fetch Société Générale's live prices for its own products among your alarms (DEGIRO's *Societe Generale OTC* venue). Requested and removed together with the Yahoo Finance access.
 

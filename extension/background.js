@@ -8,7 +8,8 @@
 // SCG venue) aren't on Yahoo: they're priced live from SG's site, sgbeurs.nl (their ISIN and SG's own product fields
 // are sent, without cookies; one request per product per minute, at most 10, each product with its own back-off). A
 // link or product that keeps failing waits alone; the others go on (see "holds and waits"). A firing is stored like a
-// tab's (banner in DEGIRO) and shown as a system notification. Rules: alarm-rules.js.
+// tab's (banner in DEGIRO) and shown as a system notification, with a chime (offscreen.html, 'alarmSound'). Rules:
+// alarm-rules.js.
 importScripts('alarm-rules.js');
 
 (() => {
@@ -17,6 +18,9 @@ importScripts('alarm-rules.js');
   const SG = 'https://sgbeurs.nl';
   const DEGIRO_PRODUCT = 'https://trader.degiro.nl/trader/#/products/';
   const PERMS = { permissions: /** @type {chrome.runtime.ManifestPermission[]} */ (['notifications']), origins: [YAHOO + '/*', SG + '/*'] };
+  // the chime with DEGIRO closed (offscreen.html): asked for with PERMS, but the check never waits for it (a computer
+  // that switched the check on before the sound came has PERMS alone)
+  const SOUND = { permissions: /** @type {chrome.runtime.ManifestPermission[]} */ (['offscreen']) };
   const SG_PER_TICK = 10;        // SG products priced per tick (one request each)
   const POLL = 'dgPoll';
   const TAB_FRESH = 3 * 60000;   // a DEGIRO tab saw the product this recently: its price wins
@@ -153,17 +157,40 @@ importScripts('alarm-rules.js');
   });
   /** @param {any} a @param {number} n */
   const money = (a, n) => `${a.currency} ${new Intl.NumberFormat(chrome.i18n.getUILanguage(), { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(n)}`.trim();
-  /** @param {any} a @param {{ price: number, at: number, src?: 'sg' }} f */
+  /**
+   * An alarm's notification: the system's banner (macOS about 5 s on screen, then kept in Notification Center) with
+   * the system's sound (never `silent`), which plays when the system allows sound for Chrome's notifications.
+   * @param {any} a @param {{ price: number, at: number, src?: 'sg' }} f
+   */
   function notify(a, f) {
     try {
       const time = new Date(f.at).toLocaleTimeString(chrome.i18n.getUILanguage(), { hour: '2-digit', minute: '2-digit' });
       if (!chrome.notifications) return;
       note('create', `dg|${a.productId}|${a.id}|${f.at}`, {
-        type: 'basic', iconUrl: 'icons/icon128.png', priority: 2,
+        type: 'basic', iconUrl: 'icons/icon128.png', priority: 2, silent: false,
         title: t(a.dir === 'above' ? 'bannerRose' : 'bannerFell', R.label(a), money(a, f.price)),
         message: `${t('bannerAlarm', (a.dir === 'above' ? '↑ ' : '↓ ') + money(a, a.price))} · ${t(f.src === 'sg' ? 'bgNotifyNoteSg' : 'bgNotifyNote', time)}`
       }).catch(() => {});
     } catch (e) {}
+  }
+  /**
+   * The chime (Chrome on macOS shows notifications without a sound): in offscreen.html, while 'alarmSound' is on and
+   * the offscreen permission is granted. Only one offscreen document can be open; one still open from a chime a moment
+   * ago (Chrome closes it after 30 s of silence) plays it again. False when it can't play.
+   * @returns {Promise<boolean>}
+   */
+  async function chime() {
+    try {
+      const { alarmSound } = await chrome.storage.sync.get({ alarmSound: true });
+      if (alarmSound === false || !(await chrome.permissions.contains(SOUND).catch(() => false)) || !chrome.offscreen) return false;
+      try {
+        await chrome.offscreen.createDocument({ url: 'offscreen.html', reasons: [/** @type {chrome.offscreen.Reason} */ ('AUDIO_PLAYBACK')],
+          justification: 'Plays the price alarm chime.' });
+      } catch (e) {
+        return (await chrome.runtime.sendMessage({ type: 'dg-chime-play' })) === true;
+      }
+      return true;
+    } catch (e) { return false; }
   }
   let clickBound = false;
   const bindClick = () => {
@@ -399,11 +426,14 @@ importScripts('alarm-rules.js');
         const merged = R.merge({ state: R.sanitizeState(fresh.dgAlarmState), events: R.sanitizeEvents(fresh.dgAlarmEvents) },
           upd, fired, alarms, known, (a, at, when) => !!at && !mine.has(at) && R.within(a, at, when));
         await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
+        let shown = 0;
         for (const f of fired) {
           if (!merged.events.some(e => e.alarmId === f.alarmId && e.at === f.at)) continue;
           const a = alarms.find(x => x.id === f.alarmId);
-          if (a) notify(a, f);
+          if (a) { notify(a, f); shown++; }
         }
+        if (shown) await chime(); // once per tick, however many fired; a tab's own firing chimes in that tab
+
         if (off.length) {
           const base = R.sanitize((await chrome.storage.sync.get({ dgAlarms: [] })).dgAlarms);
           await chrome.storage.sync.set({ dgAlarms: base.map(a => (off.includes(a.id) && merged.events.some(e => e.alarmId === a.id) ? { ...a, on: false } : a)) });
@@ -431,6 +461,12 @@ importScripts('alarm-rules.js');
   chrome.runtime.onStartup.addListener(() => reconcile());
   chrome.permissions.onAdded.addListener(p => { if (p.origins?.length) { bindClick(); reconcile(true); } });
   chrome.permissions.onRemoved.addListener(p => { if (p.origins?.length || p.permissions?.includes('notifications')) reconcile(false); });
+  // a chime asked for by a DEGIRO tab Chrome doesn't let play sound yet (never clicked in), or by the settings' test
+  chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+    if (sender.id !== chrome.runtime.id || msg?.type !== 'dg-chime') return;
+    chime().then(reply);
+    return true; // replies later
+  });
   chrome.storage.onChanged.addListener((c, area) => {
     if (area === 'sync' && (c.dgAlarms || c.dgTickers || c.alarmsBackground || c.priceAlarms)) reconcile();
   });

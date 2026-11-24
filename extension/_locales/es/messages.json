@@ -245,6 +245,15 @@
   "optAlarmLinesClickHelp": {
     "message": "Opens the alarm editor for that price."
   },
+  "optAlarmSound": {
+    "message": "Sonido"
+  },
+  "optAlarmSoundHelp": {
+    "message": "Un breve aviso sonoro cuando se alcanza una alarma: en la pestaña de DEGIRO que la detectó y, con DEGIRO cerrado, mientras «Comprobar en segundo plano» esté activado."
+  },
+  "optAlarmSoundAllow": {
+    "message": "Permitir sonido con DEGIRO cerrado"
+  },
   "navOrders": {
     "message": "Órdenes",
     "description": "Sidebar link, DEGIRO's own wording"

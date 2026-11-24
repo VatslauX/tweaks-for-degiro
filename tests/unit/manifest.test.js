@@ -19,8 +19,8 @@ test('only storage and alarms (no install warning), no host_permissions', () => 
 });
 
 // Check in the background (opt-in): asked for only when switched on, so an update adds no install-time warning
-test('optional permissions: only notifications and Yahoo Finance prices, for the background check', () => {
-  assert.deepStrictEqual(m.optional_permissions, ['notifications']);
+test('optional permissions: only notifications, the alarm chime (offscreen) and the price hosts, for the background check', () => {
+  assert.deepStrictEqual(m.optional_permissions, ['notifications', 'offscreen']);
   assert.deepStrictEqual(m.optional_host_permissions, ['https://query1.finance.yahoo.com/*', 'https://sgbeurs.nl/*']);
 });
 

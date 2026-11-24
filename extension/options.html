@@ -140,6 +140,10 @@
       <input type="checkbox" class="switch" data-key="alarmLinesClick">
     </label>
     <label class="row sub" data-depends="priceAlarms">
+      <span><strong data-i18n="optAlarmSound">Sound</strong><small data-i18n="optAlarmSoundHelp">A short chime when an alarm is reached: in the DEGIRO tab that saw it, and with DEGIRO closed while Check in the background is on.</small><a href="#" role="button" id="soundAllow" class="linkish" hidden data-i18n="optAlarmSoundAllow">Allow sound with DEGIRO closed</a></span>
+      <input type="checkbox" class="switch" data-key="alarmSound">
+    </label>
+    <label class="row sub" data-depends="priceAlarms">
       <span><strong data-i18n="optAlarmsBackground">Check in the background</strong><small data-i18n="optAlarmsBackgroundHelp">Every minute while Chrome runs, even with DEGIRO closed or logged out. Prices from Yahoo Finance, usually 15 min delayed, and live from Société Générale (sgbeurs.nl) for its own products. Only ticker symbols (e.g. ASML.AS) are sent to Yahoo, and a product's ISIN once when its ticker doesn't match; only the ISINs of SG products are sent to SG.</small><small id="bgStatus" hidden></small><a href="#" role="button" id="bgTest" class="linkish" hidden data-i18n="optBgTest">Send a test notification</a><small id="bgTestNote" hidden></small></span>
       <input type="checkbox" class="switch" data-key="alarmsBackground" data-permission>
     </label>
@@ -175,6 +179,7 @@
   </footer>
 
   <script src="flags.js"></script>
+  <script src="chime.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

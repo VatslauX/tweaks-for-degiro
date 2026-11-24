@@ -245,6 +245,15 @@
   "optAlarmLinesClickHelp": {
     "message": "Opens the alarm editor for that price."
   },
+  "optAlarmSound": {
+    "message": "Geluid"
+  },
+  "optAlarmSoundHelp": {
+    "message": "Een kort signaal wanneer een alarm wordt bereikt: in het DEGIRO-tabblad dat het zag, en met DEGIRO gesloten zolang “Op de achtergrond controleren” aan staat."
+  },
+  "optAlarmSoundAllow": {
+    "message": "Geluid toestaan met DEGIRO gesloten"
+  },
   "navOrders": {
     "message": "Orders",
     "description": "Sidebar link, DEGIRO's own wording"
