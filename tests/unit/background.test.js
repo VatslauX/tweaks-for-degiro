@@ -634,6 +634,7 @@ test('an alarm a tab fires while the worker waits for Yahoo is not fired again w
     assert.ok(w.calls.fetch.some(f => f.url.includes('spark')), repeat);
     assert.deepEqual(plain(local.dgAlarmEvents), [tab], `${repeat}: the tab's banner and price stay`);
     assert.equal(local.dgAlarmState.a1.firedAt, NOW, `${repeat}: the tab's firing time stays`);
+    assert.deepEqual(plain(local.dgAlarmState.a1), { firedAt: NOW, last: 1040, lastAt: NOW }, `${repeat}: and its price and time seen`);
     assert.deepEqual(w.calls.notes, [], `${repeat}: no second notification`);
     assert.deepEqual(w.calls.offscreen, [], `${repeat}: no second chime`);
     assert.equal(w.chrome.storage.sync.data.dgAlarms[0].on, true, `${repeat}: the worker doesn't switch it off (the tab does)`);
@@ -740,6 +741,19 @@ test('the worker writes only firedAt: `last`/`lastAt` stay what a DEGIRO tab saw
   const w = worker({ local: { dgAlarmState: { a1: { last: 990, lastAt: NOW - 3600000 } }, dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' } } }, responses: yahoo() });
   await w.tick();
   assert.deepEqual(plain(w.chrome.storage.local.data.dgAlarmState.a1), { last: 990, lastAt: NOW - 3600000, firedAt: NOW - 900000 });
+});
+
+test('a price a DEGIRO tab sees while the worker waits for Yahoo stays when the worker fires the alarm', async () => {
+  // the tab only prices the product (no firing): the worker's firing adds firedAt to the stored entry, not the tick's
+  let w;
+  w = worker({ local: { dgAlarmState: { a1: { last: 990, lastAt: NOW - 3600000 } }, dgTickerCheck: { 'ASML.AS|€|': { ok: true, f: 1, at: 1, y: 'ASML.AS' } } },
+    responses: url => {
+      if (url.includes('spark')) w.chrome.storage.local.data.dgAlarmState = { a1: { last: 1030, lastAt: NOW - 1000 } };
+      return yahoo()(url);
+    } });
+  await w.tick();
+  assert.deepEqual(plain(w.chrome.storage.local.data.dgAlarmState.a1), { last: 1030, lastAt: NOW - 1000, firedAt: NOW - 900000 });
+  assert.equal(w.calls.notes.length, 1);
 });
 
 test('Yahoo requests time out after 20 s', async () => {

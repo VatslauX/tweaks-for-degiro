@@ -466,7 +466,6 @@ importScripts('alarm-rules.js');
     if (stopped) return;
 
     try {
-      /** @type {Record<string, any>} */ const upd = {};
       /** @type {{ alarmId: string, price: number, at: number, src?: 'sg' }[]} */ const fired = [];
       /** @type {string[]} */ const off = [];
       /** @type {Record<string, { sig: string, fa?: number, armed: boolean }>} */ const armedMap = { ...sess.dgBgArmed };
@@ -487,8 +486,6 @@ importScripts('alarm-rules.js');
         armedMap[a.id] = { sig, fa: st.firedAt, armed: d.armed };
         if (!d.fire || (st.firedAt && R.within(a, st.firedAt, at))) continue;
         armedMap[a.id] = { sig, fa: at, armed: d.armed }; // its own firing keeps the memory
-        // only firedAt: `last`/`lastAt` stay DEGIRO's (what a tab saw), which the link check and tabSeen rely on
-        upd[a.id] = { ...st, firedAt: at };
         fired.push({ alarmId: a.id, price, at, ...(q.src ? { src: q.src } : {}) });
         if (!d.on) off.push(a.id);
       }
@@ -516,10 +513,14 @@ importScripts('alarm-rules.js');
             const a = alarms.find(x => x.id === f.alarmId), s = storedNow.find(x => x.id === f.alarmId);
             return !!a && !!s && s.on && s.price === a.price && s.dir === a.dir && s.repeat === a.repeat;
           });
+          // only firedAt, on the entry as stored now: `last`/`lastAt` stay DEGIRO's (what a tab saw, maybe while this
+          // tick's requests were out), which the link check and tabSeen rely on. A firing the merge drops (another
+          // writer's wins) leaves the stored entry as it is
+          const freshState = R.sanitizeState(fresh.dgAlarmState);
           /** @type {Record<string, any>} */ const updNow = {};
-          for (const f of still) updNow[f.alarmId] = upd[f.alarmId];
+          for (const f of still) updNow[f.alarmId] = { ...freshState[f.alarmId], firedAt: f.at };
           const mine = new Set(still.map(f => f.at));
-          const merged = R.merge({ state: R.sanitizeState(fresh.dgAlarmState), events: R.sanitizeEvents(fresh.dgAlarmEvents) },
+          const merged = R.merge({ state: freshState, events: R.sanitizeEvents(fresh.dgAlarmEvents) },
             updNow, still, alarms, known, (a, at, when) => !!at && !mine.has(at) && (at >= when || R.within(a, at, when)));
           if (still.length) await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
           // only the firings the merge kept: one it dropped is another writer's to show, chime and switch off
