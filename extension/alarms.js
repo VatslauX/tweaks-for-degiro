@@ -71,12 +71,41 @@ const dgAlarmStore = (() => {
     for (const k of fired ? ['last', 'lastAt', 'firedAt'] : ['last', 'lastAt']) if (st?.[k] !== undefined) p[k] = st[k];
     return p;
   };
+  /**
+   * This tab's firings that its merge kept (they chimed) but storage refused to store, per alarm: `at` (the firedAt),
+   * `base` (the stored firedAt that merge read) and `sig` (the alarm's price, direction and repeat then). Laid over
+   * `state` like `pending`, so the alarm keeps counting as fired (no second chime), and stored by this tab's next
+   * `record()` write that goes through. Dropped once the stored firedAt is no longer `base` (another writer's firing,
+   * or an edit that cleared it, wins), the alarm is edited (`update()` here; elsewhere: `sig` changes) or goes.
+   * @type {Map<string, { at: number, base: number | undefined, sig: string }>}
+   */
+  const unsaved = new Map();
+  /** @param {any} a */
+  const sigOf = a => `${a.price}|${a.dir}|${a.repeat}`;
+  /** the alarm of an unsaved firing is on this list, not edited since @param {string} id @param {any[]} list */
+  const unedited = (id, list) => { const u = unsaved.get(id), a = list.find(x => x.id === id); return !!u && !!a && sigOf(a) === u.sig; };
+  /** and no other writer changed its stored firedAt (`at`: the firing on its way to storage) @param {string} id @param {any[]} list @param {Record<string, any>} st */
+  const holds = (id, list, st) => { const u = unsaved.get(id), f = st[id]?.firedAt; return !!u && unedited(id, list) && (f === u.base || f === u.at); };
   /** stored state with this tab's unsaved changes on top (only of alarms it still has) @param {Record<string, any>} st */
   const withPending = st => {
-    if (!pending.size) return st;
+    if (!pending.size && !unsaved.size) return st;
     const out = { ...st };
+    for (const [id, u] of [...unsaved]) {
+      if (holds(id, alarms, st)) out[id] = { ...out[id], firedAt: u.at }; else unsaved.delete(id);
+    }
     for (const [id, { p }] of pending) if (alarms.some(a => a.id === id)) out[id] = { ...out[id], ...p };
     return out;
+  };
+  // the list changed (an edit or removal elsewhere): an unsaved firing of an alarm edited or gone no longer counts
+  const dropEdited = () => {
+    for (const [id, u] of [...unsaved]) {
+      if (unedited(id, alarms)) continue;
+      unsaved.delete(id);
+      if (state[id]?.firedAt !== u.at) continue;
+      const rest = { ...state[id] };
+      if (u.base) rest.firedAt = u.base; else delete rest.firedAt;
+      state = { ...state, [id]: rest };
+    }
   };
 
   try {
@@ -92,7 +121,7 @@ const dgAlarmStore = (() => {
     });
     chrome.storage.onChanged.addListener((c, area) => {
       let hit = false;
-      if (area === 'sync' && c.dgAlarms) { alarms = withOffing(R.sanitize(c.dgAlarms.newValue)); hit = true; }
+      if (area === 'sync' && c.dgAlarms) { alarms = withOffing(R.sanitize(c.dgAlarms.newValue)); dropEdited(); hit = true; }
       if (area === 'sync' && c.dgTickers) {
         tickers = R.sanitizeTickers(c.dgTickers.newValue);
         // another writer (tab, computer) dropped a product's link, or it went with its alarms: link it again when seen.
@@ -160,14 +189,15 @@ const dgAlarmStore = (() => {
    * The user's change to the list (`edit` of a list; null: not possible on that list): shown on this tab's list at
    * once, then made to the stored list, read again holding the lock, so a change another writer stored meanwhile (a
    * tab's, another computer's, the worker's 'once' switch-off) stays. `edit` may run twice on the same list.
-   * @param {(list: any[]) => any[] | null} edit @returns {Promise<boolean>}
+   * Resolves true once written, false if storage refused it, null if `edit` refused the stored list (nothing written).
+   * @param {(list: any[]) => any[] | null} edit @returns {Promise<boolean | null>}
    */
   const saveAlarms = edit => {
     const shown = edit(alarms);
     if (shown) { alarms = withOffing(R.sanitize(shown)); changed(); }
     return locked(async () => {
       const next = edit(await storedList());
-      if (!next) { reload(); return false; }
+      if (!next) { reload(); return null; }
       return writeAlarms(next);
     });
   };
@@ -176,15 +206,15 @@ const dgAlarmStore = (() => {
     if (alarms.length >= R.MAX) return 'full';
     // added once, whichever list it lands on; a list that filled up meanwhile (another computer's) takes no more
     const ok = await saveAlarms(list => (list.some(x => x.id === a.id) ? list : list.length >= R.MAX ? null : [...list, a]));
-    return ok ? 'ok' : 'error';
+    return ok ? 'ok' : ok === null ? 'full' : 'error';
   }
-  /** @param {string} id @param {boolean} on */
+  /** @param {string} id @param {boolean} on @returns {Promise<boolean>} */
   const setOn = (id, on) => {
     offing.delete(id); // the user's choice: no switch-off of this tab's is laid over it
-    return saveAlarms(list => list.map(a => (a.id === id ? { ...a, on } : a)));
+    return saveAlarms(list => list.map(a => (a.id === id ? { ...a, on } : a))).then(ok => !!ok);
   };
-  /** @param {string} id */
-  const remove = id => saveAlarms(list => list.filter(a => a.id !== id));
+  /** @param {string} id @returns {Promise<boolean>} */
+  const remove = id => saveAlarms(list => list.filter(a => a.id !== id)).then(ok => !!ok);
 
   /**
    * Change an alarm's price, direction and repeat in place (same id and position), switch it on and let it
@@ -204,6 +234,7 @@ const dgAlarmStore = (() => {
       // saved: the rest is best effort (like closeEvent), a failing local write must not report an error
       try {
         pending.delete(id); // the edit starts the alarm afresh: nothing of before is laid over it again
+        unsaved.delete(id);
         if (state[id]) { const rest = { ...state[id] }; delete rest.firedAt; state = { ...state, [id]: rest }; }
         events = events.filter(e => e.alarmId !== id);
         changed();
@@ -258,15 +289,22 @@ const dgAlarmStore = (() => {
     return locked(async () => {
       let offKept = off; // storage failing before the merge: all of them, as before
       let refused = false;
+      /** this call's kept firings, until storage took them (`unsaved` if it refuses) @type {[string, { at: number, base: number | undefined, sig: string }][]} */
+      let unstored = [];
       try {
         try {
-          const [r, ids] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), storedIds()]);
+          const [r, list] = await Promise.all([chrome.storage.local.get({ dgAlarmState: {}, dgAlarmEvents: [] }), storedList()]);
+          const ids = list.map(a => a.id);
           // its alarms are gone meanwhile (deleted, or "Clear saved data"): nothing to store, nor to switch off
           if (!Object.keys(upd).some(id => ids.includes(id))) return;
           const known = [...new Set([...alarms.map(a => a.id), ...ids])]; // this tab's list and the stored one
           const stored = R.sanitizeState(r?.dgAlarmState);
           observe(stored, true); // the worker's firing may be stored before its storage event reaches this tab
           const merged = R.merge({ state: stored, events: R.sanitizeEvents(r?.dgAlarmEvents) }, upd, fired, alarms, known, foreignWithin);
+          // earlier firings of this tab's that storage refused go with this write, unless the stored list or state says
+          // otherwise (edited, gone, another writer's firedAt) or this merge kept a newer one
+          const carried = [...unsaved].filter(([id, u]) => holds(id, list, stored) && merged.state[id]?.firedAt === u.base);
+          for (const [id, u] of carried) merged.state[id] = { ...merged.state[id], firedAt: u.at };
           // until written, this call's entries hold what the merge made of them (a dropped firing: the winner's firedAt)
           ours(id => { if (merged.state[id]) pending.set(id, { by, p: patchOf(merged.state[id], firedIds.has(id)) }); else pending.delete(id); });
           state = withPending(merged.state); // and a later check's, still queued, stay
@@ -278,8 +316,17 @@ const dgAlarmStore = (() => {
           offKept = off.filter(id => kept.some(f => f.alarmId === id));
           if (onKept && kept.length) onKept();
           changed();
+          unstored = kept.flatMap(f => {
+            const a = alarms.find(x => x.id === f.alarmId);
+            return a ? [[f.alarmId, { at: f.at, base: stored[f.alarmId]?.firedAt, sig: sigOf(a) }]] : [];
+          });
           await chrome.storage.local.set({ dgAlarmState: merged.state, dgAlarmEvents: merged.events });
-        } catch (e) {} finally { ours(id => pending.delete(id)); } // stored, or storage refused it: storage says what holds
+          unstored = [];
+          for (const [id, u] of carried) if (unsaved.get(id) === u) unsaved.delete(id);
+        } catch (e) {} finally {
+          ours(id => pending.delete(id)); // stored, or storage refused it: storage says what holds, but for
+          for (const [id, u] of unstored) unsaved.set(id, u); // a firing that chimed (or it would fire again)
+        }
         offsLeft(id => offKept.includes(id)); // a dropped firing's switch-off isn't this tab's: the stored list says
         if (offKept.length) {
           // switch off on the stored list, so alarms another tab added or changed meanwhile are kept

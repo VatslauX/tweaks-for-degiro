@@ -9,6 +9,8 @@
 - **Fix**: when the background check fired an alarm, or found that a DEGIRO tab had just fired it, it could put back an older price and time a DEGIRO tab had seen for that product moments before. The background check could then wrongly treat the product as not open in DEGIRO, and compare Yahoo's price with an older DEGIRO price. A tab's price now stays.
 - **Fix**: when a DEGIRO tab saved a product's latest price just as the background check or another tab fired that product's alarm, the firing could be forgotten (its banner stayed). A *Once a day* or *Every time* alarm could then fire again later: a second chime and notification. The firing now stays.
 - **Fix**: alarm data saved by a DEGIRO tab, the background check and the settings page at the same moment could lose one of the saves (a banner closed, an alarm switched or edited, a firing, *Clear saved data*); they now take turns, DEGIRO first.
+- **Fix**: adding an alarm when alarms synced from another computer had just filled the list said *Could not save the alarm*. It now says the list is full.
+- **Fix**: when Chrome refused to save an alarm's firing in a DEGIRO tab, the tab could forget it at its next save of the price, and a *Once a day* or *Every time* alarm fired again: a second chime. The tab now keeps the firing and saves it with its next save, unless the alarm was edited or fired elsewhere meanwhile.
 
 ## 1.24.1 — 2026-11-20
 - **No change in behaviour**: this release only updates the extension's tests, so the extension works exactly as in 1.24.0.

@@ -504,6 +504,79 @@ test('a once alarm whose switch-off storage refused is on again once edited', as
   noErrors(w);
 });
 
+// Storage refuses the write of a tab's own firing (chimed, kept by its merge): the tab keeps counting it as fired and
+// stores it with its next write that goes through, unless another writer's firing or an edit came in between.
+const firedIn = (tab, id) => tab.json(`dgAlarmStore.state()[${JSON.stringify(id)}]?.firedAt ?? null`);
+async function refusedFiring(repeat) {
+  const a = alarm({ price: 17, dir: 'above', repeat });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  w.faults.set = true;
+  await price(tab, 123, 17.5);
+  w.faults.set = false;
+  assert.equal(s.played, 1, 'fired and chimed');
+  assert.equal(stateOf(w, a.id).firedAt, undefined, 'storage refused the firing');
+  const at = firedIn(tab, a.id);
+  assert.ok(at, 'the tab counts it as fired');
+  return { w, tab, a, s, at };
+}
+
+test('a firing whose save storage refused is stored by the tab\'s next price write, and does not fire again', async () => {
+  for (const repeat of ['daily', 'each']) {
+    const { w, tab, a, s, at } = await refusedFiring(repeat);
+    await w.skip(61e3);
+    await price(tab, 123, 17.6); // a price-only write (no firing): it goes through
+    assert.equal(stateOf(w, a.id).firedAt, at, `${repeat}: the firing is stored now`);
+    assert.equal(stateOf(w, a.id).last, 17.6, repeat);
+    assert.equal(firedIn(tab, a.id), at, repeat);
+    for (const v of [17.8, 17.9]) { await w.skip(61e3); await price(tab, 123, v); } // still past the alarm, later that day
+    assert.equal(s.played, 1, `${repeat}: no second chime`);
+    assert.equal(stateOf(w, a.id).firedAt, at, repeat);
+    assert.deepEqual(events(w), [], `${repeat}: no event stored for it (the banner is not retried)`);
+    noErrors(w);
+  }
+});
+
+test('a firing whose save storage refused gives way to a firing another writer stored meanwhile', async () => {
+  // another tab's later firing, and the worker's (its firedAt is Yahoo's trade time, older than the tab's)
+  for (const later of [true, false]) {
+    const { w, tab, a, s, at } = await refusedFiring('daily');
+    await w.skip(30e3);
+    const theirs = later ? w.now : at - 15 * 60e3;
+    const ev = { alarmId: a.id, price: 17.4, at: theirs };
+    await w.set('local', { dgAlarmState: { ...w.stored('local').dgAlarmState, [a.id]: { ...stateOf(w, a.id), firedAt: theirs } }, dgAlarmEvents: [ev] });
+    await w.skip(61e3);
+    await price(tab, 123, 17.6); // the tab's next price write
+    assert.equal(stateOf(w, a.id).firedAt, theirs, `later ${later}: the other writer's firing stays stored`);
+    assert.equal(firedIn(tab, a.id), theirs, `later ${later}: and counts in the tab`);
+    await w.skip(61e3);
+    await price(tab, 123, 17.8);
+    assert.equal(stateOf(w, a.id).firedAt, theirs, `later ${later}`);
+    assert.deepEqual(events(w), [ev], `later ${later}: no other event`);
+    assert.equal(s.played, 1, `later ${later}: no second chime`);
+    noErrors(w);
+  }
+});
+
+test('a firing whose save storage refused is dropped once the alarm is edited, here or in another tab', async () => {
+  for (const where of ['here', 'elsewhere']) {
+    const { w, tab, a, s, at } = await refusedFiring('daily');
+    if (where === 'here') assert.equal(await tab.run(`dgAlarmStore.update(${JSON.stringify(a.id)}, { price: 17.2, dir: 'above', repeat: 'daily' })`), 'ok');
+    else await w.set('sync', { dgAlarms: [{ ...a, price: 17.2 }] }); // another tab's edit (its state had no firedAt to clear)
+    await w.advance(200); // the price is still past the edited alarm: it starts afresh and fires again
+    assert.equal(s.played, 2, where);
+    const again = stateOf(w, a.id).firedAt;
+    assert.ok(again > at, `${where}: the new firing is stored, not the old one`);
+    assert.equal(firedIn(tab, a.id), again, where);
+    assert.deepEqual(events(w).map(e => [e.alarmId, e.price, e.at]), [[a.id, 17.5, again]], where);
+    await w.skip(61e3);
+    await price(tab, 123, 17.6);
+    assert.equal(stateOf(w, a.id).firedAt, again, `${where}: the old firing is never written back`);
+    assert.equal(s.played, 2, where);
+    noErrors(w);
+  }
+});
+
 test('race: closing a banner while record() is still writing loses neither update', async () => {
   const x = alarm({ price: 17, productId: 123 }), y = alarm({ price: 1300, productId: 456, name: 'Mock Tech' });
   const { w, tab } = await setup([x, y]);
@@ -620,6 +693,22 @@ test('Alarms page: switching between two lists with only dashes updates No tradi
 test('the 25-alarm limit: add() says full', async () => {
   const { tab } = await setup(Array.from({ length: 25 }, () => alarm({ price: 500 })));
   assert.equal(await tab.run(`dgAlarmStore.add(${JSON.stringify(alarm())})`), 'full');
+});
+
+test('the 25-alarm limit: add() says full when another computer filled the stored list while it waited for the lock', async () => {
+  const { w, tab } = await setup([alarm({ price: 17 })]);
+  const k = keeper(w, [tab]);
+  const release = await k.hold('worker');
+  const fresh = alarm({ price: 30 });
+  const res = tab.run(`dgAlarmStore.add(${JSON.stringify(fresh)})`); // shown at once, written once the lock is free
+  const synced = Array.from({ length: 25 }, () => alarm({ price: 500 }));
+  await w.set('sync', { dgAlarms: synced }); // another computer's alarms sync in meanwhile
+  release();
+  await w.advance(200);
+  assert.equal(await res, 'full');
+  assert.deepEqual(listOf(w).map(a => a.id), synced.map(a => a.id), 'nothing added to the stored list');
+  assert.ok(!tab.json('dgAlarmStore.list().map(a => a.id)').includes(fresh.id), 'nor to the tab\'s');
+  noErrors(w);
 });
 
 test('Alarms page: a listed product without a price says "No trading now"; one not in the list says "Not in current list"; nothing fires', async () => {
