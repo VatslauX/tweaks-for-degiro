@@ -22,7 +22,7 @@ const dgAlarmStore = (() => {
   const mine = new Set();
   /**
    * 'once' alarms this tab's checks switched off whose switch-off isn't stored yet (`record()` writes it last): the
-   * switch-off is laid over every list that replaces `alarms` from storage (`onChanged`, `reload`, `saveAlarms`), or
+   * switch-off is laid over every list that replaces `alarms` from storage (`onChanged`, `reload`, `writeAlarms`), or
    * the next check would fire the alarm a second time. Each entry is the record() call's own object, so only that call
    * removes it once written; kept when storage refused it (`done`), until a later list write of this tab's stores it or
    * the user switches the alarm on or edits it.
@@ -31,8 +31,20 @@ const dgAlarmStore = (() => {
   const offing = new Map();
   /** @param {any[]} list sanitized */
   const withOffing = list => (offing.size ? list.map(a => (a.on && offing.has(a.id) ? { ...a, on: false } : a)) : list);
+  /**
+   * This tab's list edits (`saveAlarms`: add, switch, remove) shown at once but not written yet, in the order queued:
+   * laid over every list that replaces `alarms` from storage, like `offing`, until their own queue item is done
+   * (written, refused, or `edit` refused the stored list). Otherwise another writer's list write landing meanwhile
+   * would bring back what the user just changed: an alarm just switched off or removed could fire and chime.
+   * @type {{ edit: (list: any[]) => any[] | null }[]}
+   */
+  const queued = [];
+  /** its turn is done @param {object} [q] */
+  const unqueue = q => { const i = queued.findIndex(x => x === q); if (i >= 0) queued.splice(i, 1); };
+  /** a list from storage as this tab shows it: its queued edits (one that refuses the list leaves it), then `offing` @param {any[]} list sanitized */
+  const shownOf = list => withOffing(queued.reduce((l, q) => { const r = q.edit(l); return r ? R.sanitize(r) : l; }, list));
   const reload = () => {
-    try { chrome.storage.sync.get({ dgAlarms: [] }, r => { alarms = withOffing(R.sanitize(r?.dgAlarms)); syncLoaded = true; changed(); }); } catch (e) {}
+    try { chrome.storage.sync.get({ dgAlarms: [] }, r => { alarms = shownOf(R.sanitize(r?.dgAlarms)); syncLoaded = true; changed(); }); } catch (e) {}
   };
   /**
    * Each alarm's stored firedAt as this tab last saw it, and when (this tab's clock) a new one first appeared: 0 for
@@ -96,10 +108,13 @@ const dgAlarmStore = (() => {
     for (const [id, { p }] of pending) if (alarms.some(a => a.id === id)) out[id] = { ...out[id], ...p };
     return out;
   };
-  // the list changed (an edit or removal elsewhere): an unsaved firing of an alarm edited or gone no longer counts
-  const dropEdited = () => {
+  // the list changed (an edit or removal elsewhere): an unsaved firing of an alarm edited or gone no longer counts.
+  // Judged on the stored list, not the shown one: this tab's own queued removal may still be refused (`withPending`
+  // still judges on the shown list, so a `dgAlarmState` change during that wait drops it: a known, rare gap)
+  /** @param {any[]} list the stored list, sanitized */
+  const dropEdited = list => {
     for (const [id, u] of [...unsaved]) {
-      if (unedited(id, alarms)) continue;
+      if (unedited(id, list)) continue;
       unsaved.delete(id);
       if (state[id]?.firedAt !== u.at) continue;
       const rest = { ...state[id] };
@@ -121,7 +136,7 @@ const dgAlarmStore = (() => {
     });
     chrome.storage.onChanged.addListener((c, area) => {
       let hit = false;
-      if (area === 'sync' && c.dgAlarms) { alarms = withOffing(R.sanitize(c.dgAlarms.newValue)); dropEdited(); hit = true; }
+      if (area === 'sync' && c.dgAlarms) { const list = R.sanitize(c.dgAlarms.newValue); alarms = shownOf(list); dropEdited(list); hit = true; }
       if (area === 'sync' && c.dgTickers) {
         tickers = R.sanitizeTickers(c.dgTickers.newValue);
         // another writer (tab, computer) dropped a product's link, or it went with its alarms: link it again when seen.
@@ -172,33 +187,40 @@ const dgAlarmStore = (() => {
     } catch (e) {}
   });
 
-  // Write the list: shown at once; if storage refuses, it comes back from storage. Only inside a queue item that
-  // holds the lock, on a list made from the stored one (a fresh read in that item). Never await `saveAlarms` or any
-  // other `locked()` call inside such an item: it would queue behind it and never start, stopping this tab's writes
-  /** @param {any[]} list */
-  async function writeAlarms(list) {
-    alarms = withOffing(R.sanitize(list));
+  // Write the list: shown at once (with this tab's later queued edits on top, written in their own turn); if storage
+  // refuses, it comes back from storage. Only inside a queue item that holds the lock, on a list made from the stored
+  // one (a fresh read in that item). Never await `saveAlarms` or any other `locked()` call inside such an item: it
+  // would queue behind it and never start, stopping this tab's writes. `own`: the `queued` entry of the item writing
+  /** @param {any[]} list @param {object} [own] */
+  async function writeAlarms(list, own) {
+    const out = withOffing(R.sanitize(list));
+    alarms = shownOf(out);
     changed();
-    try { await chrome.storage.sync.set({ dgAlarms: alarms }); } catch (e) { reload(); return false; }
+    try { await chrome.storage.sync.set({ dgAlarms: out }); } catch (e) { unqueue(own); reload(); return false; }
     // a switch-off storage refused before is stored now: the list just written holds it
-    for (const [id, o] of offing) if (o.done && !alarms.some(a => a.id === id && a.on)) offing.delete(id);
+    for (const [id, o] of offing) if (o.done && !out.some(a => a.id === id && a.on)) offing.delete(id);
     dropOrphans(); // not awaited: called from inside the queue
     return true;
   }
   /**
    * The user's change to the list (`edit` of a list; null: not possible on that list): shown on this tab's list at
    * once, then made to the stored list, read again holding the lock, so a change another writer stored meanwhile (a
-   * tab's, another computer's, the worker's 'once' switch-off) stays. `edit` may run twice on the same list.
-   * Resolves true once written, false if storage refused it, null if `edit` refused the stored list (nothing written).
+   * tab's, another computer's, the worker's 'once' switch-off) stays. `edit` may run more than once, on any
+   * list. Until then it stays over every list storage brings (`queued`). Resolves true once written, false if storage refused
+   * it, null if `edit` refused the stored list (nothing written).
    * @param {(list: any[]) => any[] | null} edit @returns {Promise<boolean | null>}
    */
   const saveAlarms = edit => {
+    const own = { edit };
+    queued.push(own);
     const shown = edit(alarms);
     if (shown) { alarms = withOffing(R.sanitize(shown)); changed(); }
     return locked(async () => {
-      const next = edit(await storedList());
-      if (!next) { reload(); return null; }
-      return writeAlarms(next);
+      try {
+        const next = edit(await storedList());
+        if (!next) { unqueue(own); reload(); return null; }
+        return await writeAlarms(next, own);
+      } finally { unqueue(own); }
     });
   };
   /** @param {any} a @returns {Promise<'ok' | 'full' | 'error'>} */

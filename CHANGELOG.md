@@ -10,6 +10,7 @@
 - **Fix**: when a DEGIRO tab saved a product's latest price just as the background check or another tab fired that product's alarm, the firing could be forgotten (its banner stayed). A *Once a day* or *Every time* alarm could then fire again later: a second chime and notification. The firing now stays.
 - **Fix**: alarm data saved by a DEGIRO tab, the background check and the settings page at the same moment could lose one of the saves (a banner closed, an alarm switched or edited, a firing, *Clear saved data*); they now take turns, DEGIRO first.
 - **Fix**: adding an alarm when alarms synced from another computer had just filled the list said *Could not save the alarm*. It now says the list is full.
+- **Fix**: an alarm you had just switched off in a DEGIRO tab could briefly switch itself back on, and fire with a chime and a banner, when alarm data was saved elsewhere at the same moment (another tab, another computer, the background check). Likewise, an alarm you had just deleted could briefly come back, and one you had just added briefly disappear. Your change now stays.
 - **Fix**: when Chrome refused to save an alarm's firing in a DEGIRO tab, the tab could forget it at its next save of the price, and a *Once a day* or *Every time* alarm fired again: a second chime. The tab now keeps the firing and saves it with its next save, unless the alarm was edited or fired elsewhere meanwhile.
 
 ## 1.24.1 — 2026-11-20

@@ -907,6 +907,63 @@ test('lock: another writer\'s switch-off stored while a tab\'s switch waits for 
   noErrors(w);
 });
 
+// The user switches an alarm off (or deletes it) while the tab's write waits for the lock; another writer's list
+// write lands meanwhile (another computer's new alarm), with the alarm still on. The tab keeps showing its change over
+// that list, so a price past the alarm seen meanwhile doesn't fire it; then the tab writes its change on that list.
+for (const how of ['setOn', 'remove']) {
+  test(`lock: an alarm the user ${how === 'setOn' ? 'switched off' : 'deleted'} while the write waits for the lock doesn't come back, nor fire, when another writer's list lands meanwhile`, async () => {
+    const a = alarm({ price: 17, dir: 'above', repeat: 'each' }), c = alarm({ price: 900, productId: 999 });
+    const { w, tab } = await setup([a]);
+    const s = sound(tab, true);
+    const k = keeper(w, [tab]);
+    const release = await k.hold('worker');
+    const res = tab.run(how === 'setOn' ? `dgAlarmStore.setOn(${JSON.stringify(a.id)}, false)` : `dgAlarmStore.remove(${JSON.stringify(a.id)})`);
+    await w.advance(50);
+    await w.set('sync', { dgAlarms: [a, c] }); // another computer's alarm syncs in; a is still on there
+    await w.advance(50);
+    const shown = () => tab.json('dgAlarmStore.list().map(x => [x.id, x.on])');
+    const mine = how === 'setOn' ? [[a.id, false], [c.id, true]] : [[c.id, true]];
+    assert.deepEqual(shown(), mine, 'the tab still shows the user\'s change, with the other writer\'s alarm');
+    await price(tab, 123, 17.5, 300); // past the alarm while the write waits (well within the lock's 2 s)
+    release();
+    await w.advance(300);
+    assert.equal(await res, true);
+    assert.ok(!events(w).some(e => e.alarmId === a.id), 'not fired');
+    assert.ok(!stateOf(w, a.id).firedAt, 'no firedAt stored');
+    assert.equal(s.played, 0, 'no chime');
+    assert.deepEqual(banners(tab), []);
+    assert.deepEqual(listOf(w).map(x => [x.id, x.on]), mine, 'stored: the user\'s change on the other writer\'s list');
+    assert.deepEqual(shown(), mine);
+    noErrors(w);
+  });
+}
+
+test('lock: queued list edits stay in order over a list from storage; one refused by it (add on a list filled elsewhere) leaves it as it is', async () => {
+  const a = alarm({ price: 17 }), b = alarm({ price: 30 });
+  const { w, tab } = await setup([a, b]);
+  const k = keeper(w, [tab]);
+  const release = await k.hold('worker');
+  const fresh = alarm({ price: 40 }), more = alarm({ price: 41 });
+  tab.run(`dgAlarmStore.remove(${JSON.stringify(b.id)})`);
+  tab.run(`dgAlarmStore.setOn(${JSON.stringify(a.id)}, false)`);
+  const added = tab.run(`dgAlarmStore.add(${JSON.stringify(fresh)})`);
+  const addedMore = tab.run(`dgAlarmStore.add(${JSON.stringify(more)})`);
+  await w.advance(50);
+  const synced = Array.from({ length: 23 }, () => alarm({ price: 500 }));
+  await w.set('sync', { dgAlarms: [a, b, ...synced] }); // another computer fills the list: 25
+  await w.advance(50);
+  const want = [[a.id, false], ...synced.map(x => [x.id, true]), [fresh.id, true]];
+  assert.deepEqual(tab.json('dgAlarmStore.list().map(x => [x.id, x.on])'), want,
+    'b removed (making room for the first add), a off, the second add refused by the full list: left as it is');
+  release();
+  await w.advance(500);
+  assert.equal(await added, 'ok');
+  assert.equal(await addedMore, 'full');
+  assert.deepEqual(listOf(w).map(x => [x.id, x.on]), want);
+  assert.deepEqual(tab.json('dgAlarmStore.list().map(x => [x.id, x.on])'), want);
+  noErrors(w);
+});
+
 // A check that only refreshes an alarm's `last` price waits for the lock while the worker stores a firing of that
 // alarm: the tab's write keeps the worker's firedAt (it lays only its price over the stored entry), so the tab
 // doesn't fire the alarm a second time later that day.
