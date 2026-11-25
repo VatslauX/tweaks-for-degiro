@@ -126,7 +126,9 @@ const dgAlarmRules = (() => {
   /**
    * Merge what one check found into freshly read local storage. A firing whose alarm another writer
    * (another tab, the background worker) fired within the window (`foreign`) is dropped: the stored
-   * firedAt stays and no event is added. Only the state and events of `known` alarm ids are kept.
+   * firedAt stays and no event is added. An alarm of `upd` without a kept firing (a price seen, or the dropped
+   * firing) changes only `last`/`lastAt` on the stored entry: `upd` holds the writer's copy from before its turn, whose
+   * `firedAt` would undo a firing another writer stored meanwhile. Only the state and events of `known` ids are kept.
    * @param {{ state: Record<string, any>, events: any[] }} fresh sanitized stored values
    * @param {Record<string, any>} upd new per-alarm state @param {{ alarmId: string, price: number, at: number }[]} fired
    * @param {any[]} alarms @param {string[]} known
@@ -138,10 +140,14 @@ const dgAlarmRules = (() => {
     let ev = fresh.events;
     for (const [id, st] of Object.entries(upd)) {
       const f = fired.find(x => x.alarmId === id), a = alarms.find(x => x.id === id);
-      const other = fresh.state[id]?.firedAt;
-      if (f && a && foreign(a, other, f.at)) { next[id] = { ...st, firedAt: other }; continue; }
-      next[id] = st;
-      if (f) ev = [...ev.filter(e => e.alarmId !== id), f];
+      if (f && !(a && foreign(a, fresh.state[id]?.firedAt, f.at))) {
+        next[id] = st;
+        ev = [...ev.filter(e => e.alarmId !== id), f];
+        continue;
+      }
+      /** @type {Record<string, number>} */ const seen = {};
+      for (const k of ['last', 'lastAt']) if (st?.[k] !== undefined) seen[k] = st[k];
+      next[id] = { ...fresh.state[id], ...seen };
     }
     return { state: sanitizeState(next, known), events: sanitizeEvents(ev.filter(e => known.includes(e.alarmId))) };
   }

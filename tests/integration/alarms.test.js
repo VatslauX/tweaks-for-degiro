@@ -818,6 +818,34 @@ test('lock: another writer\'s switch-off stored while a tab\'s switch waits for 
   noErrors(w);
 });
 
+// A check that only refreshes an alarm's `last` price waits for the lock while the worker stores a firing of that
+// alarm: the tab's write keeps the worker's firedAt (it lays only its price over the stored entry), so the tab
+// doesn't fire the alarm a second time later that day.
+test('lock: a price-only write waiting for the lock keeps the firing the worker stored meanwhile', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'daily' });
+  const { w, tab } = await setup([a]);
+  const s = sound(tab, true);
+  const k = keeper(w, [tab]);
+  await price(tab, 123, 16.5); // below: its `last` is stored
+  await w.skip(61e3); // the next price is written again (once a minute)
+  const release = await k.hold('worker');
+  await price(tab, 123, 16.6, 50); // a price-only update: record() waits for the lock
+  assert.deepEqual(k.steps('tab0').slice(-2), ['connect', 'ask'], 'the tab waits for the lock');
+  const at = await workerFired(w, a); // the worker's merge stores its firing, then lets go
+  await w.advance(50);
+  release();
+  await w.advance(200);
+  assert.equal(stateOf(w, a.id).firedAt, at, 'the worker\'s firing stays stored');
+  assert.equal(stateOf(w, a.id).last, 16.6, 'with the tab\'s price');
+  assert.equal(tab.json(`dgAlarmStore.state()[${JSON.stringify(a.id)}].firedAt`), at, 'and in the tab');
+  await w.skip(5 * 60e3); // later the same day the tab sees the price past the alarm
+  await price(tab, 123, 17.5);
+  assert.deepEqual(events(w), [{ alarmId: a.id, price: 17.4, at }], 'the worker\'s event, no second one');
+  assert.equal(stateOf(w, a.id).firedAt, at);
+  assert.equal(s.played, 0, 'no chime');
+  noErrors(w);
+});
+
 test('lock: two tabs take turns, in the order they asked', async () => {
   const a = alarm({ price: 17, repeat: 'each' });
   const { w, tabs: [A, B] } = await setup([a], 2);

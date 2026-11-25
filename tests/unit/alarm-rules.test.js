@@ -206,6 +206,28 @@ test('merge: a new firing adds its event and state; a foreign firing in the wind
   assert.deepStrictEqual(lost.events, [{ alarmId: 'a1', price: 20, at: other }]);
 });
 
+test('merge: a price seen without a firing lays only last/lastAt over the stored entry', () => {
+  const W = NOON - 15 * 60000; // another writer's firing, stored after this writer read its state
+  const fresh = { state: { a1: { firedAt: W, last: 20, lastAt: NOON - 1000, armed: false } }, events: [{ alarmId: 'a1', price: 20, at: W }] };
+  const none = () => false;
+  // the writer's copy of the entry from before (no firedAt, or an older one): the stored firing stays
+  for (const old of [{}, { firedAt: NOON - DAY }, { firedAt: NOON - DAY, armed: true }]) {
+    const out = R.merge(fresh, { a1: { ...old, last: 19, lastAt: NOON } }, [], [A], ['a1'], none);
+    assert.deepStrictEqual(out.state.a1, { firedAt: W, last: 19, lastAt: NOON, armed: false }, JSON.stringify(old));
+    assert.deepStrictEqual(out.events, fresh.events);
+  }
+  // only lastAt in the update: the stored last stays
+  assert.deepStrictEqual(R.merge(fresh, { a1: { firedAt: NOON - DAY, lastAt: NOON } }, [], [A], ['a1'], none).state.a1,
+    { firedAt: W, last: 20, lastAt: NOON, armed: false });
+  // no stored entry (cleared meanwhile): the price seen is stored, not the old firedAt
+  assert.deepStrictEqual(R.merge({ state: {}, events: [] }, { a1: { firedAt: NOON - DAY, last: 19, lastAt: NOON } }, [], [A], ['a1'], none).state,
+    { a1: { last: 19, lastAt: NOON } });
+  // a firing another writer's wins: the stored entry stays, with this writer's price on top
+  const f = { alarmId: 'a1', price: 21, at: NOON };
+  const lost = R.merge(fresh, { a1: { firedAt: NOON, last: 21, lastAt: NOON } }, [f], [A], ['a1'], () => true);
+  assert.deepStrictEqual(lost, { state: { a1: { firedAt: W, last: 21, lastAt: NOON, armed: false } }, events: fresh.events });
+});
+
 test('merge drops the state and events of alarms that are not known', () => {
   const out = R.merge({ state: { gone: { last: 1 } }, events: [{ alarmId: 'gone', price: 1, at: 1 }] }, {}, [], [A], ['a1'], () => false);
   assert.deepStrictEqual(out, { state: {}, events: [] });
