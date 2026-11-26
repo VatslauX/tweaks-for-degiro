@@ -76,6 +76,7 @@ A small Chrome extension that adds the features missing from the DEGIRO web trad
 
 **Adjust order: click outside or press Esc to close**
 - Clicking anywhere outside the *Adjust order* panel, or pressing Esc, closes it, the same as the Cancel or × button, without saving changes. An open DEGIRO confirmation, dropdown or menu takes the Esc first.
+- Clicking another order badge on the chart doesn't close the form: it switches to that order, the same as the edit buttons in DEGIRO. Nothing is saved until you confirm.
 - Clicks in DEGIRO's confirmation dialogs and menus are ignored, so the form never closes by accident.
 
 **Portfolio: merged holdings table** (optional, off by default)

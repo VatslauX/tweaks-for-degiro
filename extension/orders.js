@@ -126,6 +126,23 @@
     return cut.length === 1 ? cut[0].r : undefined;
   }
 
+  // DEGIRO's "Adjust order" tooltip of the edit button we pressed: pressing it can leave it focused
+  // (or "hovered"), and minimising the panel again can leave the tooltip behind on the page. Take the
+  // focus off the button (only if it is on the button or its row, never out of the form) and tell it
+  // the pointer has left (while the button is still on the page, so DEGIRO's handlers hear it).
+  /** @param {HTMLElement} btn @param {Element | null | undefined} row */
+  function unhover(btn, row) {
+    const a = document.activeElement;
+    if (a instanceof HTMLElement && (a === btn || row?.contains(a))) a.blur();
+    for (const [type, bubbles] of /** @type {const} */ ([['pointerout', true], ['pointerleave', false], ['mouseout', true], ['mouseleave', false]])) {
+      // to the row, not out of the window: DEGIRO's containers around it aren't left
+      const init = { bubbles, relatedTarget: row ?? btn.parentElement };
+      btn.dispatchEvent(type.startsWith('pointer') && typeof PointerEvent === 'function'
+        ? new PointerEvent(type, { ...init, pointerType: 'mouse', isPrimary: true })
+        : new MouseEvent(type, init));
+    }
+  }
+
   async function openEdit(o, el) {
     /** @type {(sel: string) => HTMLElement | null} */
     const $ = sel => document.querySelector(sel);
@@ -147,12 +164,19 @@
       // the drawer must stay open while the form is open (closing it closes the form);
       // mark it so adjust-close.js can close it again after Cancel
       if (drawer) document.documentElement.setAttribute('data-dg-drawer', '1');
+      unhover(btn, row);
+      // again once DEGIRO has rendered (it may focus the button a moment later)
+      requestAnimationFrame(() => unhover(btn, row));
     } else {
       if (el) { el.title = t('badgeNotFound'); el.animate?.([{ opacity: 1 }, { opacity: .3 }, { opacity: 1 }], 400); }
       if (drawer) drawerBtn()?.click(); // put things back
     }
     // the bottom panel was minimised — minimise it again; the edit form stays open
-    if (expanded) { await sleep(600); toggle()?.click(); }
+    if (expanded) {
+      await sleep(600);
+      if (btn) unhover(btn, row); // before the button and its tooltip's trigger go away
+      toggle()?.click();
+    }
   }
 
   function render(chart) {
@@ -208,6 +232,9 @@
         d.setAttribute('role', 'button');
         d.tabIndex = 0;
         d.setAttribute('data-k', o.k);
+        // adjust-close.js (isolated world) leaves an open Adjust order form alone for clicks here:
+        // openEdit() switches it to this order, like DEGIRO's own edit buttons
+        d.setAttribute('data-dg-order-badge', '');
         d.setAttribute('aria-label', t('badgeAria', t(o.side === 'S' ? 'badgeSell' : 'badgeBuy').toLowerCase(), qf(o.size), nf(o.price)));
         d.onmouseenter = () => { d.style.background = o.col; d.style.color = '#fff'; };
         d.onmouseleave = () => { d.style.background = th.bg; d.style.color = o.col; };

@@ -42,6 +42,8 @@
     const app = document.querySelector(SEL.appLayout);
     if (app && !app.contains(t)) return;
     if (t.closest(POPUPS)) return;
+    // our clickable order badge on the chart (orders.js): its click switches the form to that order
+    if (t.closest('[data-dg-own] [data-dg-order-badge]')) return;
     close(details);
   }, true);
 

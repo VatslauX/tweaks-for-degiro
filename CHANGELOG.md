@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased
+- **Switch orders from the chart**: with DEGIRO's *Adjust order* form open, clicking another order badge on the chart now switches the form to that order instead of closing it. Nothing is saved.
+- **Fix**: after an order badge opened the *Adjust order* form, DEGIRO's "Adjust order" tooltip could stay on the page.
+
 ## 1.25.0 — 2026-11-25
 - **Alarm sound** (new, *Sound* under *Price alarms*, on by default): a short chime plays when a price alarm fires, because Chrome on macOS shows notifications without a sound. In DEGIRO, the tab that saw the price reached plays it once (Chrome lets a tab play sound only after you have clicked in it; before that, the background check plays it if it is on). With DEGIRO closed, it plays while *Check in the background* is on. This needs a new optional permission, `offscreen`, with no install warning; it is requested and removed together with the background check's permissions. Computers that switched the background check on before this version see *Allow sound with DEGIRO closed* under *Sound*. *Send a test notification* plays the chime too.
 - **Alarm notifications** are no longer silent: they play the system's notification sound wherever the system allows it.
