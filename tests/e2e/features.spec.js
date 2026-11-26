@@ -237,6 +237,76 @@ test.describe('Open orders on the chart', () => {
     const selecting = await page.evaluate(() => [...document.querySelectorAll('#chart .highcharts-container div')].some(d => /%\)/.test(d.textContent) && d.style.display === 'block'));
     expect(selecting).toBe(false);
   });
+
+  // DEGIRO's tooltip of the edit button we press (modelled in the mock: shown on focus and hover)
+  const editTip = page => page.locator('[role=tooltip]', { hasText: 'Adjust order' });
+
+  test('no "Adjust order" tooltip of the pressed edit button is left behind (minimised panel)', async ({ degiro }) => {
+    const { page } = await degiro();
+    const buy = page.locator('#chart div', { hasText: /^BUY 100 · 15,50$/ });
+    await expect(buy).toBeVisible({ timeout: 8000 });
+    await buy.click();
+    await expect.poll(() => page.evaluate(() => window.__log.join(','))).toBe('panel:expand,edit:1,panel:minimise');
+    await expect(page.locator('#limit')).toHaveValue('15.5');
+    await expect(editTip(page)).toBeHidden();
+    await page.locator('#chart div', { hasText: /^SELL 200 · 17,65$/ }).click();
+    await expect.poll(() => page.evaluate(() => window.__log.join(',')))
+      .toBe('panel:expand,edit:1,panel:minimise,panel:expand,edit:0,panel:minimise');
+    await expect(page.locator('#limit')).toHaveValue('17.65');
+    await expect(editTip(page)).toBeHidden();
+  });
+
+  test('no "Adjust order" tooltip of the pressed edit button stays (expanded panel), the form keeps its focus', async ({ degiro }) => {
+    const { page } = await degiro();
+    const buy = page.locator('#chart div', { hasText: /^BUY 100 · 15,50$/ });
+    await expect(buy).toBeVisible({ timeout: 8000 });
+    await page.click('#toggle');
+    // the mock's tooltip works: hovering DEGIRO's edit button shows it, leaving hides it
+    await page.hover('[data-name=orderEditButton] >> nth=1');
+    await expect(editTip(page)).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(editTip(page)).toBeHidden();
+    await buy.click();
+    await expect(page.locator('#limit')).toHaveValue('15.5');
+    expect(await page.evaluate(() => window.__log.join(','))).toBe('panel:expand,edit:1');
+    await expect(editTip(page)).toBeHidden();
+    await page.locator('#chart div', { hasText: /^SELL 200 · 17,65$/ }).click();
+    await expect(page.locator('#limit')).toHaveValue('17.65');
+    await expect(editTip(page)).toBeHidden();
+    // where DEGIRO moves the focus into the form, it stays there
+    await page.evaluate(() => {
+      const b = document.querySelectorAll('[data-name=orderEditButton]')[1], press = b.onclick;
+      b.onclick = e => { press.call(b, e); document.getElementById('limit').focus(); };
+    });
+    await buy.click();
+    await expect(page.locator('#limit')).toHaveValue('15.5');
+    await expect(page.locator('#limit')).toBeFocused();
+    await expect(editTip(page)).toBeHidden();
+  });
+
+  // like DEGIRO's own edit buttons: the open form switches to the other order, it isn't cancelled first
+  test('with Adjust order open, clicking another badge switches the form without cancelling it', async ({ degiro }) => {
+    const { page } = await degiro();
+    const buy = page.locator('#chart div', { hasText: /^BUY 100 · 15,50$/ });
+    const sell = page.locator('#chart div', { hasText: /^SELL 200 · 17,65$/ });
+    await expect(buy).toBeVisible({ timeout: 8000 });
+    await buy.click();
+    await expect(page.locator('#limit')).toHaveValue('15.5');
+    await expect.poll(() => page.evaluate(() => window.__log.join(','))).toBe('panel:expand,edit:1,panel:minimise');
+    await sell.click();
+    await expect(page.locator('#limit')).toHaveValue('17.65');
+    await expect.poll(() => page.evaluate(() => window.__log.join(',')))
+      .toBe('panel:expand,edit:1,panel:minimise,panel:expand,edit:0,panel:minimise');
+    // the same badge again: still no Cancel, DEGIRO just opens that order once more
+    await sell.click();
+    await expect.poll(() => page.evaluate(() => window.__log.join(',')))
+      .toBe('panel:expand,edit:1,panel:minimise,panel:expand,edit:0,panel:minimise,panel:expand,edit:0,panel:minimise');
+    await expect(page.locator('#limit')).toHaveValue('17.65');
+    // anything else outside the form still closes it
+    await page.click('#outside');
+    await expect(page.locator('[data-name=orderDetails]')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__log.at(-1))).toBe('cancel');
+  });
 });
 
 test.describe('Adjust order: click outside closes', () => {

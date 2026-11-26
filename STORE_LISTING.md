@@ -50,7 +50,7 @@ The summary comes from `extDescription` in `extension/_locales/<lang>/messages.j
 > • Orders keeps the sort order you last chose, even after a reload
 > • Optional merged Portfolio table: Shares, ETFs and Structured products in one sortable table, with a choice of columns
 > • Orders and Transactions links right in DEGIRO's left menu
-> • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved)
+> • Click outside the Adjust order panel or press Esc to close it (same as Cancel, nothing is saved); clicking another order badge switches the panel to that order
 >
 > PRICE ALARMS FOR YOUR FAVOURITES
 > • Alarm button on the page of any product in your Favourites: set a price, above or below, once, once a day or every time
