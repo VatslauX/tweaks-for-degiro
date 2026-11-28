@@ -23,6 +23,7 @@ const path = require('path');
 const vm = require('vm');
 const nodeCrypto = require('crypto');
 const { JSDOM, VirtualConsole } = require('jsdom');
+const { newCalls, answer, DEFAULT_ORDERS } = require('../fixtures/mock-api');
 
 const ROOT = path.resolve(__dirname, '../..');
 // DGT_EXTENSION_DIR points at a scratch copy of extension/ (used to prove a test fails against broken code)
@@ -48,12 +49,24 @@ function getMessage(lang, key, subs) {
   return m.message.replace(/\$(\d)/g, (_, d) => String(list[+d - 1] ?? ''));
 }
 
-// the isolated-world scripts, in manifest order
-function isolatedScripts() {
+// the content scripts of one world (the isolated one, or world "MAIN"), in manifest order
+function worldScripts(main) {
   const manifest = JSON.parse(fs.readFileSync(path.join(EXT, 'manifest.json'), 'utf8'));
-  const entry = manifest.content_scripts.find(c => c.world !== 'MAIN');
+  const entry = manifest.content_scripts.find(c => (c.world === 'MAIN') === main);
   return entry.js.map(f => ({ file: f, code: fs.readFileSync(path.join(EXT, f), 'utf8') }));
 }
+const isolatedScripts = () => worldScripts(false);
+
+// What the page-world scripts reach of the page: read from the tab's window when used, so they share its
+// DOM, events, layout fakes and virtual clock. Their own global (`globalThis`) is separate, like Chrome's
+// MAIN world is from the isolated one: no `chrome`, and a `__dgt` of their own.
+const PAGE_GLOBALS = ['document', 'location', 'history', 'navigator', 'localStorage', 'sessionStorage', 'performance', 'PerformanceObserver',
+  'fetch', 'getComputedStyle', 'addEventListener', 'removeEventListener', 'dispatchEvent', 'innerWidth', 'innerHeight', 'devicePixelRatio',
+  'scrollX', 'scrollY', 'matchMedia', 'CSS', 'URL', 'URLSearchParams', 'AbortController', 'AbortSignal', 'DOMException', 'MutationObserver',
+  'Node', 'Element', 'HTMLElement', 'HTMLCanvasElement', 'SVGElement', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'PointerEvent',
+  'FocusEvent', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', 'Date',
+  'Highcharts', 'TextEncoder', 'queueMicrotask'];
+const HIGHCHARTS = () => fs.readFileSync(require.resolve('highcharts/highcharts.js'), 'utf8');
 
 function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).getTime() } = {}) {
   /** @type {Set<any>} */
@@ -149,6 +162,52 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
     };
   }
 
+  // ---------- the network, for tabs opened with `page: true` ----------
+  // fetch() answers from tests/fixtures/mock-api.js (or the test's `respond`); every answered request
+  // becomes a resource timing entry, as in Chrome, which is how orders.js and portfolio.js find DEGIRO's
+  // session. AbortSignal.timeout runs on the virtual clock, so a hung request times out in virtual time.
+  function netApi(tab, { orders, respond }) {
+    const win = tab.window;
+    const calls = tab.calls = newCalls();
+    // the tab is in front (jsdom says 'prerender'): orders.js polls only a visible page
+    Object.defineProperty(win.document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    win.__MOCK_ORDERS = orders || DEFAULT_ORDERS; // the product mock's Outstanding panel lists the same orders as /update
+    /** @type {{ name: string, entryType: string }[]} */ const entries = [];
+    /** @type {((list: any) => void)[]} */ const observers = [];
+    /** a request DEGIRO itself made (or ours): seen in performance entries and by every PerformanceObserver */
+    tab.resource = href => {
+      const entry = { name: new win.URL(href, win.location.href).href, entryType: 'resource' };
+      entries.push(entry);
+      for (const fn of observers) Promise.resolve().then(() => { try { fn({ getEntries: () => [entry] }); } catch (e) { errors.push(e); } });
+    };
+    Object.defineProperty(win, 'performance', { configurable: true, value: {
+      now: () => now, getEntriesByType: type => (type === 'resource' ? [...entries] : []), getEntries: () => [...entries]
+    } });
+    win.PerformanceObserver = class { constructor(fn) { this.fn = fn; } observe() { observers.push(this.fn); } disconnect() {} };
+    win.AbortSignal.timeout = ms => {
+      const c = new win.AbortController();
+      addTimer(tab, () => c.abort(new win.DOMException('signal timed out', 'TimeoutError')), ms, 'timer');
+      return c.signal;
+    };
+    tab.requests = /** @type {string[]} */ ([]);
+    win.fetch = (input, init = {}) => new Promise((resolve, reject) => {
+      const u = new win.URL(String(input), win.location.href);
+      tab.requests.push(u.pathname + u.search);
+      const a = answer(new URL(u.href), { calls, orders, respond });
+      const signal = init.signal;
+      if (signal?.aborted) return reject(signal.reason);
+      signal?.addEventListener('abort', () => reject(signal.reason));
+      if (a === 'hang') return; // never answered (until the signal aborts it)
+      Promise.resolve().then(() => {
+        if (signal?.aborted || tab.closed) return;
+        tab.resource(u.href);
+        const status = a ? a.status ?? 200 : 404, body = a ? a.body ?? '' : '';
+        resolve({ ok: status >= 200 && status < 300, status, url: u.href,
+          json: async () => JSON.parse(body), text: async () => body });
+      });
+    });
+  }
+
   const world = {
     errors, tabs, faults, latency, log,
     /** current virtual time (ms) */
@@ -196,10 +255,18 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
 
     /**
      * Open a tab on a mock page and run the extension's isolated-world scripts in it.
-     * @param {{ fixture?: string, hash?: string, settings?: Record<string, any>, lang?: string, globals?: Record<string, any> }} [o]
-     *   globals: the mocks' switches (window.__MOCK_PRICES …), set before the page's own script runs
+     * @param {{ fixture?: string, hash?: string, settings?: Record<string, any>, lang?: string, globals?: Record<string, any>,
+     *   page?: boolean, highcharts?: boolean, orders?: any[], respond?: (u: URL) => any }} [o]
+     *   globals: the mocks' switches (window.__MOCK_PRICES …), set before the page's own script runs.
+     *   page: also run the page-world scripts (world "MAIN"), in a global of their own over the same DOM, with
+     *   DEGIRO's JSON endpoints answered by tests/fixtures/mock-api.js (`orders`, `respond` as in the e2e
+     *   `degiro()` fixture: fulfill options or 'hang'); tab.calls counts them, as the e2e `calls` does.
+     *   highcharts: load the real Highcharts (node_modules, the version the mock page loads) before the page's script.
+     *   layout: a stand-in for layout and canvas drawing (see below), for code that only asks whether something is shown.
+     *   localStorage: the DEGIRO origin's localStorage before any script runs (e.g. portfolio.js's dgTweaksCashLines).
      */
-    async open({ fixture = 'favourites', hash = '', settings, lang = 'en', globals = {} } = {}) {
+    async open({ fixture = 'favourites', hash = '', settings, lang = 'en', globals = {}, page = false, highcharts = false, layout = false,
+      orders, respond, localStorage = {} } = {}) {
       if (settings) applySet(areas.sync, settings);
       const html = fs.readFileSync(path.join(ROOT, 'tests/fixtures', `${fixture}.html`), 'utf8');
       const virtualConsole = new VirtualConsole();
@@ -239,11 +306,46 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
         constructor(...a) { if (a.length) super(...a); else super(now); }
         static now() { return now; }
       };
+      for (const [k, v] of Object.entries(localStorage)) win.localStorage.setItem(k, v);
+      if (page) netApi(tab, { orders, respond });
+      if (layout) {
+        // a stand-in for layout: every page element that isn't display:none is 1000 × 400 at the top left, so code
+        // that only asks "is it shown, is it the largest" (mainChart(), visibility checks) can run; never sizes.
+        // The extension's own elements measure 0 × 0, as their offsetWidth/offsetHeight already do in jsdom, so
+        // its overlap checks (order badges) see nothing in the way
+        win.Element.prototype.getBoundingClientRect = function () {
+          let n = this, shown = !this.closest?.('[data-dg-own]');
+          for (; shown && n && n.nodeType === 1; n = n.parentElement) if (win.getComputedStyle(n).display === 'none') { shown = false; break; }
+          const w = shown ? 1000 : 0, h = shown ? 400 : 0;
+          return { width: w, height: h, top: 0, left: 0, right: w, bottom: h, x: 0, y: 0, toJSON() { return {}; } };
+        };
+        // and for drawing: a 2D context that draws nothing and reads back blank pixels (jsdom has no canvas)
+        win.HTMLCanvasElement.prototype.getContext = function () {
+          const canvas = this;
+          return new Proxy({}, {
+            get(t, k) {
+              if (k === 'canvas') return canvas;
+              if (k === 'getImageData') return (x, y, w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(0, w * h * 4)) });
+              if (k === 'measureText') return s => ({ width: String(s).length * 7 });
+              if (k in t) return t[k];
+              return () => {};
+            },
+            set(t, k, v) { t[k] = v; return true; }
+          });
+        };
+      }
       Object.assign(win, globals);
 
       // ---- scripts ----
       const ctx = dom.getInternalVMContext();
       const exec = (code, filename) => new vm.Script(code, { filename }).runInContext(ctx);
+      if (highcharts) {
+        // jsdom has no SVG text measuring: a box per character, so Highcharts can lay out its axes and plot area
+        const box = function () { const n = (this.textContent || '').length; return { x: 0, y: 0, width: n * 6, height: n ? 12 : 0 }; };
+        win.SVGElement.prototype.getBBox = box;
+        win.SVGElement.prototype.getComputedTextLength = function () { return box.call(this).width; };
+        exec(HIGHCHARTS(), 'highcharts.js'); // the mock page's <script src="/mock/highcharts.js">
+      }
       // the mock page's own scripts (they build the page, like DEGIRO's would); wrapped so their
       // consts can't clash with the extension's top-level names. Taken from the parsed document
       // (runScripts: 'outside-only' keeps JSDOM from running them itself), in document order;
@@ -251,6 +353,24 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
       const inline = [...win.document.querySelectorAll('script:not([src])')].map(s => s.textContent);
       for (const code of inline) exec(`(function () {\n${code}\n})();`, `${fixture}.html`);
       for (const s of isolatedScripts()) exec(s.code, path.join(EXT, s.file));
+      if (page) {
+        const sandbox = {};
+        for (const name of PAGE_GLOBALS) {
+          Object.defineProperty(sandbox, name, {
+            get() { const v = win[name]; return typeof v === 'function' && /^[a-z]/.test(name) ? v.bind(win) : v; },
+            configurable: true
+          });
+        }
+        Object.assign(sandbox, { window: win, console });
+        const pageCtx = vm.createContext(sandbox);
+        const execPage = (code, filename) => new vm.Script(code, { filename }).runInContext(pageCtx);
+        for (const s of worldScripts(true)) execPage(s.code, path.join(EXT, s.file));
+        tab.page = {
+          run: code => execPage(code, 'test'),
+          /** a page-world expression's value as plain JSON */
+          json: code => JSON.parse(execPage(`JSON.stringify(${code})`, 'test'))
+        };
+      }
 
       // ---- helpers for tests ----
       tab.run = code => exec(code, 'test');
@@ -258,6 +378,12 @@ function createWorld({ storage = {}, start = new Date(2026, 9, 29, 10, 0, 0).get
       tab.json = code => JSON.parse(exec(`JSON.stringify(${code})`, 'test'));
       tab.$ = sel => win.document.querySelector(sel);
       tab.$$ = sel => [...win.document.querySelectorAll(sel)];
+      /** features whose run() threw, in both worlds: the scheduler only records that as the status 'error',
+       *  so world.errors never sees it (e.g. a global the page world is missing) */
+      tab.failed = () => {
+        const failed = st => Object.keys(st || {}).filter(k => st[k] === 'error');
+        return [...failed(tab.json('globalThis.__dgt?.status() || {}')), ...(tab.page ? failed(tab.page.json('globalThis.__dgt?.status() || {}')) : [])];
+      };
       tab.flush = () => world.flush();
       tab.close = () => { tabs.delete(tab); tab.closed = true; queue = queue.filter(e => e.tab !== tab); win.close(); };
       /** change the price DEGIRO shows (the mock's own helper) */

@@ -1,5 +1,5 @@
 // Order badges: keyboard access, reload when DEGIRO's order list changes, crowded charts.
-const { test, expect, setFlag, advanceUntilVisible, chartAxisFont } = require('./fixtures');
+const { test, expect, setFlag, chartAxisFont } = require('./fixtures');
 
 const badge = page => page.locator('#chart div:not(:has(div))', { hasText: /^BUY 100 · 15,50$/ });
 const log = page => page.evaluate(() => window.__log.join(','));
@@ -39,18 +39,7 @@ test('badges are not buttons when clicking is switched off', async ({ degiro, se
 });
 
 // → integration (orders.test.js): 'a new or removed order row in the Outstanding panel reloads the orders once'
-
-test('expanding or minimising the orders panel is not an order change: no extra request', async ({ degiro }) => {
-  const { page, calls } = await degiro({ clock: true });
-  await advanceUntilVisible(page, badge(page));
-  await page.clock.fastForward(5500); // past minimum 5 s gap
-  const before = calls.update;
-  await page.click('#toggle');
-  await page.clock.fastForward(1500);
-  await page.click('#toggle');
-  await page.clock.fastForward(6000);
-  expect(calls.update).toBe(before);
-});
+// → integration (orders.test.js): 'expanding or minimising the orders panel is not an order change: no extra request'
 
 test('crowded chart: badges that cannot fit merge into one "N orders" badge', async ({ degiro }) => {
   const { page } = await degiro({ orders: [mk('B', 100, 15.5), mk('B', 200, 14.1), mk('S', 50, 16.2)] });

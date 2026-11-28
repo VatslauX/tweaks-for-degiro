@@ -204,3 +204,42 @@ test('badge is not interactive when alarmLinesClick is off', () => {
 
   assert.equal(dispatched.length, 0, 'no dg-alarm-edit dispatched when flag off');
 });
+
+// ---------- the real product mock, with the page world (harness `page: true`) ----------
+// Moved from tests/e2e/alarm-lines.spec.js; the badges' look and placement stay in Playwright.
+
+test('malformed values the page writes into the attribute are ignored; never parsed as HTML', async () => {
+  const w = createWorld({ storage: { sync: { dgAlarms: [alarm({ price: 20, dir: 'above' })] } } });
+  const tab = await w.open({ fixture: 'degiro', hash: '/products/123/overview', page: true, highcharts: true, layout: true, orders: [] });
+  const texts = () => tab.$$('#chart [data-dg-alarm-badge]').map(d => d.textContent);
+  const set = v => tab.document.documentElement.setAttribute(ATTR, v);
+  await w.advance(1000);
+  assert.deepEqual(texts(), ['20,00']);
+  const bad = [
+    'not json', 'null', '[]', '"x"', '{"l":[{"p":20,"d":"above"}]}',
+    '{"id":"123","l":[{"p":20,"d":"above"}]}',
+    '{"id":123,"l":[{"p":"20","d":"above"}]}',
+    '{"id":123,"l":[{"p":-5,"d":"above"}]}',
+    '{"id":123,"l":[{"p":0,"d":"above"}]}',
+    '{"id":123,"l":[{"p":1e999,"d":"above"}]}',
+    '{"id":123,"l":[{"p":20,"d":"sideways"}]}',
+    '{"id":123,"l":[{"p":20,"d":"above"},{"p":"<img src=x onerror=window.__xss=1>","d":"above"}]}',
+    '{"id":123,"l":[{"p":20}]}',
+    '{"id":123,"l":{"p":20,"d":"above"}}',
+    JSON.stringify({ id: 123, l: Array.from({ length: 26 }, (_, i) => ({ p: 13 + i / 10, d: 'above' })) }),
+    '{"id":999,"l":[{"p":20,"d":"above"}]}' // valid, but another product
+  ];
+  for (const v of bad) {
+    set(v);
+    await w.advance(500);
+    assert.deepEqual(texts(), [], v);
+    // back to a valid value from the page: it is drawn (the page world can't tell who wrote it)
+    set('{"id":123,"l":[{"p":20,"d":"above"}]}');
+    await w.advance(500);
+    assert.deepEqual(texts(), ['20,00'], v);
+  }
+  assert.equal(tab.window.__xss, undefined);
+  assert.equal(tab.$$('#chart img').length, 0);
+  assert.deepEqual(tab.failed(), [], 'no feature run() threw');
+  noErrors(w);
+});

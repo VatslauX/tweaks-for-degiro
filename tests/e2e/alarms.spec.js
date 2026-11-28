@@ -49,33 +49,7 @@ test('below alarm on the product page fires from its CurrentPrice', async ({ deg
   await expect(banner(page)).toContainText('Mock ETF fell to € 16,40');
 });
 
-test('every time: fires, stays quiet, re-arms after crossing back, fires again', async ({ degiro, settings }) => {
-  await seed(settings, [alarm({ repeat: 'each' })]);
-  const { page } = await degiro({ url: FAV });
-  await setPrice(page, 123, 17.2);
-  await expect(banner(page)).toHaveCount(1);
-  await page.locator('[data-dg-alarm-close]').click();
-  await setPrice(page, 123, 17.3);
-  await page.waitForTimeout(500);
-  await expect(banner(page)).toHaveCount(0);
-  await setPrice(page, 123, 16.8);
-  await page.waitForTimeout(300);
-  await setPrice(page, 123, 17.1);
-  await expect(banner(page)).toHaveCount(1);
-});
-
-test('once a day: fires when it last fired yesterday, not twice today', async ({ degiro, settings }) => {
-  const a = alarm({ repeat: 'daily' });
-  await seed(settings, [a], { dgAlarmState: { [a.id]: { firedAt: Date.now() - 864e5 } } });
-  const { page } = await degiro({ url: FAV });
-  await setPrice(page, 123, 17.5);
-  await expect(banner(page)).toHaveCount(1);
-  await page.locator('[data-dg-alarm-close]').click();
-  await setPrice(page, 123, 16);
-  await setPrice(page, 123, 17.6);
-  await expect(banner(page)).toHaveCount(0);
-});
-
+// smoke: banners across real tabs through Chrome's own storage events (the rules: tests/integration/alarms.test.js)
 test('two tabs: the banner shows in both and closing it in one closes both', async ({ degiro, settings, context }) => {
   await seed(settings, [alarm()]);
   const { page: a } = await degiro({ url: FAV });
@@ -86,15 +60,6 @@ test('two tabs: the banner shows in both and closing it in one closes both', asy
   await expect(banner(b)).toHaveCount(1);
   await b.locator('[data-dg-alarm-close]').click();
   await expect(banner(a)).toHaveCount(0);
-});
-
-test('a deleted alarm takes its banner with it (Review Focus 4)', async ({ degiro, settings }) => {
-  const opt = await seed(settings, [alarm({ repeat: 'each' })]);
-  const { page } = await degiro({ url: FAV });
-  await setPrice(page, 123, 17.4);
-  await expect(banner(page)).toHaveCount(1);
-  await opt.evaluate(() => chrome.storage.sync.set({ dgAlarms: [] }));
-  await expect(banner(page)).toHaveCount(0);
 });
 
 test('the alarm feature makes no network requests', async ({ degiro, settings }) => {
@@ -203,60 +168,6 @@ test('a price tick during a mouse press does not eat the click', async ({ degiro
   await page.mouse.up();
   await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, on: false }]);
   await expect(rows(page).first().locator('td').nth(1)).toContainText('16,50'); // the tick shows once released
-});
-
-const local = opt => opt.evaluate(() => chrome.storage.local.get(['dgAlarmState', 'dgAlarmEvents']));
-
-// smoke: multi-tab banner behaviour in a real browser
-test('sidebar badge counts open banners', async ({ degiro, settings }) => {
-  await seed(settings, [alarm()]);
-  const { page } = await degiro({ url: FAV });
-  await expect(page.locator('[data-dg-nav-badge]')).toHaveCount(0);
-  await setPrice(page, 123, 17.4);
-  await expect(page.locator('[data-dg-nav-badge]')).toHaveText('1');
-  await page.locator('[data-dg-alarm-close]').click();
-  await expect(page.locator('[data-dg-nav-badge]')).toHaveCount(0);
-});
-
-test('two alarms firing one after the other both keep their firedAt and event', async ({ degiro, settings }) => {
-  const a = alarm({ repeat: 'each', price: 17 }), b = alarm({ repeat: 'each', price: 17.2 });
-  const opt = await seed(settings, [a, b]);
-  const { page } = await degiro({ url: FAV });
-  await setPrice(page, 123, 17.1);
-  await setPrice(page, 123, 17.3);
-  await expect(banner(page)).toHaveCount(2);
-  await expect.poll(() => local(opt)).toMatchObject({
-    dgAlarmEvents: expect.arrayContaining([expect.objectContaining({ alarmId: a.id }), expect.objectContaining({ alarmId: b.id })]),
-    dgAlarmState: expect.objectContaining({ [a.id]: expect.objectContaining({ firedAt: expect.any(Number) }), [b.id]: expect.objectContaining({ firedAt: expect.any(Number) }) })
-  });
-  const l = await local(opt);
-  expect(l.dgAlarmEvents.map(e => e.alarmId).sort()).toEqual([a.id, b.id].sort());
-  expect(l.dgAlarmState[a.id].firedAt).toBeGreaterThan(0);
-  expect(l.dgAlarmState[b.id].firedAt).toBeGreaterThan(0);
-});
-
-test('closing one banner while another alarm fires: the new banner stays, the closed one stays closed', async ({ degiro, settings }) => {
-  const a = alarm({ repeat: 'each', price: 17 }), b = alarm({ repeat: 'each', price: 17.2 });
-  const opt = await seed(settings, [a, b]);
-  const { page } = await degiro({ url: FAV });
-  await setPrice(page, 123, 17.1);
-  await expect(banner(page)).toHaveCount(1);
-  await page.evaluate(() => { document.querySelector('[data-dg-alarm-close]').click(); window.__setPrice(123, 17.3); });
-  await expect(page.locator(`[data-dg-alarm-banner="${b.id}"]`)).toHaveCount(1);
-  await expect.poll(async () => (await local(opt)).dgAlarmEvents.map(e => e.alarmId)).toEqual([b.id]);
-  await expect(banner(page)).toHaveCount(1);
-  expect((await local(opt)).dgAlarmEvents.map(e => e.alarmId)).toEqual([b.id]);
-});
-
-test('deleting an alarm drops its stored event', async ({ degiro, settings }) => {
-  const a = alarm({ repeat: 'each' }), b = alarm({ repeat: 'each', price: 19 });
-  const ev = x => ({ alarmId: x.id, price: 17.4, at: Date.now() });
-  const opt = await seed(settings, [a, b], { dgAlarmEvents: [ev(a), ev(b)] });
-  const { page } = await degiro({ url: ALARMS });
-  await page.bringToFront();
-  await expect(banner(page)).toHaveCount(2);
-  await page.locator(`tr[data-dg-alarm-id="${a.id}"] [data-dg-alarm-delete]`).click();
-  await expect.poll(async () => (await local(opt)).dgAlarmEvents.map(e => e.alarmId)).toEqual([b.id]);
 });
 
 // stays in Playwright: getBoundingClientRect

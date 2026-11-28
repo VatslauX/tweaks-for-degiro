@@ -7,13 +7,6 @@ const panel = page => page.locator('#dg-orders-panel');
 const chip = (page, text) => panel(page).locator('button', { hasText: new RegExp(`^${escapeRegExp(text)}$`) });
 const totals = page => panel(page).locator('[data-dg-totals]');
 
-test('shows totals per currency for buy and sell', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_O });
-  await expect(totals(page)).toContainText('Total buy $ 18.903,50 (3) · € 6.800,00 (3)');
-  await expect(totals(page)).toContainText('Total sell $ 2.500,00 (1) · € 3.600,00 (1)');
-  await expect(totals(page)).toContainText('8 of 8 orders');
-});
-
 test('panel sits above the table, below the search box', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_O });
   await expect(panel(page)).toBeVisible();

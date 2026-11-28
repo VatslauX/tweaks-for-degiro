@@ -233,3 +233,90 @@ test('a new or removed order row in the Outstanding panel reloads the orders onc
   clock.t += 3000; run(); await settle();
   assert.equal(requests.length, 3, 'no further reloads');
 });
+
+// ---------- the real product mock, with the page world (harness `page: true`) ----------
+// Formerly Playwright tests (order-match.spec.js, badges.spec.js): which row of DEGIRO's Outstanding panel a badge
+// opens, and the requests. Clicking, hover and the chart's real geometry stay in Playwright.
+const { createWorld } = require('./harness');
+
+const noErrors = (w, tab) => { assert.deepEqual(w.errors.map(e => e.stack || String(e)), []); assert.deepEqual(tab.failed(), [], 'no feature run() threw'); };
+async function product({ orders, globals } = {}) {
+  const w = createWorld();
+  const tab = await w.open({ fixture: 'degiro', hash: '/products/123/overview', page: true, highcharts: true, layout: true, orders, globals });
+  await w.advance(1000); // the first poll is in and drawn
+  return { w, tab };
+}
+/** the order badge with this text on the product chart */
+const badge = (tab, text) => tab.$$('#chart [data-dg-order-badge]').find(d => d.textContent === text);
+const log = tab => tab.window.__log.join(',');
+/** click the BUY 100 · 15,50 badge; openEdit() then waits for the panel (≤ 3 s) and minimises it again after 0.6 s */
+async function open(w, tab) {
+  const b = badge(tab, 'BUY 100 · 15,50');
+  assert.ok(b, 'the badge is drawn');
+  b.click();
+  await w.advance(4000);
+  return b;
+}
+
+// same side, size and price; the other product's order is listed first
+const TWINS = [
+  { productId: 999, product: 'Mock Core World UCITS ETF (Dist)', buysell: 'B', size: 100, price: 15.5, stopPrice: 0, orderType: 'LIMIT' },
+  { productId: 123, product: 'Mock Core World UCITS ETF (Acc)', buysell: 'B', size: 100, price: 15.5, stopPrice: 0, orderType: 'LIMIT' }
+];
+
+test('Dutch DEGIRO: expands the panel and finds the row (K/V side letters)', async () => {
+  const { w, tab } = await product({ globals: { __MOCK_PANEL_LABELS: ['Vergroten', 'Verkleinen'], __MOCK_SIDES: { B: 'K', S: 'V' } } });
+  await open(w, tab);
+  assert.equal(tab.$('#limit').value, '15.5', 'the Adjust order form of that order');
+  assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
+  noErrors(w, tab);
+});
+
+test('rows without DEGIRO hooks: localised side letters still match', async () => {
+  const { w, tab } = await product({ globals: { __MOCK_NO_HOOKS: true, __MOCK_SIDES: { B: 'A', S: 'V' } } });
+  await open(w, tab);
+  assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
+  noErrors(w, tab);
+});
+
+test('a similar product with the same order: the order id picks the right row', async () => {
+  const { w, tab } = await product({ orders: TWINS });
+  await open(w, tab);
+  assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
+  noErrors(w, tab);
+});
+
+test('a similar product with the same order, no ids: the full name picks the right row', async () => {
+  const { w, tab } = await product({ orders: TWINS, globals: { __MOCK_NO_HOOKS: true } });
+  await open(w, tab);
+  assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
+  noErrors(w, tab);
+});
+
+test('a shortened name that fits two orders opens neither', async () => {
+  const { w, tab } = await product({ orders: TWINS.map(o => ({ ...o, shownName: 'Mock Core World UCITS…' })), globals: { __MOCK_NO_HOOKS: true } });
+  const b = await open(w, tab);
+  assert.match(b.title, /not found/i);
+  assert.doesNotMatch(log(tab), /edit:/);
+  noErrors(w, tab);
+});
+
+test('a shortened name that fits one order opens it', async () => {
+  const { w, tab } = await product({ orders: [{ ...TWINS[1], shownName: 'Mock Core World UCITS ETF (A…' }], globals: { __MOCK_NO_HOOKS: true } });
+  await open(w, tab);
+  assert.equal(log(tab), 'panel:expand,edit:0,panel:minimise');
+  noErrors(w, tab);
+});
+
+test('expanding or minimising the orders panel is not an order change: no extra request', async () => {
+  const { w, tab } = await product();
+  assert.ok(badge(tab, 'BUY 100 · 15,50'));
+  await w.advance(5500); // past the minimum 5 s gap between reloads
+  const before = tab.calls.update;
+  tab.$('#toggle').click();
+  await w.advance(1500);
+  tab.$('#toggle').click();
+  await w.advance(6000);
+  assert.equal(tab.calls.update, before);
+  noErrors(w, tab);
+});

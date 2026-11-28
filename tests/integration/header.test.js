@@ -131,6 +131,9 @@ test('only the date inside the Earnings widget is used, and only when it holds d
 test('no date at all: the item goes and the container stays only for the other one', async () => {
   const w = createWorld();
   const tab = await openProduct(w);
+  tab.$('time[data-field=exDividendDate]').textContent = '—';
+  await touch(w, tab);
+  assert.equal(item(tab, 'dg-exdiv'), null, 'a date placeholder is no ex-dividend date either');
   tab.$('time[data-field=exDividendDate]').remove();
   await touch(w, tab);
   assert.equal(item(tab, 'dg-exdiv'), null);
@@ -187,6 +190,9 @@ test('each item can be switched off on its own; with both off the container goes
   await tab.setFlag('exDividend', true);
   await w.advance(2500);
   assert.equal(value(tab, 'dg-exdiv'), '12/11/2099', 'and it comes back');
+  await tab.setFlag('earningsDate', true);
+  await w.advance(2500);
+  assert.equal(value(tab, 'dg-earnings'), '02/02/2099', 'the earnings date comes back too');
   noErrors(w);
 });
 
