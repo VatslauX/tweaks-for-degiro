@@ -3,9 +3,8 @@
 // page-world items (period change requires MAIN scripts), initScript/DOMContentLoaded timing.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 
 // degiro.html calls fetch() and creates a Highcharts chart in its inline script.
 // Both must be suppressed for jsdom.

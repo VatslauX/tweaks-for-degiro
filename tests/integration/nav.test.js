@@ -3,10 +3,9 @@
 // hover/flyout interaction (computed styles + pointer events).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld, alarm } = require('./harness');
+const { createWorld, alarm, noErrors } = require('./harness');
 
 const badge = tab => tab.$('[data-dg-nav=alarms] [data-dg-nav-badge]')?.textContent ?? null;
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 
 async function setup() {
   const x = alarm({ price: 17, productId: 123 }), y = alarm({ price: 16, productId: 789, name: 'Mock Chips' });

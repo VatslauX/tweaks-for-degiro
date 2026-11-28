@@ -6,9 +6,8 @@
 // stays in tests/e2e/exdiv.spec.js and tests/e2e/earnings.spec.js.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 
 const PRODUCT_GLOBALS = {
   __MOCK_NO_URL_SESSION: true,

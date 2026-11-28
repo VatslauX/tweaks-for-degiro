@@ -4,9 +4,8 @@
 // `gap` shorthand, so the fixture declares `row-gap` itself on every row stack.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 
 // degiro.html calls fetch() and makes a Highcharts chart in its inline script: both are off here
 const PRODUCT_GLOBALS = {

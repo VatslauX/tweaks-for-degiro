@@ -3,12 +3,8 @@
 // Stays in Playwright: the Alarm button and panel, the Alarms page layout, banner placement/looks.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld, alarm } = require('./harness');
+const { createWorld, alarm, noErrors, events, stateOf, listOf, banners } = require('./harness');
 
-const events = w => w.stored('local').dgAlarmEvents || [];
-const stateOf = (w, id) => (w.stored('local').dgAlarmState || {})[id] || {};
-const listOf = w => w.stored('sync').dgAlarms || [];
-const banners = tab => tab.$$('[data-dg-alarm-banner]').map(b => b.getAttribute('data-dg-alarm-banner'));
 const writesTo = (w, key) => w.log.filter(l => l.keys.includes(key)).length;
 
 // a world with these alarms stored and n tabs on Favourites; the first run's throttle window has passed
@@ -23,7 +19,6 @@ async function setup(alarms, n = 1) {
 }
 // DEGIRO shows a new price; the extension checks within a frame
 async function price(tab, id, v, ms = 200) { tab.setPrice(id, v); await tab.world.advance(ms); }
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 
 test('once: fires when the price reaches it, then switches itself off and stays quiet', async () => {
   const a = alarm({ price: 17, dir: 'above', repeat: 'once' });

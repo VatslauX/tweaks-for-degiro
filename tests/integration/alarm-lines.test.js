@@ -7,11 +7,10 @@ const vm = require('node:vm');
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
-const { createWorld, alarm, EXT } = require('./harness');
+const { createWorld, alarm, EXT, noErrors } = require('./harness');
 
 const ATTR = 'data-dg-alarm-lines';
 const lines = tab => tab.document.documentElement.getAttribute(ATTR);
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 // the product mock's chart needs Highcharts, which jsdom doesn't load (see alarm-panel.test.js)
 const Highcharts = { Chart: function () { const s = { setData() {}, data: [{ update() {} }] }; return { series: [s] }; } };
 
@@ -240,6 +239,5 @@ test('malformed values the page writes into the attribute are ignored; never par
   }
   assert.equal(tab.window.__xss, undefined);
   assert.equal(tab.$$('#chart img').length, 0);
-  assert.deepEqual(tab.failed(), [], 'no feature run() threw');
   noErrors(w);
 });

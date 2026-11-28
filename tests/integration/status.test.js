@@ -4,9 +4,8 @@
 // never overwrite an isolated-world status. Nothing is stored or sent anywhere.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 const VALUES = ['ok', 'idle', 'missing', 'loading', 'off', 'error'];
 const ask = tab => tab.message({ type: 'dg-status' });
 

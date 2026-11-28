@@ -238,7 +238,7 @@ test('a product that is not a favourite does not search the page for its header 
 // stays in Playwright: real timing (extension must react within ~1 s)
 test('a header that renders late is found within about a second; a star set by attribute is noticed', async ({ degiro }) => {
   const { page } = await degiro({ url: PRODUCT, initScript: () => { window.__MOCK_NOT_FAVOURITE = true; } });
-  await page.waitForTimeout(500);
+  await expect(page.locator('#dg-header-spread')).toBeVisible(); // the header has been read (same scheduler pass as the alarm button)
   await expect(alarmAll(page)).toHaveCount(0);
   await page.evaluate(() => document.querySelectorAll('.favIconCopy').forEach(i => i.setAttribute('data-name', 'icon-starFilled-20')));
   await expect(alarmAll(page)).toHaveCount(2, { timeout: 2500 });
@@ -246,7 +246,7 @@ test('a header that renders late is found within about a second; a star set by a
 
 test('a re-rendered header of a product that is not a favourite is searched again', async ({ degiro }) => {
   const { page } = await degiro({ url: PRODUCT, initScript: () => { window.__MOCK_NOT_FAVOURITE = true; } });
-  await page.waitForTimeout(600);
+  await expect(page.locator('#dg-header-spread')).toBeVisible(); // the header has been read (same scheduler pass as the alarm button)
   await expect(alarmAll(page)).toHaveCount(0);
   // DEGIRO re-renders the header: the old elements are detached, fresh ones inserted; then the new star is filled
   await page.evaluate(() => {
@@ -263,7 +263,7 @@ test('the price is pre-filled with all its decimals', async ({ degiro }) => {
   const { page } = await degiro({ url: PRODUCT });
   await page.bringToFront();
   await setPrice(page, 123, 0.000123);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(300); // the panel opens with the price the scheduler last read; nothing on the page shows when that was
   await alarmBtn(page).click();
   await expect(page.locator('[data-dg-alarm-price]')).toHaveValue('0,000123');
 });
@@ -459,7 +459,7 @@ test('Alarms page: the On control is a switch; clicking the track toggles it, Sp
   await expect.poll(() => stored(opt)).toMatchObject([{ id: a.id, on: true }]);
   // focus survives a price tick
   await setPrice(page, 123, 16.5);
-  await page.waitForTimeout(300);
+  await expect(rows(page).first().locator('td').nth(1)).toContainText('16,50'); // the list was rebuilt with the tick
   await expect(page.getByRole('switch')).toBeFocused();
 });
 
@@ -501,7 +501,7 @@ test('Alarms page: keyboard focus shows a ring on the track (also when on) and i
   expect(ring).toContain('rgb(0, 149, 210)');
   expect(ring).toContain('rgb(255, 255, 255)'); // an offset gap in the page colour, visible on the blue track
   await setPrice(page, 123, 16.5);
-  await page.waitForTimeout(300);
+  await expect(rows(page).first().locator('td').nth(1)).toContainText('16,50'); // the list was rebuilt with the tick
   await expect(sw).toBeFocused();
   expect(await trackOf(sw).evaluate(e => getComputedStyle(e).boxShadow)).toBe(ring);
 });

@@ -239,9 +239,8 @@ test('a new or removed order row in the Outstanding panel reloads the orders onc
 // ---------- the real product mock, with the page world (harness `page: true`) ----------
 // Formerly Playwright tests (order-match.spec.js, badges.spec.js): which row of DEGIRO's Outstanding panel a badge
 // opens, and the requests. Clicking, hover and the chart's real geometry stay in Playwright.
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 
-const noErrors = (w, tab) => { assert.deepEqual(w.errors.map(e => e.stack || String(e)), []); assert.deepEqual(tab.failed(), [], 'no feature run() threw'); };
 async function product({ orders, globals } = {}) {
   const w = createWorld();
   const tab = await w.open({ fixture: 'degiro', hash: '/products/123/overview', page: true, highcharts: true, layout: true, orders, globals });
@@ -271,28 +270,28 @@ test('Dutch DEGIRO: expands the panel and finds the row (K/V side letters)', asy
   await open(w, tab);
   assert.equal(tab.$('#limit').value, '15.5', 'the Adjust order form of that order');
   assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('rows without DEGIRO hooks: localised side letters still match', async () => {
   const { w, tab } = await product({ globals: { __MOCK_NO_HOOKS: true, __MOCK_SIDES: { B: 'A', S: 'V' } } });
   await open(w, tab);
   assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('a similar product with the same order: the order id picks the right row', async () => {
   const { w, tab } = await product({ orders: TWINS });
   await open(w, tab);
   assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('a similar product with the same order, no ids: the full name picks the right row', async () => {
   const { w, tab } = await product({ orders: TWINS, globals: { __MOCK_NO_HOOKS: true } });
   await open(w, tab);
   assert.equal(log(tab), 'panel:expand,edit:1,panel:minimise');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('a shortened name that fits two orders opens neither', async () => {
@@ -300,14 +299,14 @@ test('a shortened name that fits two orders opens neither', async () => {
   const b = await open(w, tab);
   assert.match(b.title, /not found/i);
   assert.doesNotMatch(log(tab), /edit:/);
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('a shortened name that fits one order opens it', async () => {
   const { w, tab } = await product({ orders: [{ ...TWINS[1], shownName: 'Mock Core World UCITS ETF (A…' }], globals: { __MOCK_NO_HOOKS: true } });
   await open(w, tab);
   assert.equal(log(tab), 'panel:expand,edit:0,panel:minimise');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('expanding or minimising the orders panel is not an order change: no extra request', async () => {
@@ -320,5 +319,5 @@ test('expanding or minimising the orders panel is not an order change: no extra 
   tab.$('#toggle').click();
   await w.advance(6000);
   assert.equal(tab.calls.update, before);
-  noErrors(w, tab);
+  noErrors(w);
 });

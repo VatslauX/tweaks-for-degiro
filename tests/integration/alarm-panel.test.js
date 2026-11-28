@@ -4,14 +4,9 @@
 // currency-missing timing (initScript/DOMContentLoaded cannot be replicated via globals).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld, alarm } = require('./harness');
+const { createWorld, alarm, noErrors, events, stateOf, listOf, banners } = require('./harness');
 
 // ---------- helpers ----------
-const events  = w   => w.stored('local').dgAlarmEvents  || [];
-const stateOf = (w, id) => (w.stored('local').dgAlarmState || {})[id] || {};
-const listOf  = w   => w.stored('sync').dgAlarms || [];
-const banners = tab => tab.$$('[data-dg-alarm-banner]').map(b => b.getAttribute('data-dg-alarm-banner'));
-const noErrors = w  => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 const buttons  = tab => tab.$$('[data-dg-alarm-button]');
 const panel    = tab => tab.$('[data-dg-alarm-panel]');
 const alarmRows   = tab => tab.$$('[data-dg-alarm-row]');
