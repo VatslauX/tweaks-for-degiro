@@ -532,6 +532,44 @@ test('a firing whose save storage refused is stored by the tab\'s next price wri
   }
 });
 
+test('a firing whose save storage refused still counts when another writer\'s state lands before the tab writes again', async () => {
+  const { w, tab, a, s, at } = await refusedFiring('daily');
+  const b = alarm({ productId: 999, price: 5 });
+  // another tab stores only another alarm's price: its storage event carries the stored state, without the firing
+  await w.set('local', { dgAlarmState: { ...w.stored('local').dgAlarmState, [b.id]: { last: 4, lastAt: w.now } } });
+  await w.advance(50);
+  assert.equal(firedIn(tab, a.id), at, 'the refused firing is laid over the state from storage');
+  w.faults.set = true; // and storage still refuses: the next checks must not fire it again
+  for (const v of [17.6, 17.8]) { await w.skip(61e3); await price(tab, 123, v); }
+  w.faults.set = false;
+  assert.equal(s.played, 1, 'no second chime');
+  noErrors(w);
+});
+
+// A price-only save (no firing) must not carry the tab's old firedAt: another writer's newer firing, stored while the
+// save waits for its merge, would be undone in the tab
+test('race: a price-only save in flight does not lay the tab\'s old firedAt over a newer one stored meanwhile', async () => {
+  const a = alarm({ price: 17, dir: 'above', repeat: 'each' });
+  const { w, tab } = await setup([a]);
+  await price(tab, 123, 17.5); // fires: firedAt stored
+  const old = stateOf(w, a.id).firedAt;
+  assert.ok(old);
+  await w.skip(61e3);
+  await price(tab, 123, 16.5); // back below: arms it again ('each'), a price-only save
+  await w.skip(61e3);
+  w.latency.get = 50; // the next save's read for its merge takes 50 ms
+  tab.setPrice(123, 16.6); // a price-only save, still below the alarm
+  await w.advance(20);
+  w.latency.get = 0;
+  const theirs = w.now - 1000; // another writer's firing (the worker's: an older trade time than the tab's clock)
+  await w.set('local', { dgAlarmState: { ...w.stored('local').dgAlarmState, [a.id]: { ...stateOf(w, a.id), firedAt: theirs } } });
+  await w.advance(10); // the storage event is in; the tab's save is still waiting for its read
+  assert.equal(firedIn(tab, a.id), theirs, 'the newer firing counts in the tab, not its old one');
+  await w.advance(1000);
+  assert.equal(stateOf(w, a.id).firedAt, theirs, 'and stays stored');
+  noErrors(w);
+});
+
 test('a firing whose save storage refused gives way to a firing another writer stored meanwhile', async () => {
   // another tab's later firing, and the worker's (its firedAt is Yahoo's trade time, older than the tab's)
   for (const later of [true, false]) {
