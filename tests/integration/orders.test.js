@@ -139,6 +139,8 @@ function loadOrders({ flagOrders = true, twoCharts = false, session = false } = 
       own:     el => el,
       schedule: () => {},
       ownRequests: { add: () => {}, has: () => false },
+      // never waiting: the back-off after a rejected session is tested in requests.test.js
+      backoff: () => ({ waiting: () => false, failed: () => false, fail: () => 0, ok() {} }),
       feature: cfg => { featureConfig = cfg; },
       t:       key => key,
     },

@@ -460,7 +460,7 @@ const dgAlarmStore = (() => {
 })();
 
 (() => {
-  const { SEL, page, own, feature, t, parseNum, fmt, schedule } = __dgt; // common.js
+  const { SEL, page, own, feature, t, parseNum, fmt, schedule, backoff } = __dgt; // common.js
   const R = dgAlarmRules, S = dgAlarmStore;
   const ALARMS_HREF = '#/favourites?dg=alarms';
   const BOX = 'data-dg-alarm-banners';
@@ -621,7 +621,8 @@ const dgAlarmStore = (() => {
   // waits 20 s, doubling to 5 min; a session DEGIRO refuses (401/403) is not used again.
   const askInfo = (() => {
     const MAX_IDS = 25;
-    let sid = '', acc = '', busy = false, waitUntil = 0, wait = 0;
+    let sid = '', acc = '', busy = false;
+    const retry = backoff(20000, 300000);
     /** this tab's own request addresses (not read for the session), sessions DEGIRO refused, products asked */
     const mine = new Set(), refused = new Set(), asked = new Set();
     /** @param {string} name */
@@ -642,7 +643,7 @@ const dgAlarmStore = (() => {
       new PerformanceObserver(l => l.getEntries().forEach(e => grab(e.name))).observe({ type: 'resource', buffered: true });
     } catch (e) {}
     return async () => {
-      if (!dgSettings.alarmsBackground || busy || Date.now() < waitUntil || !sid || !acc || !S.linksReady()) return;
+      if (!dgSettings.alarmsBackground || busy || retry.waiting() || !sid || !acc || !S.linksReady()) return;
       const ids = [...new Set(S.list().map(a => a.productId))].filter(id => !S.known(id) && !asked.has(id)).slice(0, MAX_IDS);
       if (!ids.length) return;
       busy = true;
@@ -656,11 +657,10 @@ const dgAlarmStore = (() => {
         if (!r.ok) throw new Error(String(r.status));
         const found = R.parseInfo(await r.json(), ids);
         ids.forEach(id => asked.add(id));
-        wait = 0;
+        retry.ok();
         for (const h of found) S.link({ ...h, fill: true });
       } catch (e) {
-        wait = Math.min(300000, Math.max(20000, wait * 2));
-        waitUntil = Date.now() + wait;
+        const wait = retry.fail();
         setTimeout(() => schedule(true), wait + 50); // try again then, even on a page that doesn't change
       } finally { busy = false; }
     };

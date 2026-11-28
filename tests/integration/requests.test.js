@@ -94,6 +94,30 @@ for (const [what, answer] of [['an error', { status: 500, body: '' }], ['bad JSO
   });
 }
 
+test('another period than the one failing is asked at once, and its own failure waits 30 s again, not the doubled wait', async () => {
+  const w = createWorld();
+  // the mock page's own request for each period gets its data; ours fail
+  const pageAsked = new Set();
+  const tab = await w.open({ ...PORTFOLIO, respond: u => {
+    if (u.pathname !== '/portfolio-metrics/secure/api/v1/portfolio/value') return undefined;
+    const p = u.searchParams.get('period');
+    if (!pageAsked.has(p)) { pageAsked.add(p); return undefined; }
+    return { status: 500, body: '' };
+  } });
+  const ours = p => tab.requests.filter(r => r.includes('/portfolio/value?period=' + p)).length - 1; // less the page's own
+  await w.advance(1000);
+  await w.advance(31000);
+  assert.equal(ours('ONE_YEAR'), 2, '1Y failed twice: its next try would be 60 s later');
+  tab.$('[data-p=ONE_MONTH]').click();
+  await w.advance(1000);
+  assert.equal(ours('ONE_MONTH'), 1, 'the new period is asked at once, not after 1Y\'s wait');
+  await w.advance(28000);
+  assert.equal(ours('ONE_MONTH'), 1);
+  await w.advance(2500);
+  assert.equal(ours('ONE_MONTH'), 2, 'its failure waited 30 s, not 1Y\'s doubled 120 s');
+  noErrors(w, tab);
+});
+
 // ---------- portfolio.js: today's cash (/update?cashFunds=0) and the account statement ----------
 
 const CASH = u => u.pathname.startsWith('/trading/secure/v5/update/') && u.searchParams.has('cashFunds');

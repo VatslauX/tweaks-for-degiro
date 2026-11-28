@@ -1,7 +1,7 @@
 // Shared helpers in extension/common.js: one number parser/formatter for every script.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseNum, fmt, fmtWhole, xs, ys, isPriceSeries, priceSeries, page, cashByDay } = require('../../extension/common.js');
+const { parseNum, fmt, fmtWhole, xs, ys, isPriceSeries, priceSeries, page, cashByDay, backoff } = require('../../extension/common.js');
 
 // ── cash per currency from the account statement (Portfolio chart) ──────────────────────────
 // Shaped like DEGIRO's cashMovements: newest first; a cash sweep is a pair with one timestamp, and
@@ -126,4 +126,32 @@ test('price alarm routes: Favourites and the Alarms page', () => {
   } finally {
     if (saved === undefined) delete globalThis.location; else globalThis.location = saved;
   }
+});
+
+// ── backoff: the wait after failed requests (orders.js, portfolio.js, alarms.js) ─────────────
+
+test('backoff: min after the first failure, doubling to max; a success starts over', () => {
+  const RealNow = Date.now;
+  let now = 1e12;
+  Date.now = () => now;
+  try {
+    const b = backoff(20000, 300000);
+    assert.ok(Object.isFrozen(b));
+    assert.equal(b.waiting(), false, 'no wait before any failure');
+    assert.equal(b.failed(), false);
+    assert.deepEqual([20000, 40000, 80000, 160000, 300000, 300000].map(() => b.fail()), [20000, 40000, 80000, 160000, 300000, 300000],
+      'doubles, capped at max');
+    assert.equal(b.failed(), true);
+    assert.equal(b.waiting(), true);
+    now += 299999; assert.equal(b.waiting(), true, 'still within the wait');
+    now += 1; assert.equal(b.waiting(), false, 'the wait is over');
+    b.ok();
+    assert.equal(b.failed(), false);
+    assert.equal(b.fail(), 20000, 'after a success the next failure waits min again');
+    b.ok();
+    assert.equal(b.waiting(), false, 'a success ends a running wait');
+    const other = backoff(30000, 600000);
+    assert.equal(other.waiting(), false, 'each backoff keeps its own state');
+    assert.equal(other.fail(), 30000);
+  } finally { Date.now = RealNow; }
 });
