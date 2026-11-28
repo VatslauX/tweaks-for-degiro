@@ -7,8 +7,7 @@
     orders = [], version = 0, loading = false, last = 0;
   // A session DEGIRO rejected (401/403) is never used again, and after a rejection the next
   // request waits (20 s, doubling up to 5 min), so an expired session can't cause a request loop.
-  const rejected = new Set(), RETRY_MIN_MS = 20000, RETRY_MAX_MS = 300000;
-  let retryAt = 0, retryMs = 0;
+  const rejected = new Set(), retry = __dgt.backoff(20000, 300000); // common.js
   let lastMain = null; // cheap cache for the redraw hook; updated in run() so the handler avoids mainChart()
   const EXTRA_MIN_MS = 5000; let rowCount = /** @type {number | null} */ (null), rowsChanged = false; // see run()
   const useSid = s => { if (s && !rejected.has(s)) sid = s; };
@@ -63,7 +62,7 @@
   }
 
   async function load() {
-    if (loading || Date.now() < retryAt) return;
+    if (loading || retry.waiting()) return;
     if (!sid || !acc) { loading = true; await askSession(); loading = false; if (!sid || !acc) return; }
     loading = true; last = Date.now();
     try {
@@ -74,11 +73,10 @@
         // session expired: wait for a new one from DEGIRO's requests or the fallback
         if (sid) rejected.add(sid);
         sid = null;
-        retryMs = Math.min(RETRY_MAX_MS, Math.max(RETRY_MIN_MS, retryMs * 2));
-        retryAt = Date.now() + retryMs;
+        retry.fail();
       }
       if (r.ok) {
-        retryMs = 0;
+        retry.ok();
         const j = await r.json();
         orders = (j.orders?.value || []).map(o => Object.fromEntries((o.value || []).map(f => [f.name, f.value])));
         version++;
@@ -407,7 +405,7 @@
     if (rowCount && rows && rows !== rowCount) rowsChanged = true;
     rowCount = rows;
     const now = Date.now();
-    if (pid && document.visibilityState === 'visible' && !loading && now >= retryAt) {
+    if (pid && document.visibilityState === 'visible' && !loading && !retry.waiting()) {
       if (now - last > POLL_MS) { rowsChanged = false; load(); }
       else if (rowsChanged && now - last >= EXTRA_MIN_MS) { rowsChanged = false; load(); }
     }

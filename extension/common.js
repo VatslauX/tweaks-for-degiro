@@ -422,8 +422,25 @@
     has: href => ownUrls.has(href)
   });
 
+  // The wait after failed requests, so a failing endpoint can't turn into a request loop: `min` ms after
+  // the first failure, doubling with each failure in a row up to `max`; a success starts over.
+  /** @param {number} min @param {number} max */
+  function backoff(min, max) {
+    let ms = 0, until = 0;
+    return Object.freeze({
+      /** still within the wait after a failure: don't ask yet */
+      waiting: () => Date.now() < until,
+      /** the last attempt failed */
+      failed: () => ms > 0,
+      /** a failure: starts (or doubles) the wait; returns it in ms */
+      fail() { ms = Math.min(max, Math.max(min, ms * 2)); until = Date.now() + ms; return ms; },
+      /** a success: no wait, and the next failure waits `min` again */
+      ok() { ms = 0; until = 0; }
+    });
+  }
+
   const api = Object.freeze({ decimalSep, parseNum, fmt, fmtWhole, flags, pageTheme, FONT, fontFamilyOf, chartFont, xs, ys, isPriceSeries, mainChart, priceSeries, cashByDay,
-    SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS, ownRequests });
+    SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS, ownRequests, backoff });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else if (!(/** @type {any} */ (globalThis).__dgt)) Object.defineProperty(globalThis, '__dgt', { value: api });
 })();

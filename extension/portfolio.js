@@ -20,7 +20,7 @@
   const CHANGE_ID = 'dg-portfolio-change';
 
 
-  const { flags, pageTheme, fontFamilyOf, fmt, fmtWhole, parseNum, decimalSep, cashByDay, SEL, page, own, feature, schedule, ownRequests } = __dgt; // common.js
+  const { flags, pageTheme, fontFamilyOf, fmt, fmtWhole, parseNum, decimalSep, cashByDay, SEL, page, own, feature, schedule, ownRequests, backoff } = __dgt; // common.js
   /** @type {(sel: string) => HTMLElement | null} */
   const $ = sel => document.querySelector(sel);
   // The font of our items in the row above the chart: that of DEGIRO's caption beside them ("Today",
@@ -42,10 +42,12 @@
   performance.getEntriesByType('resource').forEach(e => seen(e.name));
   try { new PerformanceObserver(l => l.getEntries().forEach(e => seen(e.name))).observe({ type: 'resource', buffered: true }); } catch (e) {}
 
-  // a failed request is retried after 30 s, doubling (up to 10 min) while it keeps failing
-  let loadedHref = '', failedHref = '', retryAt = 0, retryMs = 0;
+  // a failed request is retried after 30 s, doubling (up to 10 min) while that request keeps failing;
+  // another one (a new period) is asked at once
+  let loadedHref = '', failedHref = '';
+  const retry = backoff(30000, 600000);
   async function load() {
-    if (!url || loading || url.href === loadedHref || (url.href === failedHref && Date.now() < retryAt)) return;
+    if (!url || loading || url.href === loadedHref || (url.href === failedHref && retry.waiting())) return;
     loading = true;
     const target = url;
     let ok = false;
@@ -68,10 +70,11 @@
         ok = true;
       }
     } catch (e) {}
-    if (ok) { failedHref = ''; retryMs = 0; }
+    if (ok) { failedHref = ''; retry.ok(); }
     else {
-      retryMs = target.href === failedHref ? Math.min(600000, retryMs * 2) : 30000;
-      failedHref = target.href; retryAt = Date.now() + retryMs;
+      if (target.href !== failedHref) retry.ok(); // another request than the one failing: its wait starts at 30 s
+      retry.fail();
+      failedHref = target.href;
     }
     loading = false;
     schedule(); // draw the new data now, not on the next timer run
@@ -182,14 +185,14 @@
     const a = url?.searchParams.get('intAccount') || '', s = url?.searchParams.get('sessionId') || '';
     return /^\d+$/.test(a) && /^[\w.-]+$/.test(s) ? { a, s } : null;
   };
-  /** @typedef {{ busy: boolean, failed: boolean, retryAt: number, retryMs: number }} ReqState */
+  /** @typedef {{ busy: boolean, retry: ReturnType<typeof backoff> }} ReqState */
   /** @returns {ReqState} */
-  const reqState = () => ({ busy: false, failed: false, retryAt: 0, retryMs: 0 });
+  const reqState = () => ({ busy: false, retry: backoff(30000, 600000) });
   // GET a same-origin path; undefined when busy, waiting to retry, or failed. A failure is retried
   // after 30 s, doubling (up to 10 min) while it keeps failing.
   /** @param {ReqState} st @param {string} path */
   async function getJson(st, path) {
-    if (st.busy || (st.failed && Date.now() < st.retryAt)) return undefined;
+    if (st.busy || st.retry.waiting()) return undefined;
     st.busy = true;
     let j = /** @type {any} */ (null);
     try {
@@ -198,8 +201,8 @@
       if (r.ok) j = await r.json();
     } catch (e) {}
     st.busy = false;
-    if (j && typeof j === 'object') { st.failed = false; st.retryMs = 0; }
-    else { st.retryMs = st.failed ? Math.min(600000, st.retryMs * 2) : 30000; st.failed = true; st.retryAt = Date.now() + st.retryMs; j = null; }
+    if (j && typeof j === 'object') st.retry.ok();
+    else { st.retry.fail(); j = null; }
     schedule(); // draw the new data now
     return j || undefined;
   }
@@ -281,7 +284,7 @@
     // "Cash" and its switch stay reachable without amounts (all balances 0, or today's cash can't be
     // loaded); they appear once the cash request has answered or failed, not before (no flash of an
     // empty label while it loads)
-    const settled = !!funds || fundsReq.failed || items.length > 0;
+    const settled = !!funds || fundsReq.retry.failed() || items.length > 0;
     if (!flags()?.portfolioCash || !anchor || !settled) { el?.remove(); cashTopKey = ''; return; }
     const hide = hideFilter(), font = rowFont();
     const key = [items.map(x => x.join(':')).join(','), order.join(','), hide, decimalSep(), linesOn, font].join('|');

@@ -20,6 +20,7 @@ The manifest declares two content-script worlds:
 - Add DEGIRO selectors, label patterns, and routes to `SEL`, `LABELS`, or `page` in `common.js`, not feature files.
 - Features use `feature({ name, enabled, run, stop?, every?, throttle? })`. The scheduler has one MutationObserver and timer per world, runs enabled features at most once per frame, and throttles DOM-driven runs to 150 ms unless configured otherwise. Settings changes bypass throttling. Each world's observer watches the `data-dg-tweaks` and `data-dg-alarm-lines` attributes on `<html>`. Timer-only flushes run features whose `every` interval is due. `stop()` runs once when disabled.
 - `run()` must be idempotent, return `ok`, `idle`, or `missing`, and degrade quietly when expected page content is absent. Exceptions are contained per feature.
+- A content script's wait after failed requests uses `backoff(min, max)` from `common.js` (`waiting()`, `failed()`, `fail()` returns the wait, `ok()`; doubling from `min` to `max`, memory only), not its own counters: `orders.js` and `alarms.js` (product details) 20 s → 5 min, `portfolio.js` 30 s → 10 min. `background.js` keeps its own minute-based waits in `chrome.storage`.
 - Mark inserted elements with `own(el)` (`data-dg-own`) so our DOM changes do not trigger reruns. Avoid render loops and expensive work on every frame.
 - Page-world statuses cross to the isolated world in `data-dg-status`; because the page can write it, `status.js` accepts only known feature names and values. Nothing is stored.
 
