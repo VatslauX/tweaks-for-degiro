@@ -55,21 +55,33 @@ test('the switch next to "Cash" shows and hides the columns, and is remembered',
 });
 
 test('hovering other dates doesn\'t move the items along the row', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_P });
-  await expect(cash(page)).toBeVisible();
+  // The fake clock: each state below is measured once the feature has run in it (its throttle is
+  // 250 ms, its timer 500 ms), not just after the header's text changed.
+  const { page } = await degiro({ url: URL_P, clock: true });
+  await advanceUntilVisible(page, cash(page));
+  // "Today" is DEGIRO's live total, the mock's: another amount beside "Today" would be a new total,
+  // which the period change follows (portfolio.spec.js), changing its width and moving the cash
+  // (that's how this test used to fail on CI: whenever the feature ran between two measurements)
+  const s = portfolioSeries('ONE_YEAR'), first = s[s.length - 1].value;
+  await expect(page.locator('#dg-portfolio-change')).toContainText(`(+${((141234.56 - first) / first * 100).toFixed(2).replace('.', ',')}%)`);
+  const total = await page.locator('#total').textContent();
+  expect(total).toBe('€ 141.234,56');
   const xs = () => page.evaluate(() => ['dg-portfolio-change', 'dg-portfolio-cash'].map(id => Math.round(document.getElementById(id).getBoundingClientRect().left)));
   // DEGIRO shows the hovered value and date in place of the total and "Today"
-  const show = (amount, caption) => page.evaluate(([a, c]) => {
-    document.getElementById('total').textContent = a;
-    document.querySelector('[data-name="performance-chart-caption"]').textContent = c;
-  }, [amount, caption]);
-  await show('€ 111.111,11', 'Today');
-  await expect.poll(async () => (await xs())[0]).toBeGreaterThan(0);
+  const show = async (amount, caption) => {
+    await page.evaluate(([a, c]) => {
+      document.getElementById('total').textContent = a;
+      document.querySelector('[data-name="performance-chart-caption"]').textContent = c;
+    }, [amount, caption]);
+    await page.clock.fastForward(600);
+  };
+  await show(total, 'Today');
   const before = await xs();
+  expect(before[0]).toBeGreaterThan(0);
   // (back to the total and "Today" when the pointer leaves the chart)
-  for (const [a, c] of [['€ 99.888,00', 'Sep 28, 2026'], ['€ 140.000,00', 'May 1, 2026'], ['€ 111.111,11', 'Today']]) {
+  for (const [a, c] of [['€ 99.888,00', 'Sep 28, 2026'], ['€ 140.000,00', 'May 1, 2026'], [total, 'Today']]) {
     await show(a, c);
-    expect(await xs()).toEqual(before);
+    expect(await xs(), `${a} ${c}`).toEqual(before);
   }
 });
 
