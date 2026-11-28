@@ -1,7 +1,9 @@
 // Price alarm rules (extension/alarm-rules.js): sanitising stored data and when an alarm fires.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const R = require('../../extension/alarm-rules.js');
+const path = require('path');
+// DGT_EXTENSION_DIR points at a scratch copy of extension/ (used to prove a test fails against broken code)
+const R = require(path.resolve(process.env.DGT_EXTENSION_DIR || path.join(__dirname, '../../extension'), 'alarm-rules.js'));
 
 const A = { id: 'a1', productId: 123, name: 'Mock ETF', symbol: 'MOCK', currency: '€', price: 20, dir: 'above', repeat: 'once', on: true, created: 1 };
 const DAY = 864e5, NOON = new Date(2026, 9, 29, 12).getTime();
@@ -430,4 +432,131 @@ test('parseSpark: last price and trade time per ticker', () => {
   assert.deepStrictEqual([...R.parseSpark(body)], [['ASML.AS', { price: 1283.6, at: 1795003434000 }], ['AAPL', { price: 11, at: 2000 }], ['SAP.DE', { price: 201, at: 400000 }]]);
   assert.strictEqual(R.parseSpark(null).size, 0);
   assert.strictEqual(R.parseSpark([1]).size, 0);
+});
+
+// ── a tab's overlays (alarms.js): what it lays over the alarm data storage hands it ─────────────
+// The tab's own maps go in; nothing is changed in place, what to drop comes back.
+
+const ON = (id, o = {}) => ({ ...A, id, repeat: 'each', ...o });
+
+test('withOff: switches off only listed alarms that are on; the same list back when nothing is switched off', () => {
+  const list = [ON('a1'), ON('a2'), ON('a3', { on: false })];
+  assert.strictEqual(R.withOff(list, new Set()), list);
+  assert.deepStrictEqual(R.withOff(list, new Set(['a1', 'a3'])).map(a => [a.id, a.on]), [['a1', false], ['a2', true], ['a3', false]]);
+  assert.strictEqual(list[0].on, true, 'the input is not changed');
+});
+
+test('shownList: queued edits in order, each sanitized; an edit refusing the list leaves it; switch-offs last', () => {
+  const list = [ON('a1'), ON('a2')];
+  const add = l => [...l, ON('a3')];
+  const drop2 = l => l.filter(a => a.id !== 'a2');
+  const refuse = () => null;
+  const bad = l => [...l, { id: 'x', price: 'no' }]; // sanitized away
+  assert.deepStrictEqual(R.shownList(list, [add, refuse, drop2, bad], new Map()).map(a => a.id), ['a1', 'a3']);
+  assert.deepStrictEqual(R.shownList(list, [], new Map()), list);
+  // an edit switching an alarm on that a 'once' switch-off is pending for: the switch-off still wins
+  const switchOn = l => l.map(a => (a.id === 'a1' ? { ...a, on: true } : a));
+  const off = new Map([['a1', { done: false }]]);
+  assert.deepStrictEqual(R.shownList([ON('a1', { on: false })], [switchOn], off).map(a => a.on), [false]);
+});
+
+test('patchOf: last and lastAt, and firedAt only for a firing; undefined values are left out', () => {
+  const st = { last: 17.5, lastAt: 1000, firedAt: 900, armed: true };
+  assert.deepStrictEqual(R.patchOf(st, false), { last: 17.5, lastAt: 1000 });
+  assert.deepStrictEqual(R.patchOf(st, true), { last: 17.5, lastAt: 1000, firedAt: 900 });
+  assert.deepStrictEqual(R.patchOf({ last: 1 }, true), { last: 1 });
+  assert.deepStrictEqual(R.patchOf(undefined, true), {});
+});
+
+test('holds: an unsaved firing counts while its alarm is unedited and no other firedAt is stored', () => {
+  const a = ON('a1');
+  const u = { at: 2000, base: 1000, sig: R.sigOf(a) };
+  const st = f => ({ a1: f === undefined ? {} : { firedAt: f } });
+  assert.strictEqual(R.holds(u, 'a1', [a], st(1000)), true, 'storage still has the firedAt it was based on');
+  assert.strictEqual(R.holds(u, 'a1', [a], st(2000)), true, 'or the firing itself');
+  assert.strictEqual(R.holds(u, 'a1', [a], st(3000)), false, 'another writer\'s firing');
+  assert.strictEqual(R.holds(u, 'a1', [a], st(undefined)), false, 'an edit that cleared it');
+  assert.strictEqual(R.holds({ ...u, base: undefined }, 'a1', [a], st(undefined)), true, 'nothing stored before, nothing now');
+  assert.strictEqual(R.holds(u, 'a1', [{ ...a, price: 21 }], st(1000)), false, 'edited: price');
+  assert.strictEqual(R.holds(u, 'a1', [{ ...a, dir: 'below' }], st(1000)), false, 'edited: direction');
+  assert.strictEqual(R.holds(u, 'a1', [{ ...a, repeat: 'daily' }], st(1000)), false, 'edited: repeat');
+  assert.strictEqual(R.holds(u, 'a1', [{ ...a, name: 'renamed' }], st(1000)), true, 'other fields are not an edit that counts');
+  assert.strictEqual(R.holds(u, 'a1', [], st(1000)), false, 'gone');
+  assert.strictEqual(R.holds(undefined, 'a1', [a], st(1000)), false, 'no unsaved firing');
+});
+
+test('overlayState: unsaved firings that hold, then pending patches, only for alarms on the list; the rest dropped', () => {
+  const a1 = ON('a1'), a2 = ON('a2'), a3 = ON('a3');
+  const st = { a1: { last: 1, firedAt: 1000 }, a2: { last: 2, firedAt: 5000 }, a3: { last: 3 } };
+  assert.deepStrictEqual(R.overlayState(st, [a1], new Map(), new Map()), { state: st, drop: [] });
+  assert.strictEqual(R.overlayState(st, [a1], new Map(), new Map()).state, st, 'the same object when the tab holds nothing');
+  const unsaved = new Map([
+    ['a1', { at: 2000, base: 1000, sig: R.sigOf(a1) }], // holds
+    ['a2', { at: 3000, base: 1000, sig: R.sigOf(a2) }] // another writer stored 5000: no longer counts
+  ]);
+  const pending = new Map([
+    ['a1', { by: {}, p: { last: 1.5, firedAt: 2500 } }], // laid over after the unsaved firing: its firedAt wins
+    ['a3', { by: {}, p: { last: 3.5 } }],
+    ['gone', { by: {}, p: { last: 9 } }] // not on the list: not laid over
+  ]);
+  const r = R.overlayState(st, [a1, a2, a3], unsaved, pending);
+  assert.deepStrictEqual(r.drop, ['a2']);
+  assert.deepStrictEqual(r.state, { a1: { last: 1.5, firedAt: 2500 }, a2: { last: 2, firedAt: 5000 }, a3: { last: 3.5 } });
+  assert.strictEqual(unsaved.size, 2, 'the maps are not changed');
+  assert.deepStrictEqual(st.a1, { last: 1, firedAt: 1000 }, 'nor the stored state');
+  assert.deepStrictEqual(R.overlayState(st, [a1], new Map([['a1', unsaved.get('a1')]]), new Map()).state.a1, { last: 1, firedAt: 2000 },
+    'an unsaved firing that holds is laid over on its own');
+  // judged on the list given (alarms.js passes the shown one): an alarm not on it neither holds nor gets its patch
+  const r2 = R.overlayState(st, [a3], new Map([['a1', unsaved.get('a1')]]), new Map([['a1', pending.get('a1')]]));
+  assert.deepStrictEqual([r2.drop, r2.state.a1], [['a1'], { last: 1, firedAt: 1000 }]);
+});
+
+test('dropEdited: unsaved firings of edited or removed alarms go; the tab\'s firedAt goes back to the stored one', () => {
+  const a1 = ON('a1'), a2 = ON('a2'), a3 = ON('a3'), a4 = ON('a4');
+  const unsaved = new Map([
+    ['a1', { at: 2000, base: 1000, sig: R.sigOf(a1) }], // unedited: stays
+    ['a2', { at: 2000, base: 1000, sig: R.sigOf(a2) }], // edited: back to base
+    ['a3', { at: 2000, base: undefined, sig: R.sigOf(a3) }], // removed, nothing stored before: firedAt goes
+    ['a4', { at: 2000, base: 1000, sig: R.sigOf(a4) }] // edited, but the tab's state holds another firing: left
+  ]);
+  const state = { a1: { last: 1, firedAt: 2000 }, a2: { last: 2, firedAt: 2000 }, a3: { last: 3, firedAt: 2000 }, a4: { last: 4, firedAt: 7000 } };
+  const r = R.dropEdited(state, unsaved, [a1, { ...a2, price: 99 }, { ...a4, dir: 'below' }]);
+  assert.deepStrictEqual(r.drop, ['a2', 'a3', 'a4']);
+  assert.deepStrictEqual(r.state, { a1: { last: 1, firedAt: 2000 }, a2: { last: 2, firedAt: 1000 }, a3: { last: 3 }, a4: { last: 4, firedAt: 7000 } });
+  assert.strictEqual(unsaved.size, 4, 'the map is not changed');
+  assert.strictEqual(state.a2.firedAt, 2000, 'nor the state');
+  const same = R.dropEdited(state, new Map([['a1', unsaved.get('a1')]]), [a1]);
+  assert.strictEqual(same.state, state, 'the same object when nothing changes');
+  assert.deepStrictEqual(same.drop, []);
+});
+
+test('observed: a new firedAt is noted when first seen, 0 for the tab\'s own and at load; one without a firedAt goes', () => {
+  const mine = new Set([3000]);
+  const seen = new Map([['a1', { at: 1000, seenAt: 50 }], ['gone', { at: 900, seenAt: 40 }], ['a4', { at: 4000, seenAt: 60 }]]);
+  const st = { a1: { firedAt: 1000 }, a2: { firedAt: 2000 }, a3: { firedAt: 3000 }, a4: { firedAt: 4500 }, a5: { last: 1 } };
+  const out = R.observed(seen, st, true, mine, 777);
+  assert.deepStrictEqual([...out], [
+    ['a1', { at: 1000, seenAt: 50 }], // unchanged: kept as first seen
+    ['a4', { at: 4500, seenAt: 777 }], // changed: seen now
+    ['a2', { at: 2000, seenAt: 777 }], // new: seen now
+    ['a3', { at: 3000, seenAt: 0 }] // the tab's own
+  ]);
+  assert.strictEqual(seen.size, 3, 'the input map is not changed');
+  assert.deepStrictEqual([...R.observed(new Map(), { a2: { firedAt: 2000 } }, false, mine, 777)], [['a2', { at: 2000, seenAt: 0 }]], 'stored at load: not new');
+});
+
+test('foreignFiring: another writer\'s firedAt within the window, or first seen by the tab less than a minute ago', () => {
+  const each = ON('a1'), daily = ON('a1', { repeat: 'daily' });
+  const now = NOON, mine = new Set([now - 1000]);
+  const seenAt = t => new Map([['a1', { at: now - 30 * 60e3, seenAt: t }]]);
+  assert.strictEqual(R.foreignFiring(each, undefined, now, mine, new Map()), false, 'no firing');
+  assert.strictEqual(R.foreignFiring(each, now - 1000, now, mine, new Map()), false, 'the tab\'s own');
+  assert.strictEqual(R.foreignFiring(each, now - 1000 + 1, now, mine, new Map()), true, 'another writer\'s, within a minute');
+  assert.strictEqual(R.foreignFiring(each, now - 61e3, now, mine, new Map()), false, 'older than a minute, not seen');
+  assert.strictEqual(R.foreignFiring(daily, now - 3 * 3600e3, now, mine, new Map()), true, 'daily: the same day');
+  const old = now - 30 * 60e3; // the worker's: Yahoo's trade time, half an hour back
+  assert.strictEqual(R.foreignFiring(each, old, now, mine, seenAt(now - 59e3)), true, 'first seen 59 s ago');
+  assert.strictEqual(R.foreignFiring(each, old, now, mine, seenAt(now - 61e3)), false, 'first seen 61 s ago');
+  assert.strictEqual(R.foreignFiring(each, old, now, mine, seenAt(0)), false, 'stored at load (seenAt 0)');
+  assert.strictEqual(R.foreignFiring(each, old + 1, now, mine, seenAt(now - 1000)), false, 'another firedAt than the one seen');
 });

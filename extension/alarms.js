@@ -30,7 +30,7 @@ const dgAlarmStore = (() => {
    */
   const offing = new Map();
   /** @param {any[]} list sanitized */
-  const withOffing = list => (offing.size ? list.map(a => (a.on && offing.has(a.id) ? { ...a, on: false } : a)) : list);
+  const withOffing = list => R.withOff(list, offing);
   /**
    * This tab's list edits (`saveAlarms`: add, switch, remove) shown at once but not written yet, in the order queued:
    * laid over every list that replaces `alarms` from storage, like `offing`, until their own queue item is done
@@ -42,7 +42,7 @@ const dgAlarmStore = (() => {
   /** its turn is done @param {object} [q] */
   const unqueue = q => { const i = queued.findIndex(x => x === q); if (i >= 0) queued.splice(i, 1); };
   /** a list from storage as this tab shows it: its queued edits (one that refuses the list leaves it), then `offing` @param {any[]} list sanitized */
-  const shownOf = list => withOffing(queued.reduce((l, q) => { const r = q.edit(l); return r ? R.sanitize(r) : l; }, list));
+  const shownOf = list => R.shownList(list, queued.map(q => q.edit), offing);
   const reload = () => {
     try { chrome.storage.sync.get({ dgAlarms: [] }, r => { alarms = shownOf(R.sanitize(r?.dgAlarms)); syncLoaded = true; changed(); }); } catch (e) {}
   };
@@ -51,24 +51,14 @@ const dgAlarmStore = (() => {
    * this tab's own and for one already stored when the tab loaded. One entry per alarm with a firedAt.
    * @type {Map<string, { at: number, seenAt: number }>}
    */
-  const seen = new Map();
+  let seen = new Map();
   /** @param {Record<string, any>} st stored state, sanitized @param {boolean} fresh false: what was stored at load */
-  const observe = (st, fresh) => {
-    for (const id of [...seen.keys()]) if (!st[id]?.firedAt) seen.delete(id);
-    for (const [id, s] of Object.entries(st)) {
-      const at = s?.firedAt;
-      if (at && seen.get(id)?.at !== at) seen.set(id, { at, seenAt: fresh && !mine.has(at) ? Date.now() : 0 });
-    }
-  };
+  const observe = (st, fresh) => { seen = R.observed(seen, st, fresh, mine, Date.now()); };
   // another writer (tab, background worker) fired this alarm within the window (a minute, or today for 'daily'): this
   // tab must not fire it too. The worker's firedAt is the trade's time (Yahoo's ~15-minute delay, or a closed market's
   // close), not its clock's: a firedAt this tab first saw less than a minute ago is that same firing too
   /** @param {any} a @param {number | undefined} at @param {number} now */
-  const foreignWithin = (a, at, now) => {
-    if (!at || mine.has(at)) return false;
-    const s = seen.get(a.id);
-    return R.within(a, at, now) || (!!s && s.at === at && s.seenAt > 0 && Math.abs(now - s.seenAt) < 60000);
-  };
+  const foreignWithin = (a, at, now) => R.foreignFiring(a, at, now, mine, seen);
   /**
    * What this tab's checks handed `record()` and isn't stored yet, per alarm: `last`/`lastAt`, and `firedAt` when it
    * fired (after the merge: the firing that won). A storage change landing meanwhile (another tab's or the worker's
@@ -77,12 +67,7 @@ const dgAlarmStore = (() => {
    * @type {Map<string, { by: object, p: Record<string, number> }>}
    */
   const pending = new Map();
-  /** @param {any} st an alarm's new state @param {boolean} fired */
-  const patchOf = (st, fired) => {
-    /** @type {Record<string, number>} */ const p = {};
-    for (const k of fired ? ['last', 'lastAt', 'firedAt'] : ['last', 'lastAt']) if (st?.[k] !== undefined) p[k] = st[k];
-    return p;
-  };
+  const patchOf = R.patchOf;
   /**
    * This tab's firings that its merge kept (they chimed) but storage refused to store, per alarm: `at` (the firedAt),
    * `base` (the stored firedAt that merge read) and `sig` (the alarm's price, direction and repeat then). Laid over
@@ -92,35 +77,23 @@ const dgAlarmStore = (() => {
    * @type {Map<string, { at: number, base: number | undefined, sig: string }>}
    */
   const unsaved = new Map();
-  /** @param {any} a */
-  const sigOf = a => `${a.price}|${a.dir}|${a.repeat}`;
-  /** the alarm of an unsaved firing is on this list, not edited since @param {string} id @param {any[]} list */
-  const unedited = (id, list) => { const u = unsaved.get(id), a = list.find(x => x.id === id); return !!u && !!a && sigOf(a) === u.sig; };
-  /** and no other writer changed its stored firedAt (`at`: the firing on its way to storage) @param {string} id @param {any[]} list @param {Record<string, any>} st */
-  const holds = (id, list, st) => { const u = unsaved.get(id), f = st[id]?.firedAt; return !!u && unedited(id, list) && (f === u.base || f === u.at); };
+  const sigOf = R.sigOf;
+  /** an unsaved firing of this alarm still counts (`at`: the firing on its way to storage) @param {string} id @param {any[]} list @param {Record<string, any>} st */
+  const holds = (id, list, st) => R.holds(unsaved.get(id), id, list, st);
   /** stored state with this tab's unsaved changes on top (only of alarms it still has) @param {Record<string, any>} st */
   const withPending = st => {
-    if (!pending.size && !unsaved.size) return st;
-    const out = { ...st };
-    for (const [id, u] of [...unsaved]) {
-      if (holds(id, alarms, st)) out[id] = { ...out[id], firedAt: u.at }; else unsaved.delete(id);
-    }
-    for (const [id, { p }] of pending) if (alarms.some(a => a.id === id)) out[id] = { ...out[id], ...p };
-    return out;
+    const r = R.overlayState(st, alarms, unsaved, pending);
+    for (const id of r.drop) unsaved.delete(id);
+    return r.state;
   };
   // the list changed (an edit or removal elsewhere): an unsaved firing of an alarm edited or gone no longer counts.
   // Judged on the stored list, not the shown one: this tab's own queued removal may still be refused (`withPending`
   // still judges on the shown list, so a `dgAlarmState` change during that wait drops it: a known, rare gap)
   /** @param {any[]} list the stored list, sanitized */
   const dropEdited = list => {
-    for (const [id, u] of [...unsaved]) {
-      if (unedited(id, list)) continue;
-      unsaved.delete(id);
-      if (state[id]?.firedAt !== u.at) continue;
-      const rest = { ...state[id] };
-      if (u.base) rest.firedAt = u.base; else delete rest.firedAt;
-      state = { ...state, [id]: rest };
-    }
+    const r = R.dropEdited(state, unsaved, list);
+    for (const id of r.drop) unsaved.delete(id);
+    state = r.state;
   };
 
   try {

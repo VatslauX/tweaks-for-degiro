@@ -442,7 +442,111 @@ const dgAlarmRules = (() => {
       : 0) || b.price - a.price);
   }
 
+  // ---------- a tab's overlays: what alarms.js lays over the alarm data storage hands it ----------
+  // A tab keeps changes that storage doesn't hold yet (or refused) and lays them over every list and state that
+  // storage brings, or another writer's write landing meanwhile would undo them. The tab's own maps come in as
+  // parameters and are never changed here; what is to be dropped from them is returned, for alarms.js to apply.
+
+  /** the list with these alarms switched off: 'once' switch-offs not stored yet @param {any[]} list @param {{ size: number, has(id: string): boolean }} off */
+  function withOff(list, off) {
+    return off.size ? list.map(a => (a.on && off.has(a.id) ? { ...a, on: false } : a)) : list;
+  }
+  /**
+   * A list from storage as a tab shows it: its queued edits in order, each result sanitized (an edit returning null
+   * leaves the list as it is), then the switch-offs.
+   * @param {any[]} list sanitized @param {((list: any[]) => any[] | null)[]} edits @param {{ size: number, has(id: string): boolean }} off
+   */
+  function shownList(list, edits, off) {
+    return withOff(edits.reduce((l, edit) => { const r = edit(l); return r ? sanitize(r) : l; }, list), off);
+  }
+  /** what of an alarm's new state a tab lays over storage until written: last/lastAt, and firedAt only if it fired @param {any} st @param {boolean} fired */
+  function patchOf(st, fired) {
+    /** @type {Record<string, number>} */ const p = {};
+    for (const k of fired ? ['last', 'lastAt', 'firedAt'] : ['last', 'lastAt']) if (st?.[k] !== undefined) p[k] = st[k];
+    return p;
+  }
+  /** an alarm's price, direction and repeat: an edit changes it @param {any} a */
+  const sigOf = a => `${a.price}|${a.dir}|${a.repeat}`;
+  /** @typedef {{ at: number, base: number | undefined, sig: string }} Unsaved a firing storage refused; `base`: the stored firedAt its merge read */
+  /** the alarm of an unsaved firing is on `list`, not edited since @param {Unsaved | undefined} u @param {string} id @param {any[]} list */
+  function unedited(u, id, list) {
+    const a = list.find(x => x.id === id);
+    return !!u && !!a && sigOf(a) === u.sig;
+  }
+  /**
+   * An unsaved firing still counts: its alarm is on `list` unedited, and the stored firedAt is still the one it was
+   * based on, or the firing itself (no other writer's firing, no edit that cleared it).
+   * @param {Unsaved | undefined} u @param {string} id @param {any[]} list @param {Record<string, any>} st stored state
+   */
+  function holds(u, id, list, st) {
+    const f = st[id]?.firedAt;
+    return unedited(u, id, list) && !!u && (f === u.base || f === u.at);
+  }
+  /**
+   * Stored state with a tab's unsaved firings and its pending changes on top: unsaved firings that still hold first,
+   * then the pending patches, only of alarms on `list`. `drop`: the unsaved firings that no longer count.
+   * The same object comes back when the tab holds nothing.
+   * @param {Record<string, any>} st @param {any[]} list @param {Map<string, Unsaved>} unsaved
+   * @param {Map<string, { p: Record<string, number> }>} pending
+   * @returns {{ state: Record<string, any>, drop: string[] }}
+   */
+  function overlayState(st, list, unsaved, pending) {
+    /** @type {string[]} */ const drop = [];
+    if (!pending.size && !unsaved.size) return { state: st, drop };
+    const out = { ...st };
+    for (const [id, u] of unsaved) {
+      if (holds(u, id, list, st)) out[id] = { ...out[id], firedAt: u.at }; else drop.push(id);
+    }
+    for (const [id, { p }] of pending) if (list.some(a => a.id === id)) out[id] = { ...out[id], ...p };
+    return { state: out, drop };
+  }
+  /**
+   * The stored list changed (an edit or removal elsewhere): unsaved firings of an alarm edited or gone no longer count
+   * (`drop`). Where the tab's state still holds such a firing, its firedAt goes back to the stored one it replaced
+   * (`base`), or goes. The same object comes back when nothing changes.
+   * @param {Record<string, any>} state the tab's @param {Map<string, Unsaved>} unsaved @param {any[]} list the stored list
+   * @returns {{ state: Record<string, any>, drop: string[] }}
+   */
+  function dropEdited(state, unsaved, list) {
+    /** @type {string[]} */ const drop = [];
+    let out = state;
+    for (const [id, u] of unsaved) {
+      if (unedited(u, id, list)) continue;
+      drop.push(id);
+      if (out[id]?.firedAt !== u.at) continue;
+      const rest = { ...out[id] };
+      if (u.base) rest.firedAt = u.base; else delete rest.firedAt;
+      out = { ...out, [id]: rest };
+    }
+    return { state: out, drop };
+  }
+  /** @typedef {Map<string, { at: number, seenAt: number }>} Seen each alarm's stored firedAt as a tab last saw it */
+  /**
+   * `seen` after a tab read the stored state `st`: entries of alarms without a firedAt go; a new firedAt is noted
+   * with `now` as when it first appeared, or 0 for the tab's own (`mine`) and, `fresh` false, for one stored at load.
+   * @param {Seen} seen @param {Record<string, any>} st @param {boolean} fresh @param {Set<number>} mine @param {number} now @returns {Seen}
+   */
+  function observed(seen, st, fresh, mine, now) {
+    const out = new Map([...seen].filter(([id]) => st[id]?.firedAt));
+    for (const [id, s] of Object.entries(st)) {
+      const at = s?.firedAt;
+      if (at && out.get(id)?.at !== at) out.set(id, { at, seenAt: fresh && !mine.has(at) ? now : 0 });
+    }
+    return out;
+  }
+  /**
+   * Another writer (tab, background worker) fired this alarm: within the duplicate window, or a firedAt this tab first
+   * saw less than a minute ago (the worker's firedAt is the trade's time, which can be long before its write).
+   * @param {any} a @param {number | undefined} at @param {number} now @param {Set<number>} mine @param {Seen} seen
+   */
+  function foreignFiring(a, at, now, mine, seen) {
+    if (!at || mine.has(at)) return false;
+    const s = seen.get(a.id);
+    return within(a, at, now) || (!!s && s.at === at && s.seenAt > 0 && Math.abs(now - s.seenAt) < 60000);
+  }
+
   const api = Object.freeze({ MAX, MAX_EVENTS, LIMITS, BYTES, sanitize, sanitizeState, sanitizeEvents, direction, reached, day, within, merge, decide, label, sorted,
+    withOff, shownList, patchOf, sigOf, holds, overlayState, dropEdited, observed, foreignFiring,
     yahooTicker, isinOf, parseInfo, priceFactor, sanitizeTickers, sanitizeNoTicker, linkKey, parseSearch, checkLink, sanitizeChecks, parseSpark,
     isSgVenue, parseSgMeta, sgSnapshotPath, parseSgBid, sanitizeSgSeen });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
