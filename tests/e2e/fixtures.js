@@ -27,6 +27,18 @@ function extensionId(dir) {
 // that keeps chrome.storage.sync under its write quota (120 a minute), which counts per profile.
 const REUSE = 10;
 
+// Playwright's fake clock belongs to the context (page.clock is context.clock), and every clock call installs it
+// as init scripts that nothing public removes: each later page would get a fake Date, timers, frames and a
+// `performance` with no resource entries. So any clock call marks the browser as not reusable.
+function watchClock(context, used) {
+  const clock = context.clock;
+  for (const name of Object.getOwnPropertyNames(Object.getPrototypeOf(clock))) {
+    const f = clock[name];
+    if (name === 'constructor' || typeof f !== 'function') continue;
+    clock[name] = (...args) => { used(); return f.apply(clock, args); };
+  }
+}
+
 // what one test leaves behind: its tabs, routes and cookies, and the extension's storage
 async function reset(context) {
   const keep = await context.newPage(); // the browser must keep a tab open
@@ -51,7 +63,7 @@ const test = base.extend({
   // a browser for this test alone, e.g. one that switches the extension off: test.use({ freshBrowser: true })
   freshBrowser: [false, { option: true }],
   browserPool: [async ({ lang }, use) => {
-    let context = null, dir = '', uses = 0;
+    let context = null, dir = '', uses = 0, clocked = false;
     const close = async () => {
       if (!context) return;
       await context.close().catch(() => {});
@@ -72,19 +84,24 @@ const test = base.extend({
             viewport: { width: 1280, height: 900 }
           });
           uses = 0;
+          clocked = false;
+          watchClock(context, () => { clocked = true; });
         }
         uses++;
         return context;
       },
-      close
+      close,
+      /** a test installed the fake clock in this browser */
+      clocked: () => clocked
     });
     await close();
   }, { scope: 'worker' }],
   context: async ({ browserPool, freshBrowser }, use, testInfo) => {
     const context = await browserPool.take(freshBrowser);
     await use(context);
-    // a failed test may have left the browser in any state: never hand it to the next test
-    if (freshBrowser || testInfo.status !== testInfo.expectedStatus) return browserPool.close();
+    // a failed test may have left the browser in any state, and the fake clock stays in it (watchClock):
+    // never hand either to the next test
+    if (freshBrowser || browserPool.clocked() || testInfo.status !== testInfo.expectedStatus) return browserPool.close();
     try { await reset(context); } catch { await browserPool.close(); }
   },
   extId: async ({}, use) => use(extensionId(EXT)),
@@ -108,7 +125,9 @@ const test = base.extend({
         return route.fulfill({ contentType: 'text/html', body: MOCK });
       });
       const page = await context.newPage();
-      if (clock) await page.clock.install(); // before goto so extension timers are fake from the start
+      // before goto so the page's timers are fake from the start. The clock still flows in real time;
+      // page.clock.fastForward jumps it ahead and fires the timers that fall due. The browser is not reused after.
+      if (clock) await page.clock.install();
       await page.addInitScript(o => { window.__MOCK_ORDERS = o; }, orders);
       // cashLines: the Portfolio chart's cash-lines switch starts on (portfolio.js keeps it in localStorage)
       if (cashLines) await page.addInitScript(() => { try { localStorage.setItem('dgTweaksCashLines', '1'); } catch (e) {} });
@@ -142,9 +161,10 @@ async function setFlag(settingsPage, key, on) {
   await expect(cb).toBeChecked({ checked: on });
 }
 
-// With the fake clock the extension's timers and frames only run when the test advances time, but
-// DEGIRO's session reaches it in real time (PerformanceObserver) and answers arrive in real time.
-// A single fastForward can therefore come too early. Advance in small steps until `locator` shows up.
+// After install the fake clock still flows in real time; fastForward only jumps it ahead and fires the timers
+// that fall due on the way. DEGIRO's session reaches the extension in real time (PerformanceObserver) and answers
+// arrive in real time, so a single fastForward can come before the work it should hurry along has started.
+// Advance in small steps until `locator` shows up.
 async function advanceUntilVisible(page, locator, step = 100) {
   await expect.poll(async () => { await page.clock.fastForward(step); return locator.count(); }, { timeout: 10000 }).toBeGreaterThan(0);
   await expect(locator).toBeVisible();
