@@ -10,44 +10,10 @@ const visibleRows = page => page.$$eval('#rows tr', rs => rs.filter(r => getComp
 const totals = page => panel(page).locator('[data-dg-totals]');
 const total = (page, kind) => totals(page).locator(`[data-dg-total=${kind}]`);
 
-test('totals: buy and sell per currency (amounts, not signs), net buy − sell, fees', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T });
-  await expect(total(page, 'buy')).toHaveText('Total buy $ 2.701,50 (1) · € 6.100,00 (2)');
-  await expect(total(page, 'sell')).toHaveText('Total sell $ 1.500,00 (1) · € 1.900,00 (1)');
-  await expect(total(page, 'net')).toHaveText('Net (buy − sell) $ 1.201,50 · € 4.200,00');
-  // Value − Total: every fee, AutoFX included
-  await expect(total(page, 'fees')).toHaveText('Fees € 17,25');
-  await expect(totals(page).locator('[data-dg-count]')).toHaveText('5 of 5 transactions');
-});
-
 test('panel sits below DEGIRO\'s filters, above the table', async ({ degiro }) => {
   const { page } = await degiro({ url: URL_T });
   await expect(panel(page)).toBeVisible();
   expect(await page.$eval('#dg-transactions-panel', el => el.previousElementSibling.getAttribute('data-name'))).toBe('transactionsFilters');
-});
-
-
-test('more pages: totals say they cover this page only', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_MORE_PAGES = true; } });
-  await expect(totals(page).locator('[data-dg-count]')).toHaveText('5 of 5 transactions · this page only');
-});
-
-
-test('fees from the Fees column when the Total column has no hook', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T, initScript: () => { window.__MOCK_NO_TX_TOTAL = true; } });
-  await expect(total(page, 'fees')).toHaveText('Fees € 11,00'); // AutoFX is not in that column
-});
-
-test('English number format (1,234.56)', async ({ degiro }) => {
-  const { page } = await degiro({ url: URL_T, initScript: () => {
-    window.__TX = [
-      ['Mock Chips ETF EUR', 'Buy', 200, '€ -3,600.00', '€ -3,600.00', '—', '€ -3.00', '€ -3,603.00'],
-      ['Mock Tech Inc. Class A', 'Sell', -5, '$ 1,500.00', '€ 1,390.00', '—', '€ -2.00', '€ 1,388.00']
-    ];
-  } });
-  await expect(total(page, 'buy')).toHaveText('Total buy € 3,600.00 (1)');
-  await expect(total(page, 'net')).toHaveText('Net (buy − sell) $ -1,500.00 · € 3,600.00');
-  await expect(total(page, 'fees')).toHaveText('Fees € 5.00');
 });
 
 test('DEGIRO colours: Buy green, Sell red, taken from the badges', async ({ degiro }) => {

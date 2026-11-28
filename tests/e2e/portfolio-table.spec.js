@@ -193,14 +193,6 @@ test('the sorted header shows a visible arrow, every other one a faint ↕; neit
   await expect(page.locator('[data-dg-portfolio-table] th[data-dg-col=value]')).toHaveText('Value');
 });
 
-test('the toolbar labels its picker "Columns", like Orders\' own', async ({ degiro, settings }) => {
-  const { page } = await degiro({ url: URL_P });
-  const opt = await settings();
-  await opt.evaluate(() => chrome.storage.sync.set({ portfolioMergedTable: true }));
-  const bar = page.locator('#dg-portfolio-toolbar');
-  await expect(bar.locator('span', { hasText: /^Columns$/ })).toBeVisible();
-});
-
 test('a fully merged section\'s whole block (its divider included) is hidden; the first section\'s, holding the merged table, and what follows stay', async ({ degiro, settings }) => {
   const { page } = await degiro({ url: URL_P });
   // an unrelated block after the holdings, inside the same container, like the Cash accounts

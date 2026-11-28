@@ -37,16 +37,6 @@ test.describe('Hide sections', () => {
     await expect(page.locator('#other')).toBeVisible();
   });
 
-  test('un-hides a box that DEGIRO reuses for another section', async ({ degiro }) => {
-    const { page } = await degiro();
-    await expect(page.locator('#cash')).toBeHidden();
-    // a reused box gets the other section's title and hook
-    await page.evaluate(() => { const c = document.querySelector('#cash'); c.setAttribute('data-name', 'accountSummary'); c.querySelector('h3').firstChild.data = 'Account summary'; });
-    await expect(page.locator('#cash')).toBeVisible();
-    await page.evaluate(() => { document.querySelector('#cash h3').firstChild.data = 'Cash compensation'; });
-    await expect(page.locator('#cash')).toBeHidden();
-  });
-
   test('does not climb into a much taller single-child wrapper', async ({ degiro }) => {
     const { page } = await degiro();
     await page.evaluate(() => {
@@ -62,29 +52,6 @@ test.describe('Hide sections', () => {
     });
     await expect(page.locator('#tallCol section')).toBeHidden();
     await expect(page.locator('#tallCol')).toBeVisible();
-  });
-
-  test('un-hides a box when DEGIRO later loads other widgets or prices into it', async ({ degiro }) => {
-    const { page } = await degiro();
-    await expect(page.locator('#cash')).toBeHidden();
-    await page.evaluate(() => {
-      const w = document.createElement('div');
-      const h = document.createElement('h3');
-      h.textContent = 'Key figures';
-      w.append(h);
-      document.getElementById('cashWrap').append(w);
-    });
-    await expect(page.locator('#cashWrap')).toBeVisible();
-    await expect(page.locator('#cashWrap h3', { hasText: 'Key figures' })).toBeVisible();
-    await expect(page.locator('#cash')).toBeHidden(); // a smaller box for Cash compensation itself
-  });
-
-  test('Cash compensation is found by its hook in any DEGIRO language', async ({ degiro }) => {
-    const { page } = await degiro({ initScript: () => {
-      document.addEventListener('DOMContentLoaded', () => { document.querySelector('#cash h3').textContent = 'Compensación de efectivo'; });
-    } });
-    await expect(page.locator('#cash')).toBeHidden();
-    await expect(page.locator('#other')).toBeVisible();
   });
 
   test('real layout (all widgets in one mainPageSection): hides only the widget, never the page', async ({ degiro, settings }) => {

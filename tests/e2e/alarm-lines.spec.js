@@ -102,35 +102,7 @@ test('Settings: the switch sits under Price alarms and is greyed out while Price
   await expect(row).not.toHaveClass(/disabled/);
 });
 
-test('malformed values the page writes into the attribute are ignored; never parsed as HTML', async ({ degiro, settings }) => {
-  await seed(settings, [alarm({ price: 20 })]);
-  const { page } = await degiro({ orders: [] });
-  await expect.poll(() => texts(page)).toEqual(['20,00']);
-  const bad = [
-    'not json', 'null', '[]', '"x"', '{"l":[{"p":20,"d":"above"}]}',
-    '{"id":"123","l":[{"p":20,"d":"above"}]}',
-    '{"id":123,"l":[{"p":"20","d":"above"}]}',
-    '{"id":123,"l":[{"p":-5,"d":"above"}]}',
-    '{"id":123,"l":[{"p":0,"d":"above"}]}',
-    '{"id":123,"l":[{"p":1e999,"d":"above"}]}',
-    '{"id":123,"l":[{"p":20,"d":"sideways"}]}',
-    '{"id":123,"l":[{"p":20,"d":"above"},{"p":"<img src=x onerror=window.__xss=1>","d":"above"}]}',
-    '{"id":123,"l":[{"p":20}]}',
-    '{"id":123,"l":{"p":20,"d":"above"}}',
-    JSON.stringify({ id: 123, l: Array.from({ length: 26 }, (_, i) => ({ p: 13 + i / 10, d: 'above' })) }),
-    '{"id":999,"l":[{"p":20,"d":"above"}]}' // valid, but another product
-  ];
-  for (const v of bad) {
-    await page.evaluate(x => document.documentElement.setAttribute('data-dg-alarm-lines', x), v);
-    await expect.poll(() => texts(page), v).toEqual([]);
-    await expect(page.locator('[data-dg-alarm-badge]'), v).toHaveCount(0);
-    // back to a valid value from the page: it is drawn (the page world can't tell who wrote it)
-    await page.evaluate(() => document.documentElement.setAttribute('data-dg-alarm-lines', '{"id":123,"l":[{"p":20,"d":"above"}]}'));
-    await expect.poll(() => texts(page), v).toEqual(['20,00']);
-  }
-  expect(await page.evaluate(() => window.__xss)).toBeUndefined();
-  expect(await page.locator('#chart img').count()).toBe(0);
-});
+// → integration (alarm-lines.test.js): 'malformed values the page writes into the attribute are ignored; never parsed as HTML'
 
 test('no badges for another product: none on its page, and they go when navigating away', async ({ degiro, settings }) => {
   await seed(settings, [alarm({ price: 20 }), alarm({ productId: 456, price: 15 })]);

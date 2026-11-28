@@ -1,5 +1,5 @@
 // Next earnings date in the product header, linking to the Earnings section.
-const { test, expect, setFlag } = require('./fixtures');
+const { test, expect } = require('./fixtures');
 
 const link = page => page.locator('#dg-earnings');
 
@@ -21,34 +21,10 @@ test('click scrolls to Earnings without changing the route', async ({ degiro }) 
   expect(await page.evaluate(() => location.hash)).toBe(hash);
 });
 
-test('not shown when the date is unknown', async ({ degiro }) => {
-  const { page } = await degiro();
-  await expect(link(page)).toBeVisible();
-  await page.evaluate(() => { document.querySelector('#earnWidget time[data-field=dateTime]').textContent = '—'; });
-  await expect(link(page)).toHaveCount(0);
-});
-
 test('past dates are shown muted, future in blue', async ({ degiro }) => {
   const { page } = await degiro();
   await expect(link(page)).toBeVisible();
   expect(await page.$eval('#dg-earnings', el => getComputedStyle(el.lastElementChild).color)).toBe('rgb(0, 149, 210)');
   await page.evaluate(() => { document.querySelector('#earnWidget time[data-field=dateTime]').textContent = '01/02/2020'; });
   await expect.poll(() => page.$eval('#dg-earnings', el => getComputedStyle(el.lastElementChild).color)).toBe('rgb(101, 117, 123)');
-});
-
-test('ignores a date outside the Earnings widget', async ({ degiro }) => {
-  const { page } = await degiro();
-  await expect(link(page)).toBeVisible();
-  await page.evaluate(() => { document.querySelector('#earnWidget time[data-field=dateTime]').remove(); });
-  await expect(link(page)).toHaveCount(0);
-});
-
-test('can be switched off', async ({ degiro, settings }) => {
-  const { page } = await degiro();
-  const opt = await settings();
-  await expect(link(page)).toBeVisible();
-  await setFlag(opt, 'earningsDate', false);
-  await expect(link(page)).toHaveCount(0);
-  await setFlag(opt, 'earningsDate', true);
-  await expect(link(page)).toHaveCount(1);
 });

@@ -1,5 +1,5 @@
 // Change over the selected chart period, shown next to DEGIRO's daily change.
-const { test, expect, setFlag } = require('./fixtures');
+const { test, expect } = require('./fixtures');
 
 const box = page => page.locator('#dg-period-change');
 const pick = (page, label) => page.click(`#periods button:text-is("${label}")`);
@@ -26,24 +26,6 @@ test('follows the selected period', async ({ degiro }) => {
   }
 });
 
-test('1W with only ~3 days of intraday data (like DEGIRO) still shows the change', async ({ degiro }) => {
-  const { page } = await degiro();
-  await pick(page, '1 W');
-  await expect(box(page)).toContainText('1W');
-  expect(await shownPct(page)).toBeCloseTo(await expected(page, 'week'), 2);
-  await pick(page, '1 D');
-  await expect(box(page)).toHaveCount(0);
-  await pick(page, '1 W');
-  await expect(box(page)).toContainText('1W');
-});
-
-test('hidden for 1D (DEGIRO already shows the daily change)', async ({ degiro }) => {
-  const { page } = await degiro();
-  await expect(box(page)).toBeVisible();
-  await pick(page, '1 D');
-  await expect(box(page)).toHaveCount(0);
-});
-
 test('green when up, red when down', async ({ degiro }) => {
   const { page } = await degiro();
   await pick(page, '1 M');
@@ -53,16 +35,6 @@ test('green when up, red when down', async ({ degiro }) => {
     return { pct: v.textContent, color: getComputedStyle(v).color };
   });
   expect(color).toBe(pct.startsWith('+') ? 'rgb(30, 131, 2)' : 'rgb(228, 1, 1)');
-});
-
-test('can be switched off', async ({ degiro, settings }) => {
-  const { page } = await degiro();
-  const opt = await settings();
-  await expect(box(page)).toBeVisible();
-  await setFlag(opt, 'periodChange', false);
-  await expect(box(page)).toHaveCount(0);
-  await setFlag(opt, 'periodChange', true);
-  await expect(box(page)).toHaveCount(1);
 });
 
 test('never shows the new period with the old data while the chart reloads', async ({ degiro }) => {

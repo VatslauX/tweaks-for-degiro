@@ -100,6 +100,40 @@ test('a box DEGIRO reuses for something else is given back', async () => {
   noErrors(w);
 });
 
+test('a box hidden by its hook is given back when DEGIRO reuses it: new hook, heading text replaced in place', async () => {
+  const w = createWorld();
+  const tab = await product(w);
+  await w.advance(200);
+  assert.deepEqual(hidden(tab), ['cashWrap']);
+  // DEGIRO keeps the heading's text node and only replaces its text: a characterData change, nothing else
+  tab.$('#cash').setAttribute('data-name', 'accountSummary');
+  tab.$('#cash h3').firstChild.data = 'Account summary';
+  await w.advance(300);
+  assert.deepEqual(hidden(tab), [], 'another section now: shown again');
+  assert.equal(tab.$('#cashWrap').style.display, '');
+  tab.$('#cash h3').firstChild.data = 'Cash compensation';
+  await w.advance(300);
+  assert.deepEqual(hidden(tab), ['cashWrap'], 'its title is back: hidden again');
+  noErrors(w);
+});
+
+test('a hidden box DEGIRO later loads another widget into is shown; a smaller box for the section is hidden instead', async () => {
+  const w = createWorld();
+  const tab = await product(w);
+  await w.advance(200);
+  assert.deepEqual(hidden(tab), ['cashWrap']);
+  const widget = tab.document.createElement('div');
+  const h = tab.document.createElement('h3');
+  h.textContent = 'Key figures';
+  widget.append(h);
+  tab.$('#cashWrap').append(widget);
+  await w.advance(300);
+  assert.equal(tab.$('#cashWrap').style.display, '', 'the box now holds another section: shown again');
+  assert.equal(widget.closest('[data-dg-hidden-box]'), null, 'the new widget is not hidden');
+  assert.ok(tab.$('#cash').closest('[data-dg-hidden-box]'), 'Cash compensation itself is still hidden, in a smaller box');
+  noErrors(w);
+});
+
 test('switching hidden sections off, and an empty list, leave the page as DEGIRO built it', async () => {
   const w = createWorld();
   const tab = await product(w);
