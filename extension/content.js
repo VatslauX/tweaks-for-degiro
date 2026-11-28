@@ -1,7 +1,7 @@
 // Bid/ask spread: a Spread row in Pricing data and "Spread 0,08%" in the product header.
 (() => {
   const ROW_ATTR = 'data-spread-row';
-  const { SEL, page, own, isPriceDt, priceDts, feature, t, pageTheme } = __dgt; // common.js
+  const { SEL, page, own, isPriceDt, priceDts, feature, t, pageTheme, placeInHeader, leaveHeader } = __dgt; // common.js
 
   const parse = t => __dgt.parseNum(t);
 
@@ -37,30 +37,6 @@
   const HEAD_ID = 'dg-header-spread';
   const HEAD_ATTR = 'data-dg-head';
   const visible = el => el && el.getBoundingClientRect().height > 0;
-  // Our header items (period change 0, spread 1, ex-div 2) share one wrapping container placed right
-  // after DEGIRO's nowrap price line, so a narrow header wraps instead of overflowing. period.js,
-  // content.js and exdiv.js each carry this helper (they run alone or together, in two worlds).
-  const HEADER_BOX = 'data-dg-header';
-  function placeInHeader(el, line, rank) {
-    const parent = line.parentElement;
-    if (!parent) return false;
-    let box = line.nextElementSibling?.hasAttribute(HEADER_BOX) ? line.nextElementSibling : parent.querySelector(`:scope > [${HEADER_BOX}]`);
-    if (!box) {
-      box = own(document.createElement('div'));
-      box.setAttribute(HEADER_BOX, '');
-      box.style.cssText = 'display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;row-gap:2px;margin-left:12px;min-width:0;max-width:100%;';
-    }
-    if (box.previousElementSibling !== line) line.after(box);
-    el.setAttribute('data-dg-rank', String(rank));
-    const next = [...box.children].find(c => c !== el && +(c.getAttribute('data-dg-rank') || 0) > rank) || null;
-    if (el.parentElement !== box || el.nextElementSibling !== next) box.insertBefore(el, next);
-    return true;
-  }
-  function leaveHeader(el) {
-    const box = el?.parentElement?.hasAttribute(HEADER_BOX) ? el.parentElement : null;
-    el?.remove();
-    if (box && !box.firstElementChild) box.remove();
-  }
 
 
   // spread for one Bid/Ask pair: { pct, text, comma } or null

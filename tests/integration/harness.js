@@ -18,6 +18,7 @@
 // first await forever, leaving the holdings table itself (and the extension's scripts) to run normally
 // — only the chart/canvas stays Playwright-only.
 // Mock pages: their inline <script>s are run (like the page would), the extension's scripts after them.
+const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -417,4 +418,20 @@ let alarmSeq = 0;
 const alarm = (o = {}) => ({ id: `a${++alarmSeq}`, productId: 123, name: 'Mock ETF', symbol: 'MOCK', currency: '€', price: 17,
   dir: 'above', repeat: 'once', on: true, created: 1, ...o });
 
-module.exports = { createWorld, alarm, EXT, ROOT };
+/**
+ * No uncaught error in any tab, and no feature whose run() threw in an open tab (the scheduler only
+ * records that as the status 'error', so world.errors never sees it). Closed tabs count for errors only.
+ * @param {ReturnType<typeof createWorld>} w
+ */
+function noErrors(w) {
+  assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
+  for (const tab of w.tabs) assert.deepEqual(tab.failed(), [], `no feature run() threw (${tab.window.location.hash || tab.window.location.href})`);
+}
+
+// what the alarm scripts stored, and the banners a tab shows
+const events = w => w.stored('local').dgAlarmEvents || [];
+const stateOf = (w, id) => (w.stored('local').dgAlarmState || {})[id] || {};
+const listOf = w => w.stored('sync').dgAlarms || [];
+const banners = tab => tab.$$('[data-dg-alarm-banner]').map(b => b.getAttribute('data-dg-alarm-banner'));
+
+module.exports = { createWorld, alarm, EXT, ROOT, noErrors, events, stateOf, listOf, banners };

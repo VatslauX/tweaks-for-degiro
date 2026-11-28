@@ -69,7 +69,7 @@ test.describe('Hide sections', () => {
     });
     await page.bringToFront();
     await expect(page.locator('#cash')).toBeHidden();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(300); // nothing to wait for: the run after the added heading must not hide anything more
     for (const id of ['#chart', '#pricing', '[data-field=BidPrice]', '[data-name=mainPageSection] > h3']) await expect(page.locator(id)).toBeVisible();
   });
 });
@@ -90,7 +90,7 @@ test.describe('Main chart only', () => {
         legend: { enabled: false }, credits: { enabled: false }, xAxis: { type: 'datetime' },
         yAxis: { min: 12, max: 22 }, plotOptions: { series: { animation: false } }, series: [{ data: d }] });
     });
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(2500); // a negative check: an orders poll and a redraw would have drawn on the mini chart by now
     const mini = await page.evaluate(() => {
       const c = Highcharts.charts.filter(Boolean).at(-1);
       return {

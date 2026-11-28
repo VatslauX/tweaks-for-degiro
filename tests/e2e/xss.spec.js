@@ -15,7 +15,7 @@ test('selection label renders page strings as text, not HTML', async ({ degiro }
   await page.mouse.up();
   const label = page.locator('#chart .highcharts-container > div', { hasText: '→' });
   await expect(label).toContainText('<img src=x');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(300); // a negative check: an injected image's onerror would have run by now
   expect(await page.evaluate(() => window.__xss)).toBeUndefined();
   expect(await page.locator('#chart .highcharts-container img').count()).toBe(0);
 });

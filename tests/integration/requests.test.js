@@ -4,10 +4,9 @@
 // DEGIRO's endpoints are answered by tests/fixtures/mock-api.js, as in the e2e tests.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 const { CASH_TODAY, cashFundsApi } = require('../fixtures/mock-api');
 
-const noErrors = (w, tab) => { assert.deepEqual(w.errors.map(e => e.stack || String(e)), []); assert.deepEqual(tab.failed(), [], 'no feature run() threw'); };
 const PRODUCT = { fixture: 'degiro', hash: '/products/123/overview', page: true, highcharts: true, layout: true };
 const PORTFOLIO = { fixture: 'portfolio', hash: '/portfolio', page: true, layout: true };
 const CASH_LINES = { dgTweaksCashLines: '1' }; // the Portfolio chart's cash-lines switch on (portfolio.js keeps it in localStorage)
@@ -36,7 +35,7 @@ test('expired session: no request loop, and orders come back with the new sessio
   assert.equal(tab.calls.client, 0, 'the account number is already known from the URL');
   await w.advance(200);
   assert.ok(badge(tab, 'BUY 100 · 15,50'), 'and the orders are drawn');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('a session the fallback returns that was rejected is not used again', async () => {
@@ -50,7 +49,7 @@ test('a session the fallback returns that was rejected is not used again', async
   await w.advance(61000);
   assert.equal(tab.calls.config, 2, 'asked again a minute later');
   assert.equal(tab.calls.update, 1, 'the same rejected session is not used again');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 test('a request that never answers times out, and orders load on the next poll', async () => {
@@ -65,7 +64,7 @@ test('a request that never answers times out, and orders load on the next poll',
   assert.equal(tab.calls.update, 2);
   await w.advance(200);
   assert.ok(badge(tab, 'BUY 100 · 15,50'), 'the orders are drawn');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 // ---------- portfolio.js: the chart's value data ----------
@@ -90,7 +89,7 @@ for (const [what, answer] of [['an error', { status: 500, body: '' }], ['bad JSO
     assert.equal(tab.calls.portfolio, 3, 'the pause doubled to 60 s');
     await w.advance(2000);
     assert.equal(tab.calls.portfolio, 4);
-    noErrors(w, tab);
+    noErrors(w);
   });
 }
 
@@ -115,7 +114,7 @@ test('another period than the one failing is asked at once, and its own failure 
   assert.equal(ours('ONE_MONTH'), 1);
   await w.advance(2500);
   assert.equal(ours('ONE_MONTH'), 2, 'its failure waited 30 s, not 1Y\'s doubled 120 s');
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 // ---------- portfolio.js: today's cash (/update?cashFunds=0) and the account statement ----------
@@ -133,7 +132,7 @@ test('today\'s cash is asked for at most once a minute', async () => {
   assert.equal(tab.calls.cashFunds, 2, 'a minute after the first');
   await w.advance(55000);
   assert.equal(tab.calls.cashFunds, 2);
-  noErrors(w, tab);
+  noErrors(w);
 });
 
 for (const [name, is, key] of /** @type {const} */ ([['today\'s cash', CASH, 'cashFunds'], ['account statement', STATEMENT, 'statement']])) {
@@ -156,7 +155,7 @@ for (const [name, is, key] of /** @type {const} */ ([['today\'s cash', CASH, 'ca
       assert.equal(tab.calls[key], 2, 'the pause doubled to 60 s');
       await w.advance(4000);
       assert.equal(tab.calls[key], 3);
-      noErrors(w, tab);
+      noErrors(w);
     });
   }
 }
@@ -176,5 +175,5 @@ test('a change in today\'s cash reloads the statement once', async () => {
   await w.advance(61000);
   assert.equal(tab.calls.cashFunds, 3, 'the next minute\'s answer is the same');
   assert.equal(tab.calls.statement, 2, 'no further reload');
-  noErrors(w, tab);
+  noErrors(w);
 });

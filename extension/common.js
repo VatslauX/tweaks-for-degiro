@@ -422,6 +422,33 @@
     has: href => ownUrls.has(href)
   });
 
+  // Our product-header items (period change 0, spread 1, ex-div 2, earnings 3; period.js, content.js and
+  // exdiv.js, in two worlds) share one wrapping container placed right after DEGIRO's nowrap price line,
+  // so a narrow header wraps instead of overflowing. Each item goes in by its rank.
+  const HEADER_BOX = 'data-dg-header';
+  /** @param {HTMLElement} el @param {Element | null} line DEGIRO's price line @param {number} rank @returns {boolean} false: no place */
+  function placeInHeader(el, line, rank) {
+    const parent = line?.parentElement;
+    if (!line || !parent) return false;
+    let box = /** @type {HTMLElement | null} */ (line.nextElementSibling?.hasAttribute(HEADER_BOX) ? line.nextElementSibling : parent.querySelector(`:scope > [${HEADER_BOX}]`));
+    if (!box) {
+      box = own(document.createElement('div'));
+      box.setAttribute(HEADER_BOX, '');
+      box.style.cssText = 'display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;row-gap:2px;margin-left:12px;min-width:0;max-width:100%;';
+    }
+    if (box.previousElementSibling !== line) line.after(box);
+    if (el.getAttribute('data-dg-rank') !== String(rank)) el.setAttribute('data-dg-rank', String(rank));
+    const next = [...box.children].find(c => c !== el && +(c.getAttribute('data-dg-rank') || 0) > rank) || null;
+    if (el.parentElement !== box || el.nextElementSibling !== next) box.insertBefore(el, next);
+    return true;
+  }
+  /** take our item out of the header; the container goes once it is empty @param {Element | null | undefined} el */
+  function leaveHeader(el) {
+    const box = el?.parentElement?.hasAttribute(HEADER_BOX) ? el.parentElement : null;
+    el?.remove();
+    if (box && !box.firstElementChild) box.remove();
+  }
+
   // The wait after failed requests, so a failing endpoint can't turn into a request loop: `min` ms after
   // the first failure, doubling with each failure in a row up to `max`; a success starts over.
   /** @param {number} min @param {number} max */
@@ -440,7 +467,7 @@
   }
 
   const api = Object.freeze({ decimalSep, parseNum, fmt, fmtWhole, flags, pageTheme, FONT, fontFamilyOf, chartFont, xs, ys, isPriceSeries, mainChart, priceSeries, cashByDay,
-    SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS, ownRequests, backoff });
+    SEL, LABELS, page, isPriceDt, priceDts, OWN, own, feature, schedule, status, t, PAGE_TEXTS, ownRequests, backoff, placeInHeader, leaveHeader });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else if (!(/** @type {any} */ (globalThis).__dgt)) Object.defineProperty(globalThis, '__dgt', { value: api });
 })();

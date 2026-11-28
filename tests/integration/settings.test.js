@@ -2,9 +2,8 @@
 // being disabled while a tab stays open. Stays in Playwright: the options page UI, chrome://extensions.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld, alarm } = require('./harness');
+const { createWorld, alarm, noErrors } = require('./harness');
 
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 const settings = tab => tab.json('dgSettings');
 const defaults = tab => tab.json('DG_DEFAULTS');
 // what is in the page that the extension put there: own elements by id or by their data-dg-* name

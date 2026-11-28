@@ -5,9 +5,8 @@
 // click+navigation, and focus semantics — none of which JSDOM can exercise.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 
 // portfolio.html's own inline script calls fetch() synchronously (for its canvas-based performance
 // chart) while loading. JSDOM has neither fetch nor a canvas 2D context, so a stub that never

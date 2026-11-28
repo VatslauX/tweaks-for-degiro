@@ -4,9 +4,8 @@
 // getComputedStyle visibility (column hide/show uses a <style> element, not inline styles).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createWorld } = require('./harness');
+const { createWorld, noErrors } = require('./harness');
 
-const noErrors = w => assert.deepEqual(w.errors.map(e => e.stack || String(e)), []);
 
 async function transactions(rows, globals = {}) {
   const w = createWorld();
